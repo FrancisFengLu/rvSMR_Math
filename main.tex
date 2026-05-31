@@ -1,14 +1,235 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools,booktabs,hyperref,natbib}
 
-\title{rvSMR_Math}
-\author{1248736762 }
-\date{May 2026}
+\newtheorem{assumption}{Assumption}
+\newtheorem{theorem}{Theorem}
+\newtheorem{remark}{Remark}
+
+\title{rvSMR: An Anderson--Rubin, Structural-Mean-Model Treatment of\\
+Rare-Variant Burden Mendelian Randomization at Cell-Type Resolution}
+\author{Francis Lu}
+\date{\today}
 
 \begin{document}
-
 \maketitle
 
-\section{Introduction}
+\begin{abstract}
+We formalize \textbf{rvSMR}, a summary-data-based Mendelian randomization method that uses rare-variant gene-burden instruments at cell-type resolution. Identification rests on an additive linear structural mean model (SMM); inference uses the Anderson--Rubin (AR) statistic, which is uniformly weak-instrument-robust. The estimand at a single mask is a carrier-frequency-weighted average of per-variant causal slopes, and over-identification across $K\!\ge\!3$ masks supports a Sargan-style diagnostic and three-axis pleiotropy screening (HEIDI-rv, annotation-class concordance, cell-type concordance).
+\end{abstract}
+
+\section{Setup and notation}
+\label{sec:setup}
+Two-sample summary-data MR \citep{PierceBurgess2013,BurgessButterworthThompson2013}. For each tuple $(g,k,c)$ of (gene $g$, variant mask $k\in\{\mathrm{pLoF},\mathrm{mis:LC},\mathrm{reg}\}$, cell type $c$) we observe burden-on-exposure $(\hat b_x,\mathrm{SE}_x)$ from SAIGE-QTL \citep{ZhouCuomo2024} applied to a single-cell substrate (TenK10K Phase~1 in v1, \citealp{Cuomo2025}) and burden-on-outcome $(\hat b_y,\mathrm{SE}_y)$ from Genebass \citep{Karczewski2022} or RGC-ME \citep{SunKY2024}, with sample sizes $n_x,n_y$ and (typically zero) sample-overlap correlation $R_{xy}$. Stacking over $K$ masks within a $(g,c)$ tuple yields $\hat{\boldsymbol\beta}_x,\hat{\boldsymbol\beta}_y\in\mathbb R^K$ with diagonal SE matrices $D_x,D_y$ and within-set LD/correlation matrices $R_{xx},R_{yy}$.
+
+\section{Burden instrument}
+\label{sec:burden}
+For mask $k$ with variants $j\in\mathcal M_k$ and minor-allele dosages $G_j$, the linear weighted-sum burden \citep{MadsenBrowning2009} is
+\begin{equation}
+Z_k = \sum_{j\in\mathcal M_k} w_j\,G_j,\qquad w_j=\mathrm{Beta}\!\left(\mathrm{MAF}_j;\,1,\,25\right),
+\label{eq:burden}
+\end{equation}
+with STAAR-style weights $w_j$ \citep{LiSTAAR2020,WuSKAT2011}. Linearity is required: SKAT/ACAT statistics are quadratic forms in $G$ with no signed effect, so the Wald-ratio interpretation is undefined; for combined STAAR-O outputs the STAAR-B sub-statistic must be extracted.
+
+\section{Identification under the additive SMM}
+\label{sec:smm}
+Let $X$ denote the (continuous) molecular exposure (e.g., $\log$ pseudobulk expression of gene $g$ in cell type $c$), $Y$ the outcome, $U$ unmeasured confounders, and write each variant's per-allele effects as $\alpha_j$ (on $X$) and $\gamma_j$ (on $Y$).
+
+\begin{assumption}[Burden IV under additive SMM]\label{ass:smm}
+For each $(g,k,c)$:
+\textbf{(A1) Relevance:} $\mathbb E[Z_k\partial_X \mathbb E(X\!\mid\!Z_k)]\neq 0$.
+\textbf{(A2) Exchangeability:} $Z_k\perp U$.
+\textbf{(A3) Exclusion:} $Z_k$ affects $Y$ only via $X$ (per-mask).
+\textbf{(A4) No-defier-within-mask:} for each $j\in\mathcal M_k$, $\alpha_j$ is sign-consistent across carriers (monotonicity in the sense of \citealp{ImbensAngrist1994}).
+\textbf{(A5) Linear SMM:} $\mathbb E[Y(x)-Y(0)\!\mid\!Z_k,U]=\beta x$, an additive structural mean model \citep{Robins1994,DidelezSheehan2007}.
+\textbf{(A6) No $Z\!\times\!X$ interaction:} $\beta$ does not depend on $Z_k$.
+\end{assumption}
+
+Under \ref{ass:smm}, the population Wald ratio at mask $k$ identifies a carrier-frequency-weighted average of per-variant local causal slopes,
+\begin{equation}
+\beta_{\mathrm{burden},k}=\frac{\sum_{j\in\mathcal M_k} w_j^2\,p_j(1-p_j)\,\alpha_j\gamma_j}{\sum_{j\in\mathcal M_k} w_j^2\,p_j(1-p_j)\,\alpha_j^2}=\sum_j \pi_j\,\frac{\gamma_j}{\alpha_j},\quad \pi_j\propto w_j^2 p_j(1-p_j)\alpha_j^2,
+\label{eq:estimand}
+\end{equation}
+with $\sum_j\pi_j=1$. Variants with stronger first-stage and higher carrier frequency dominate; this is the 2SLS-optimal weighting under homoskedasticity, not a prior choice.
+
+\begin{remark}
+With $K\!\ge\!2$ masks, the cross-mask estimand is the IVW-style average $\bar\beta=\sum_k\Pi_k\beta_{\mathrm{burden},k}$ weighted by joint first-stage information; homogeneity across $k$ is testable (\S\ref{sec:multiAR}--\ref{sec:annotconcord}).
+\end{remark}
+
+\section{Inference, $K=1$: closed-form AR}
+\label{sec:ARK1}
+Under $H_0:\beta=\beta_0$ and with $\rho=\mathrm{cor}(\hat b_x,\hat b_y)$,
+\begin{equation}
+\mathrm{AR}(\beta_0)=\frac{(\hat b_y-\beta_0\hat b_x)^2}{\mathrm{SE}_y^2+\beta_0^2\,\mathrm{SE}_x^2-2\beta_0\,\rho\,\mathrm{SE}_x\mathrm{SE}_y}\;\xrightarrow{H_0}\;\chi^2_1.
+\label{eq:ARK1}
+\end{equation}
+The $1-\alpha$ confidence set $\{\beta_0:\mathrm{AR}(\beta_0)\le c\}$ with $c=q_{\chi^2_1,1-\alpha}$ reduces to the quadratic inequality
+\begin{equation}
+A\beta_0^2+B\beta_0+C\le 0,\qquad A=\hat b_x^2-c\,\mathrm{SE}_x^2,\;\; B=-2(\hat b_x\hat b_y-c\rho\,\mathrm{SE}_x\mathrm{SE}_y),\;\; C=\hat b_y^2-c\,\mathrm{SE}_y^2,
+\label{eq:quadK1}
+\end{equation}
+with discriminant $\Delta=B^2-4AC$. Since $A=\mathrm{SE}_x^2(F-c)$ with $F=(\hat b_x/\mathrm{SE}_x)^2$, the sign of $A$ is the sign of $F-c$. This yields four CI geometries (Table~\ref{tab:shapes}; cf.\ \citealp{Fieller1954,WangKang2022,LeeMcCraryMoreiraPorter2022}). AR never inverts $\hat b_x$, so coverage is uniform in IV strength; one must \emph{not} pair AR with a Stock--Yogo $F>10$ filter.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccl}
+\toprule
+Regime & $A$ & $\Delta$ & CI shape \\
+\midrule
+Strong IV, identified & $A>0$ ($F>c$) & $\Delta\ge 0$ & Bounded interval $[a,b]$ \\
+Strong IV, boundary artifact & $A>0$ & $\Delta<0$ & Empty (prob.\ $\le\alpha$ under $H_0$) \\
+Weak IV, partial information & $A<0$ ($F<c$) & $\Delta\ge 0$ & Disconnected union $(-\infty,a]\cup[b,\infty)$ \\
+Weak IV, no information & $A<0$ & $\Delta<0$ & Whole line $(-\infty,\infty)$ \\
+\bottomrule
+\end{tabular}
+\caption{Four AR CI shapes for $K=1$, by sign of $A=\hat b_x^2-c\,\mathrm{SE}_x^2$ and discriminant $\Delta=B^2-4AC$.}
+\label{tab:shapes}
+\end{table}
+
+\section{Inference, $K\ge 2$: AR and the Sargan $J$}
+\label{sec:multiAR}
+With $m(\beta_0)=\hat{\boldsymbol\beta}_y-\beta_0\hat{\boldsymbol\beta}_x\in\mathbb R^K$ and
+\begin{equation}
+V(\beta_0)=D_y R_{yy} D_y+\beta_0^2\,D_x R_{xx} D_x-2\beta_0\,D_y R_{xy} D_x,
+\label{eq:Vbeta}
+\end{equation}
+the multi-IV AR statistic is
+\begin{equation}
+\mathrm{AR}(\beta_0)=m(\beta_0)^\top V(\beta_0)^{-1} m(\beta_0)\;\xrightarrow{H_0}\;\chi^2_K,\qquad J=\min_{\beta_0}\mathrm{AR}(\beta_0)\;\xrightarrow{H_0\cap\,\text{homog.}}\;\chi^2_{K-1},
+\label{eq:ARK2}
+\end{equation}
+the latter a Sargan/GMM over-identification statistic \citep{Sargan1958,Hansen1982,PatelLaneBurgess2024}. The cross-term $-2\beta_0 D_yR_{xy}D_x$ supplies the sample-overlap correction; with two non-overlapping samples $R_{xy}=0$. The CI $\{\beta_0:\mathrm{AR}(\beta_0)\le q_{\chi^2_K,1-\alpha}\}$ is obtained by grid-evaluating $\mathrm{AR}-c$ over a per-IV Wald-ratio envelope, locating sign changes, and refining each boundary with \verb|uniroot|; the four geometries of \S\ref{sec:ARK1} carry over verbatim. Each gene fixes $K\!\ge\!3$ masks $\times\,c$ cell types of instruments, giving $K-1\ge 2$ over-identifying degrees of freedom.
+
+\section{HEIDI-rv: within-burden leave-one-out heterogeneity}
+\label{sec:heidi}
+Let $\hat{\mathbf b}_{xy}^{\,\text{per-var}}\in\mathbb R^m$ denote the per-variant Wald ratios within a single burden, $\Sigma_{\hat b}$ their (first-order delta) covariance, and $C\in\mathbb R^{(m-1)\times m}$ any full-row-rank mean-centring contrast. Define
+\begin{equation}
+\delta=C\,\hat{\mathbf b}_{xy}^{\,\text{per-var}},\qquad V_\delta=C\,\Sigma_{\hat b}\,C^\top,\qquad T=\delta^\top V_\delta^{+}\delta.
+\label{eq:heidi}
+\end{equation}
+Under $H_0$ of homogeneity, $T$ follows a \emph{generalized} $\chi^2$ whose Davies/Kuonen weights are the \textbf{non-zero eigenvalues of $V_\delta$} \citep{Davies1980,Kuonen1999,Zhu2016}. Using the eigenvalues of $V_\delta^{+}V_\delta$ instead collapses $T$ to plain $\chi^2_{\mathrm{rank}(V_\delta)}$ because $V_\delta^{+}V_\delta$ is the orthogonal projector onto $\mathrm{range}(V_\delta)$ (eigenvalues $\{1,\dots,1,0,\dots,0\}$), discarding scale and yielding anti-conservative tails.
+
+\begin{remark}[Power]\label{rem:heidipower}
+A single pleiotropic variant contributes $\mathcal O(1/m)$ to the burden Wald, so HEIDI-rv is a \emph{sensitivity diagnostic}, not a primary pleiotropy test. It is paired with annotation-class and cell-type concordance (\S\ref{sec:annotconcord}--\ref{sec:ctconcord}).
+\end{remark}
+
+\section{Annotation-class concordance}
+\label{sec:annotconcord}
+For each mask class $k$, normalize the burden-on-outcome effect by an anchored mediator-scale slope (e.g., burden-on-protein from UKB-PPP \citep{Dhindsa2023,SunKY2024} or deCODE \citep{Ferkingstad2021}):
+\begin{equation}
+\tilde\beta^{(k)}_{xy}=\frac{\hat\beta^{(k)}_{\mathrm{burden},y}}{\hat\beta^{(k)}_{\mathrm{burden}\to\mathrm{protein}}},\qquad Q=\sum_{k=1}^K w_k\bigl(\tilde\beta^{(k)}_{xy}-\bar{\tilde\beta}_{xy}\bigr)^2\;\xrightarrow{H_0}\;\chi^2_{K-1},
+\label{eq:cochranQ}
+\end{equation}
+a Cochran $Q$ \citep{Cochran1954} with inverse-variance weights $w_k$. The pQTL anchor places pLoF, missense:LC, and regulatory masks on a common per-protein scale, so any residual heterogeneity is plausibly horizontal pleiotropy or class-specific mechanism rather than a unit mismatch.
+
+\section{Cell-type concordance}
+\label{sec:ctconcord}
+The same $Q$ construction applies across SAIGE-QTL cell types $c$ within a fixed $(g,k)$ tuple, testing whether the burden's causal slope is shared across PBMC immune subsets (\citealp{Cuomo2025} TenK10K Phase~1; 28 immune cell types). Disagreement across $c$ is the cell-type-specific pleiotropy axis; agreement strengthens transportability of the implied target effect.
+
+\section{Sensitivity}
+\label{sec:sensitivity}
+Following the omitted-variable framework of \citet{CinelliHazlett2025} (IV extension; primary) and \citet{CinelliHazlett2020} (OLS origin), the first-stage partial $R^2$ and robustness value are
+\begin{equation}
+R^2_{Z\to X}\approx\frac{t^2}{t^2+n-2},\qquad RV=\frac{\sqrt{t^2+4}-t}{2},\qquad t=\hat b_x/\mathrm{SE}_x,\;\; n=n_x.
+\label{eq:CH}
+\end{equation}
+For the outcome side, the MR E-value \citep{SwansonVanderWeele2020} translates a standardized causal slope $\beta_{\mathrm{std}}$ to a risk-ratio scale and bounds the unmeasured-confounder strength required to overturn the conclusion,
+\begin{equation}
+\mathrm{RR}\approx\exp(0.91\,\beta_{\mathrm{std}}),\qquad E=\mathrm{RR}+\sqrt{\mathrm{RR}(\mathrm{RR}-1)}.
+\label{eq:Evalue}
+\end{equation}
+
+\section{Limitations}
+\label{sec:limits}
+\textbf{Coherent pleiotropy} --- all variants in a burden routed through the same upstream confounder --- is invisible to all three over-identification axes: HEIDI-rv is $\mathcal O(1/m)$-insensitive (Remark~\ref{rem:heidipower}); annotation-class concordance passes if the confounder is class-shared; cell-type concordance passes if it is cell-type-shared. The mitigation is sensitivity bounds (\S\ref{sec:sensitivity}) and partial-identification intervals under invalid-IV assumptions \citep{WangTchetgen2018}; these are honest limits, not fixes. \textbf{Cell-type substrate.} TenK10K Phase~1 \citep{Cuomo2025} covers 28 PBMC immune cell types only; hepatocyte- and adipocyte-resolved burden eQTLs await Phase~2. Headline targets PCSK9 and HMGCR are hepatocyte-biased, so v1 substitutes a plasma-pQTL-anchored mediator-scale normalization (\S\ref{sec:annotconcord}) where the cis-eQTL is unavailable. \textbf{Power.} At typical rare-variant minor-allele counts (10--50 carriers) per-mask first-stage $F$ is often single-digit --- which is precisely why AR, not a Stock--Yogo $F>10$ filter, is the inference of choice.
+
+\begin{thebibliography}{99}
+
+\bibitem[Cinelli and Hazlett, 2020]{CinelliHazlett2020}
+Cinelli C, Hazlett C (2020). Making sense of sensitivity: extending omitted variable bias. \emph{Journal of the Royal Statistical Society: Series B} 82(1):39--67.
+
+\bibitem[Cinelli and Hazlett, 2025]{CinelliHazlett2025}
+Cinelli C, Hazlett C (2025). An omitted variable bias framework for sensitivity analysis of instrumental variables. \emph{Biometrika} asaf004.
+
+\bibitem[Cochran, 1954]{Cochran1954}
+Cochran WG (1954). The combination of estimates from different experiments. \emph{Biometrics} 10(1):101--129.
+
+\bibitem[Burgess et al., 2013]{BurgessButterworthThompson2013}
+Burgess S, Butterworth A, Thompson SG (2013). Mendelian randomization analysis with multiple genetic variants using summarized data. \emph{Genetic Epidemiology} 37(7):658--665.
+
+\bibitem[Cuomo et al., 2025]{Cuomo2025}
+Cuomo ASE, et al. (2025). TenK10K Phase 1: cell-type-specific eQTLs in 28 PBMC immune cell types. \emph{medRxiv} 2025.03.20.25324352.
+
+\bibitem[Davies, 1980]{Davies1980}
+Davies RB (1980). Algorithm AS 155: the distribution of a linear combination of $\chi^2$ random variables. \emph{Applied Statistics} 29(3):323--333.
+
+\bibitem[Dhindsa et al., 2023]{Dhindsa2023}
+Dhindsa RS, et al. (2023). Rare variant associations with plasma protein levels in the UK Biobank. \emph{Nature} 622:339--347.
+
+\bibitem[Didelez and Sheehan, 2007]{DidelezSheehan2007}
+Didelez V, Sheehan N (2007). Mendelian randomization as an instrumental variable approach to causal inference. \emph{Statistical Methods in Medical Research} 16(4):309--330.
+
+\bibitem[Ferkingstad et al., 2021]{Ferkingstad2021}
+Ferkingstad E, et al. (2021). Large-scale integration of the plasma proteome with genetics and disease. \emph{Nature Genetics} 53:1712--1721.
+
+\bibitem[Fieller, 1954]{Fieller1954}
+Fieller EC (1954). Some problems in interval estimation. \emph{Journal of the Royal Statistical Society: Series B} 16(2):175--185.
+
+\bibitem[Hansen, 1982]{Hansen1982}
+Hansen LP (1982). Large sample properties of generalized method of moments estimators. \emph{Econometrica} 50(4):1029--1054.
+
+\bibitem[Imbens and Angrist, 1994]{ImbensAngrist1994}
+Imbens GW, Angrist JD (1994). Identification and estimation of local average treatment effects. \emph{Econometrica} 62(2):467--475.
+
+\bibitem[Karczewski et al., 2022]{Karczewski2022}
+Karczewski KJ, et al. (2022). Systematic single-variant and gene-based association testing of thousands of phenotypes in 394{,}841 UK Biobank exomes. \emph{Cell Genomics} 2:100168.
+
+\bibitem[Kuonen, 1999]{Kuonen1999}
+Kuonen D (1999). Saddlepoint approximations for distributions of quadratic forms in normal variables. \emph{Biometrika} 86(4):929--935.
+
+\bibitem[Lee et al., 2022]{LeeMcCraryMoreiraPorter2022}
+Lee DS, McCrary J, Moreira MJ, Porter J (2022). Valid t-ratio inference for IV. \emph{American Economic Review} 112(10):3260--3290.
+
+\bibitem[Li et al., 2020]{LiSTAAR2020}
+Li X, et al. (2020). Dynamic incorporation of multiple in silico functional annotations empowers rare variant association analysis of large whole-genome sequencing studies at scale. \emph{Nature Genetics} 52:969--983.
+
+\bibitem[Madsen and Browning, 2009]{MadsenBrowning2009}
+Madsen BE, Browning SR (2009). A groupwise association test for rare mutations using a weighted sum statistic. \emph{PLOS Genetics} 5(2):e1000384.
+
+\bibitem[Patel et al., 2024]{PatelLaneBurgess2024}
+Patel A, Lane J, Burgess S (2024). Anderson--Rubin tests for Mendelian randomization with weak and possibly invalid instruments. \emph{arXiv:}2408.09868.
+
+\bibitem[Pierce and Burgess, 2013]{PierceBurgess2013}
+Pierce BL, Burgess S (2013). Efficient design for Mendelian randomization studies: subsample and 2-sample IV estimators. \emph{American Journal of Epidemiology} 178(7):1177--1184.
+
+\bibitem[Robins, 1994]{Robins1994}
+Robins JM (1994). Correcting for non-compliance in randomized trials using structural nested mean models. \emph{Communications in Statistics --- Theory and Methods} 23(8):2379--2412.
+
+\bibitem[Sargan, 1958]{Sargan1958}
+Sargan JD (1958). The estimation of economic relationships using instrumental variables. \emph{Econometrica} 26(3):393--415.
+
+\bibitem[Sun et al., 2024]{SunKY2024}
+Sun KY, et al. (2024). A deep catalogue of protein-coding variation in 983{,}578 individuals. \emph{Nature} 631(8021):583--592.
+
+\bibitem[Swanson and VanderWeele, 2020]{SwansonVanderWeele2020}
+Swanson SA, VanderWeele TJ (2020). E-values for Mendelian randomization. \emph{Epidemiology} 31(3):e23--e24.
+
+\bibitem[Wang and Kang, 2022]{WangKang2022}
+Wang S, Kang H (2022). Weak-instrument-robust tests in two-sample summary-data Mendelian randomization. \emph{Biometrics} 78(4):1699--1713.
+
+\bibitem[Wang and Tchetgen Tchetgen, 2018]{WangTchetgen2018}
+Wang L, Tchetgen Tchetgen EJ (2018). Bounded, efficient and multiply robust estimation of average treatment effects using instrumental variables. \emph{Journal of the Royal Statistical Society: Series B} 80(3):531--550.
+
+\bibitem[Wu et al., 2011]{WuSKAT2011}
+Wu MC, Lee S, Cai T, Li Y, Boehnke M, Lin X (2011). Rare-variant association testing for sequencing data with the sequence kernel association test. \emph{American Journal of Human Genetics} 89(1):82--93.
+
+\bibitem[Zhou, Cuomo et al., 2024]{ZhouCuomo2024}
+Zhou W, Cuomo ASE, et al. (2024). SAIGE-QTL maps genetic regulation of gene expression in single cells with multi-ancestry sample sizes. \emph{medRxiv} 2024.05.15.24307317.
+
+\bibitem[Zhu et al., 2016]{Zhu2016}
+Zhu Z, et al. (2016). Integration of summary data from GWAS and eQTL studies predicts complex trait gene targets. \emph{Nature Genetics} 48(5):481--487.
+
+\end{thebibliography}
 
 \end{document}
