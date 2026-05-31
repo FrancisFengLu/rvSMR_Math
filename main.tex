@@ -1,150 +1,505 @@
 \documentclass[11pt]{article}
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsthm,mathtools,booktabs,hyperref,natbib}
+\usepackage{amsmath,amssymb,amsthm,mathtools,booktabs,hyperref,natbib,enumitem}
 
-\newtheorem{assumption}{Assumption}
-\newtheorem{theorem}{Theorem}
-\newtheorem{remark}{Remark}
-
-\title{rvSMR: An Anderson--Rubin, Structural-Mean-Model Treatment of\\
-Rare-Variant Burden Mendelian Randomization at Cell-Type Resolution}
-\author{Francis Lu}
-\date{\today}
+\setlist{leftmargin=1.5em,itemsep=2pt,topsep=2pt}
 
 \begin{document}
-\maketitle
 
-\begin{abstract}
-We formalize \textbf{rvSMR}, a summary-data-based Mendelian randomization method that uses rare-variant gene-burden instruments at cell-type resolution. Identification rests on an additive linear structural mean model (SMM); inference uses the Anderson--Rubin (AR) statistic, which is uniformly weak-instrument-robust. The estimand at a single mask is a carrier-frequency-weighted average of per-variant causal slopes, and over-identification across $K\!\ge\!3$ masks supports a Sargan-style diagnostic and three-axis pleiotropy screening (HEIDI-rv, annotation-class concordance, cell-type concordance).
-\end{abstract}
+\noindent
+This document walks through the rvSMR algorithm step by step. Each step states its inputs, the formula it computes, its outputs, the substantive interpretation, the code location in the \texttt{rvMR} R package, and common pitfalls. The pipeline runs from raw per-(gene $g\,\times$ mask $k\,\times$ cell type $c$) burden summary statistics to a gene-level causal call. Notation is fixed once in Step~0 and reused throughout; equations are numbered for cross-reference and section headings are unnumbered so the walkthrough reads as a strict sequence.
 
-\section{Setup and notation}
-\label{sec:setup}
-Two-sample summary-data MR \citep{PierceBurgess2013,BurgessButterworthThompson2013}. For each tuple $(g,k,c)$ of (gene $g$, variant mask $k\in\{\mathrm{pLoF},\mathrm{mis:LC},\mathrm{reg}\}$, cell type $c$) we observe burden-on-exposure $(\hat b_x,\mathrm{SE}_x)$ from SAIGE-QTL \citep{ZhouCuomo2024} applied to a single-cell substrate (TenK10K Phase~1 in v1, \citealp{Cuomo2025}) and burden-on-outcome $(\hat b_y,\mathrm{SE}_y)$ from Genebass \citep{Karczewski2022} or RGC-ME \citep{SunKY2024}, with sample sizes $n_x,n_y$ and (typically zero) sample-overlap correlation $R_{xy}$. Stacking over $K$ masks within a $(g,c)$ tuple yields $\hat{\boldsymbol\beta}_x,\hat{\boldsymbol\beta}_y\in\mathbb R^K$ with diagonal SE matrices $D_x,D_y$ and within-set LD/correlation matrices $R_{xx},R_{yy}$.
+\section*{Step 0. Assemble inputs}
 
-\section{Burden instrument}
-\label{sec:burden}
-For mask $k$ with variants $j\in\mathcal M_k$ and minor-allele dosages $G_j$, the linear weighted-sum burden \citep{MadsenBrowning2009} is
+\paragraph{Input.} For each tuple $(g,k,c)$ --- gene $g$, variant mask $k\in\{\mathrm{pLoF},\mathrm{mis{:}LC},\mathrm{reg}\}$, single-cell cell type $c$ --- the algorithm consumes:
+\begin{itemize}
+\item Exposure-side burden summary statistic $(\hat b_{x,k,c},\,\mathrm{SE}_{x,k,c},\,n_x)$ from a SAIGE-QTL Step~2 group-burden score test \citep{ZhouCuomo2024,ZhouSAIGEgene2022} applied to TenK10K Phase~1 single-cell RNA-seq \citep{Cuomo2025}.
+\item Outcome-side burden summary statistic $(\hat b_{y,k},\,\mathrm{SE}_{y,k},\,n_y)$ from Genebass \citep{Karczewski2022} or RGC-ME \citep{SunKY2024}.
+\item Optional pQTL-anchor burden effect $(\hat b_{\mathrm{burden}\to\mathrm{protein},k},\,\mathrm{SE}_{\mathrm{burden}\to\mathrm{protein},k})$ from UKB-PPP rare-variant \citep{Dhindsa2023,SunUKBPPP2023} or deCODE \citep{Ferkingstad2021}, used in Step~11.
+\item Sample-overlap correlation $\rho$ (scalar, $K{=}1$) or block matrix $R_{xy}\in\mathbb{R}^{K\times K}$ ($K{\ge}2$). Default: $\rho{=}0$ or $R_{xy}{=}\mathbf{0}$ for non-overlapping two-sample MR \citep{PierceBurgess2013,BurgessButterworthThompson2013,BurgessOverlap2016}.
+\item For Step~10 only: per-variant burden eQTL effects $(b_{x,j},\mathrm{SE}_{x,j})$ and per-variant burden GWAS effects $(b_{y,j},\mathrm{SE}_{y,j})$, i.e.\ SAIGE-QTL/Genebass re-run in single-variant mode.
+\end{itemize}
+The unit of analysis throughout is the $(g,k,c)$ tuple, with $K\ge 3$ masks per gene committed: pLoF, missense:LC (low-confidence damaging missense), and regulatory.
+
+\paragraph{Compute.} No computation at Step~0 --- this step fixes notation. Stacking over $K$ masks at a fixed $(g,c)$ tuple yields
 \begin{equation}
-Z_k = \sum_{j\in\mathcal M_k} w_j\,G_j,\qquad w_j=\mathrm{Beta}\!\left(\mathrm{MAF}_j;\,1,\,25\right),
+\hat{\boldsymbol b}_x = (\hat b_{x,1},\dots,\hat b_{x,K})^\top,\qquad \hat{\boldsymbol b}_y = (\hat b_{y,1},\dots,\hat b_{y,K})^\top,\qquad D_x = \mathrm{diag}(\mathrm{SE}_x),\quad D_y = \mathrm{diag}(\mathrm{SE}_y),
+\label{eq:stack}
+\end{equation}
+with between-instrument correlations $R_{xx},R_{yy}\in\mathbb{R}^{K\times K}$ (default $I_K$ under linkage equilibrium between masks).
+
+\paragraph{Output.} The full input table $\{(\hat b_x,\mathrm{SE}_x,\hat b_y,\mathrm{SE}_y,n_x,n_y)\}_{g,k,c}$, plus optional pQTL anchors and $R_{xy}$.
+
+\paragraph{What this step tells you.} Substrate provenance fixes the scale convention: $\hat b_x$ and $\hat b_y$ are both \emph{per-allele effects of the linear weighted burden} $B=\sum_j w_j G_j$, not per-variant slopes and not re-scaled by carrier frequency. Mis-aligning units between the two arms inverts the meaning of the Wald ratio.
+
+\paragraph{Code reference (\texttt{rvMR}).} Input validation in \verb|validate_summary_input()| at \verb|utils.R:32|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Substituting RareEffect Step~4 BLUP / PEV outputs for SAIGE-QTL Step~2 burden score-test betas: BLUPs are Bayesian shrinkage estimates, breaking the asymptotic $\chi^2$ reference distribution downstream.
+\item Mis-citing RGC-ME as ``Sun BB'' --- the correct first author is Sun KY (Kathie Y. Sun); Sun BB is the UKB-PPP common-variant 2023 author, a different person.
+\item Using sample sizes mismatched to the actual burden test (e.g.\ effective $N$ vs.\ raw $N$).
+\item Forgetting to record $R_{xy}$: when exposure and outcome overlap (e.g.\ both UKB), $\rho\ne 0$ enters the AR denominator at Step~4 and Step~6.
+\end{itemize}
+
+\section*{Step 1. Construct the linear burden instrument}
+
+\paragraph{Input.} For mask $k$ on gene $g$: variant set $\mathcal{M}_k$, per-variant minor-allele dosages $G_j$, MAF $p_j$, and annotation-driven weights $w_j$.
+
+\paragraph{Compute.} The mask burden instrument is the Madsen--Browning linear weighted-sum statistic \citep{MadsenBrowning2009}:
+\begin{equation}
+Z_k \;=\; \sum_{j\in\mathcal{M}_k} w_j\, G_j.
 \label{eq:burden}
 \end{equation}
-with STAAR-style weights $w_j$ \citep{LiSTAAR2020,WuSKAT2011}. Linearity is required: SKAT/ACAT statistics are quadratic forms in $G$ with no signed effect, so the Wald-ratio interpretation is undefined; for combined STAAR-O outputs the STAAR-B sub-statistic must be extracted.
-
-\section{Identification under the additive SMM}
-\label{sec:smm}
-Let $X$ denote the (continuous) molecular exposure (e.g., $\log$ pseudobulk expression of gene $g$ in cell type $c$), $Y$ the outcome, $U$ unmeasured confounders, and write each variant's per-allele effects as $\alpha_j$ (on $X$) and $\gamma_j$ (on $Y$).
-
-\begin{assumption}[Burden IV under additive SMM]\label{ass:smm}
-For each $(g,k,c)$:
-\textbf{(A1) Relevance:} $\mathbb E[Z_k\partial_X \mathbb E(X\!\mid\!Z_k)]\neq 0$.
-\textbf{(A2) Exchangeability:} $Z_k\perp U$.
-\textbf{(A3) Exclusion:} $Z_k$ affects $Y$ only via $X$ (per-mask).
-\textbf{(A4) No-defier-within-mask:} for each $j\in\mathcal M_k$, $\alpha_j$ is sign-consistent across carriers (monotonicity in the sense of \citealp{ImbensAngrist1994}).
-\textbf{(A5) Linear SMM:} $\mathbb E[Y(x)-Y(0)\!\mid\!Z_k,U]=\beta x$, an additive structural mean model \citep{Robins1994,DidelezSheehan2007}.
-\textbf{(A6) No $Z\!\times\!X$ interaction:} $\beta$ does not depend on $Z_k$.
-\end{assumption}
-
-Under \ref{ass:smm}, the population Wald ratio at mask $k$ identifies a carrier-frequency-weighted average of per-variant local causal slopes,
+The default weights are STAAR-style Beta densities of MAF \citep{LiSTAAR2020,WuSKAT2011}:
 \begin{equation}
-\beta_{\mathrm{burden},k}=\frac{\sum_{j\in\mathcal M_k} w_j^2\,p_j(1-p_j)\,\alpha_j\gamma_j}{\sum_{j\in\mathcal M_k} w_j^2\,p_j(1-p_j)\,\alpha_j^2}=\sum_j \pi_j\,\frac{\gamma_j}{\alpha_j},\quad \pi_j\propto w_j^2 p_j(1-p_j)\alpha_j^2,
-\label{eq:estimand}
+w_j \;\propto\; \mathrm{Beta}\!\left(p_j;\, 1,\, 25\right) \;=\; (1-p_j)^{24},
+\label{eq:beta-weights}
 \end{equation}
-with $\sum_j\pi_j=1$. Variants with stronger first-stage and higher carrier frequency dominate; this is the 2SLS-optimal weighting under homoskedasticity, not a prior choice.
+which up-weights rarer variants. The optional Madsen--Browning original form is $w_j = 1/\sqrt{p_j(1-p_j)}$ \citep{MadsenBrowning2009}.
 
-\begin{remark}
-With $K\!\ge\!2$ masks, the cross-mask estimand is the IVW-style average $\bar\beta=\sum_k\Pi_k\beta_{\mathrm{burden},k}$ weighted by joint first-stage information; homogeneity across $k$ is testable (\S\ref{sec:multiAR}--\ref{sec:annotconcord}).
-\end{remark}
+\paragraph{Output.} A single signed per-allele scalar burden $Z_k$ per individual (equivalently, the score statistic at the mask level). When STAAR is the source, the writeup uses the STAAR-B (burden) sub-statistic; STAAR-O, being a Cauchy combination across burden/SKAT/ACAT \citep{LiSTAAR2020}, must be unpacked to its signed B component.
 
-\section{Inference, $K=1$: closed-form AR}
-\label{sec:ARK1}
-Under $H_0:\beta=\beta_0$ and with $\rho=\mathrm{cor}(\hat b_x,\hat b_y)$,
+\paragraph{What this step tells you.} A linear burden is the \emph{only} aggregation that admits a Wald-ratio interpretation: SKAT and ACAT are quadratic / Cauchy-combined forms in $G$ with no signed effect, so a ratio $\hat b_y/\hat b_x$ is undefined. The Beta(1,25) weighting effectively turns the burden into a rarity-weighted aggregate, putting most of the IV's signal on the rarest variants in the mask.
+
+\paragraph{Code reference (\texttt{rvMR}).} The package consumes the pre-computed $\hat b_x,\hat b_y$ at the mask level; construction of $Z_k$ itself lives upstream in SAIGE-QTL and STAAR. The downstream entry point is \verb|wald_burden()| in \verb|wald_burden.R:77|, with unit conventions documented in its roxygen.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Using STAAR-O directly as the burden statistic: STAAR-O is a $p$-value from a Cauchy combination, not a signed effect.
+\item Using SKAT or ACAT as the IV: both are quadratic / minimum-$p$ forms; no Wald ratio exists.
+\item Re-scaling $w_j$ inside the sample (data-driven weights) breaks the exogeneity of the instrument.
+\item Applying a Cauchy combination test (CCT) across the $K$ masks within a gene defeats the AR over-identification structure used in Steps~6--8.
+\end{itemize}
+
+\section*{Step 2. Acquire per-mask burden summary statistics}
+
+\paragraph{Input.} The single-cell substrate (TenK10K Phase~1, \citealp{Cuomo2025}) and the population-scale exome resource (UK Biobank exomes via Genebass, \citealp{Karczewski2022}; or RGC-ME, \citealp{SunKY2024}).
+
+\paragraph{Compute.} Run two burden tests at the SAIGE-GENE+ / SAIGE-QTL Step~2 score-test layer \citep{ZhouSAIGEgene2022,ZhouCuomo2024}, separately on the two samples, using the identical mask definition and weighting from Step~1:
+\begin{align}
+(\hat b_{x,k,c},\, \mathrm{SE}_{x,k,c}) &\;\leftarrow\; \text{SAIGE-QTL Step 2 burden score test on $(g,k,c)$,}\\
+(\hat b_{y,k},\, \mathrm{SE}_{y,k}) &\;\leftarrow\; \text{Genebass / RGC-ME burden test on $(g,k)$.}
+\end{align}
+Both effect sizes are on the per-allele scale of the same linear burden $Z_k$ from Step~1.
+
+\paragraph{Output.} The summary-stat triplet per instrument: $(\hat b_x, \mathrm{SE}_x, n_x)$ on the exposure side, $(\hat b_y, \mathrm{SE}_y, n_y)$ on the outcome side, replicated across all $(g,k,c)$.
+
+\paragraph{What this step tells you.} The two arms of the IV are now on a common unit. A large $|\hat b_x|/\mathrm{SE}_x$ means the burden moves expression of $g$ in cell type $c$; a large $|\hat b_y|/\mathrm{SE}_y$ means it moves the outcome. Neither alone identifies a causal effect.
+
+\paragraph{Code reference (\texttt{rvMR}).} Consumed by \verb|wald_burden()| in \verb|wald_burden.R:77| and validated by \verb|validate_summary_input()| in \verb|utils.R:32|. The package does not run SAIGE-QTL or Genebass --- it consumes their outputs.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Using RareEffect Step~4 BLUPs in place of Step~2 score-test betas: BLUPs are posterior means that break the $\chi^2$ asymptotics used in Steps~4 and~6.
+\item Mismatching mask definitions or annotation weights across the two arms: the $\hat b_x$ and $\hat b_y$ no longer reference the same instrument $Z_k$, so the ratio is meaningless.
+\item Reporting binary-trait Genebass effects without converting to a log-OR scale consistent with the SAIGE-QTL continuous-trait scale.
+\item Forgetting that SAIGE-QTL effective sample size $n_x$ is the cell-type-stratified pseudobulk count, not the global donor count.
+\end{itemize}
+
+\section*{Step 3. Per-mask Wald ratio and first-stage F}
+
+\paragraph{Input.} $(\hat b_x, \mathrm{SE}_x, \hat b_y, \mathrm{SE}_y, n_x, \rho)$ from Step~2.
+
+\paragraph{Compute.} The Wald ratio point estimate is
 \begin{equation}
-\mathrm{AR}(\beta_0)=\frac{(\hat b_y-\beta_0\hat b_x)^2}{\mathrm{SE}_y^2+\beta_0^2\,\mathrm{SE}_x^2-2\beta_0\,\rho\,\mathrm{SE}_x\mathrm{SE}_y}\;\xrightarrow{H_0}\;\chi^2_1.
+\hat b_{xy} \;=\; \frac{\hat b_y}{\hat b_x},
+\label{eq:wald}
+\end{equation}
+and the first-stage F statistic is
+\begin{equation}
+F \;=\; \left(\frac{\hat b_x}{\mathrm{SE}_x}\right)^2.
+\label{eq:Fstat}
+\end{equation}
+The first-order delta-method standard error is
+\begin{equation}
+\widehat{\mathrm{Var}}(\hat b_{xy}) \;\approx\; \frac{\mathrm{SE}_y^{\,2}}{\hat b_x^{\,2}} \;+\; \frac{\hat b_y^{\,2}\,\mathrm{SE}_x^{\,2}}{\hat b_x^{\,4}} \;-\; 2\,\frac{\hat b_y}{\hat b_x^{\,3}}\,\rho\,\mathrm{SE}_x\,\mathrm{SE}_y,
+\label{eq:delta-se}
+\end{equation}
+following the standard MR delta-method derivation \citep{BurgessLabrecque2018,DidelezSheehan2007}.
+
+\paragraph{Output.} Point estimate $\hat b_{xy}$, delta SE $\mathrm{SE}_\delta(\hat b_{xy})$, and first-stage $F$. The delta SE is reported \emph{only} for transparency; the confidence interval comes from Step~4.
+
+\paragraph{What this step tells you.} $\hat b_{xy}$ is the burden-IV estimate of the per-allele local causal slope on $Y$ per unit of $X$, identified under an additive linear structural mean model with no-defier-within-mask monotonicity \citep{Robins1994,ImbensAngrist1994}; the carrier-frequency-weighted IVW interpretation, $\hat b_{xy}\to\sum_j\pi_j(\gamma_j/\alpha_j)$ with $\pi_j\propto w_j^2 p_j(1-p_j)\alpha_j^2$, is the population target. The first-stage F is the standard diagnostic of instrument strength: $F\gg 1$ means the burden moves $X$ reliably; $F\le 1$ means weak. \textbf{Crucially}, rvSMR does \emph{not} threshold on $F>10$ (Stock--Yogo); the Anderson--Rubin machinery from Step~4 onward absorbs weak instruments honestly, while the Lee--McCrary--Moreira--Porter tF correction \citep{LeeMcCraryMoreiraPorter2022} is the modern alternative to $F>10$.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|wald_burden()| in \verb|wald_burden.R:77| computes all three quantities. The delta SE helper is \verb|delta_method_ratio_se()| in \verb|utils.R:89| and the F helper is \verb|f_statistic()| in \verb|utils.R:133|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Using the delta SE to build a CI for $\hat b_{xy}$ in the weak-IV regime: the delta SE collapses to a Gaussian shape and undercovers when $F$ is small.
+\item Filtering on $F>10$ before AR: defeats the whole point of AR weak-IV robustness.
+\item Forgetting the $-2(\hat b_y/\hat b_x^3)\rho\,\mathrm{SE}_x\mathrm{SE}_y$ term in the delta SE under sample overlap.
+\item Citing Bowden--Vansteelandt 2011 \emph{Stat Med} for the delta SE: that paper is the case-control SMM derivation, not the ratio-SE formula.
+\end{itemize}
+
+\section*{Step 4. $K=1$ closed-form Anderson--Rubin CI}
+
+\paragraph{Input.} $(\hat b_x, \mathrm{SE}_x, \hat b_y, \mathrm{SE}_y, \rho)$ at a single mask, plus a significance level $\alpha$.
+
+\paragraph{Compute.} The Anderson--Rubin statistic at a null value $\beta_0$ is \citep{AndersonRubin1949,WangKang2022}
+\begin{equation}
+\mathrm{AR}(\beta_0) \;=\; \frac{\bigl(\hat b_y - \beta_0\,\hat b_x\bigr)^2}{\mathrm{SE}_y^{\,2} + \beta_0^{\,2}\,\mathrm{SE}_x^{\,2} - 2\,\beta_0\,\rho\,\mathrm{SE}_x\,\mathrm{SE}_y} \;\xrightarrow{H_0:\,\beta=\beta_0}\; \chi^2_1.
 \label{eq:ARK1}
 \end{equation}
-The $1-\alpha$ confidence set $\{\beta_0:\mathrm{AR}(\beta_0)\le c\}$ with $c=q_{\chi^2_1,1-\alpha}$ reduces to the quadratic inequality
+The $(1-\alpha)$ confidence set is the level set
 \begin{equation}
-A\beta_0^2+B\beta_0+C\le 0,\qquad A=\hat b_x^2-c\,\mathrm{SE}_x^2,\;\; B=-2(\hat b_x\hat b_y-c\rho\,\mathrm{SE}_x\mathrm{SE}_y),\;\; C=\hat b_y^2-c\,\mathrm{SE}_y^2,
+\mathcal{C}_{1-\alpha} \;=\; \bigl\{\beta_0 : \mathrm{AR}(\beta_0) \le c\bigr\},\qquad c \;=\; \chi^2_{1,\,1-\alpha}\;(=3.841\text{ at }\alpha=0.05).
+\label{eq:CSK1}
+\end{equation}
+$\mathrm{AR}(\beta_0)\le c$ rearranges to a quadratic inequality in $\beta_0$:
+\begin{equation}
+\underbrace{(\hat b_x^{\,2}-c\,\mathrm{SE}_x^{\,2})}_{A}\,\beta_0^{\,2} \;\underbrace{-\,2(\hat b_x\hat b_y - c\,\rho\,\mathrm{SE}_x\,\mathrm{SE}_y)}_{B}\,\beta_0 \;+\; \underbrace{(\hat b_y^{\,2}-c\,\mathrm{SE}_y^{\,2})}_{C} \;\le\; 0,
 \label{eq:quadK1}
 \end{equation}
-with discriminant $\Delta=B^2-4AC$. Since $A=\mathrm{SE}_x^2(F-c)$ with $F=(\hat b_x/\mathrm{SE}_x)^2$, the sign of $A$ is the sign of $F-c$. This yields four CI geometries (Table~\ref{tab:shapes}; cf.\ \citealp{Fieller1954,WangKang2022,LeeMcCraryMoreiraPorter2022}). AR never inverts $\hat b_x$, so coverage is uniform in IV strength; one must \emph{not} pair AR with a Stock--Yogo $F>10$ filter.
+with discriminant $\Delta = B^2 - 4AC$. Note that $A = \mathrm{SE}_x^{\,2}\,(F-c)$, so $\operatorname{sign}(A) = \operatorname{sign}(F-c)$.
+
+\medskip
+The four cases yield the AR CI geometries shown in Table~\ref{tab:K1shapes}.
 
 \begin{table}[h]
 \centering
 \small
 \begin{tabular}{lccl}
 \toprule
-Regime & $A$ & $\Delta$ & CI shape \\
+Regime & sign of $A$ & sign of $\Delta$ & CI shape \\
 \midrule
 Strong IV, identified & $A>0$ ($F>c$) & $\Delta\ge 0$ & Bounded interval $[a,b]$ \\
-Strong IV, boundary artifact & $A>0$ & $\Delta<0$ & Empty (prob.\ $\le\alpha$ under $H_0$) \\
+Strong IV, no $\beta_0$ accepted & $A>0$ ($F>c$) & $\Delta<0$ & Empty (numerical artifact, prob $\le \alpha$ under $H_0$) \\
 Weak IV, partial information & $A<0$ ($F<c$) & $\Delta\ge 0$ & Disconnected union $(-\infty,a]\cup[b,\infty)$ \\
-Weak IV, no information & $A<0$ & $\Delta<0$ & Whole line $(-\infty,\infty)$ \\
+Weak IV, no information & $A<0$ ($F<c$) & $\Delta<0$ & Whole line $(-\infty,\infty)$ \\
 \bottomrule
 \end{tabular}
-\caption{Four AR CI shapes for $K=1$, by sign of $A=\hat b_x^2-c\,\mathrm{SE}_x^2$ and discriminant $\Delta=B^2-4AC$.}
-\label{tab:shapes}
+\caption{The four AR CI geometries at $K=1$, indexed by the sign of $A=\hat b_x^{\,2}-c\,\mathrm{SE}_x^{\,2}$ (equivalently, $F\gtrless c$) and the discriminant $\Delta=B^2-4AC$. Algebraically identical to Fieller's 1954 inverted ratio CI \citep{Fieller1954}.}
+\label{tab:K1shapes}
 \end{table}
 
-\section{Inference, $K\ge 2$: AR and the Sargan $J$}
-\label{sec:multiAR}
-With $m(\beta_0)=\hat{\boldsymbol\beta}_y-\beta_0\hat{\boldsymbol\beta}_x\in\mathbb R^K$ and
-\begin{equation}
-V(\beta_0)=D_y R_{yy} D_y+\beta_0^2\,D_x R_{xx} D_x-2\beta_0\,D_y R_{xy} D_x,
+\paragraph{Output.} A CI type label in $\{$bounded, disconnected, whole\_line, empty$\}$ plus endpoints $(a,b)$. At $K=1$, AR coincides algebraically with inverted Fieller \citep{Fieller1954}; genuine over-identification power appears only at $K\ge 2$ (Steps~6--8).
+
+\paragraph{What this step tells you.} Coverage of $\mathcal{C}_{1-\alpha}$ is uniform in instrument strength --- including $F<1$ --- because the test pivots on the reduced-form moment $\hat b_y - \beta_0 \hat b_x$, not on the first-stage estimator $\hat b_x$. The disconnected and whole-line cases are not pathologies: they are the honest geometric answer when the data carry too little signal to pin $\beta$ down. A disconnected CI says ``the data rule out a finite middle band of $\beta$ values but cannot rule out arbitrarily large $|\beta|$.'' A whole-line CI says ``the data do not constrain $\beta$ at all at this $\alpha$.''
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|mrAR()| in \verb|mrAR.R:88|. The quadratic coefficients $A,B,C$ are computed at \verb|mrAR.R:115-117|; the geometry branch on $(\operatorname{sign} A, \operatorname{sign}\Delta)$ is at \verb|mrAR.R:135-191|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Pairing the AR CI with a Stock--Yogo $F>10$ filter: this destroys the uniform coverage AR is built to provide.
+\item Calling the empty CI ``impossible'' --- it occurs under $H_0$ with probability $\le \alpha$ as a numerical artifact and should be flagged, not suppressed.
+\item Forgetting the cross-term $-2\beta_0\rho\,\mathrm{SE}_x\mathrm{SE}_y$ in the denominator when $\rho\ne 0$ (sample overlap).
+\item Treating the disconnected CI as a bug to be re-bounded: re-bounding it underwrites a coverage claim the data do not support.
+\end{itemize}
+
+\section*{Step 5. Stack $K\ge 3$ masks per gene}
+
+\paragraph{Input.} For a fixed $(g,c)$: the per-mask summary stats $(\hat b_{x,k},\mathrm{SE}_{x,k},\hat b_{y,k},\mathrm{SE}_{y,k})$ across $k=1,\dots,K$ committed masks (pLoF, missense:LC, regulatory; $K\ge 3$).
+
+\paragraph{Compute.} Assemble the stacked vectors and diagonal SE matrices of Eq.~\eqref{eq:stack}, plus the between-instrument correlation matrices $R_{xx},R_{yy}\in\mathbb{R}^{K\times K}$ (default $I_K$ under linkage equilibrium between non-overlapping mask variant sets) and the across-sample block $R_{xy}\in\mathbb{R}^{K\times K}$ (default $\mathbf{0}$ for two-sample non-overlap).
+
+\paragraph{Output.} The full multi-IV input $(\hat{\boldsymbol b}_x, \hat{\boldsymbol b}_y, D_x, D_y, R_{xx}, R_{yy}, R_{xy})$.
+
+\paragraph{What this step tells you.} Three masks supply three reduced-form moments at the same gene; their internal agreement is the source of the Sargan-J over-identification test in Step~8. The commitment to $K\ge 3$ is not a power optimization --- it is the structural requirement for over-identification: with $K=2$ there is exactly one over-identifying restriction, fragile to a single outlier mask; with $K\ge 3$ the $J$ test has $K-1\ge 2$ degrees of freedom and can localize which mask is the odd one out.
+
+\paragraph{Code reference (\texttt{rvMR}).} Multi-IV input plumbing is at the top of \verb|mrAR_multi()| in \verb|mrAR_multi.R:114|, with the diagonal SE construction at \verb|mrAR_multi.R:153-154|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Defining masks that share variants: $R_{xx}$ and $R_{yy}$ are no longer diagonal and the AR null is not $\chi^2_K$ unless the off-diagonal is correctly supplied.
+\item Cauchy-combining the masks before stacking: collapses $K$ into a single $p$-value and kills the AR over-id structure.
+\item Using $K=2$ and trying to interpret $J$ as a real homogeneity test: with df$=1$ a single mask outlier can pass or fail at random.
+\item Forgetting that ``mask'' here is the annotation-class instrument, not an arbitrary STAARpipeline mask collection.
+\end{itemize}
+
+\section*{Step 6. $K\ge 2$ AR statistic and confidence set}
+
+\paragraph{Input.} The stacked summary stats from Step~5.
+
+\paragraph{Compute.} Define the moment vector and its covariance under $H_0:\beta=\beta_0$:
+\begin{align}
+m(\beta_0) &\;=\; \hat{\boldsymbol b}_y \;-\; \beta_0\,\hat{\boldsymbol b}_x \;\in\; \mathbb{R}^K,
+\label{eq:moment}\\[2pt]
+V(\beta_0) &\;=\; D_y\, R_{yy}\, D_y \;+\; \beta_0^{\,2}\, D_x\, R_{xx}\, D_x \;-\; 2\,\beta_0\, D_y\, R_{xy}\, D_x.
 \label{eq:Vbeta}
-\end{equation}
-the multi-IV AR statistic is
+\end{align}
+The multi-IV AR statistic is the quadratic form
 \begin{equation}
-\mathrm{AR}(\beta_0)=m(\beta_0)^\top V(\beta_0)^{-1} m(\beta_0)\;\xrightarrow{H_0}\;\chi^2_K,\qquad J=\min_{\beta_0}\mathrm{AR}(\beta_0)\;\xrightarrow{H_0\cap\,\text{homog.}}\;\chi^2_{K-1},
-\label{eq:ARK2}
+\mathrm{AR}(\beta_0) \;=\; m(\beta_0)^\top\, V(\beta_0)^{-1}\, m(\beta_0) \;\xrightarrow{H_0:\,\beta=\beta_0}\; \chi^2_K,
+\label{eq:ARKgeneral}
 \end{equation}
-the latter a Sargan/GMM over-identification statistic \citep{Sargan1958,Hansen1982,PatelLaneBurgess2024}. The cross-term $-2\beta_0 D_yR_{xy}D_x$ supplies the sample-overlap correction; with two non-overlapping samples $R_{xy}=0$. The CI $\{\beta_0:\mathrm{AR}(\beta_0)\le q_{\chi^2_K,1-\alpha}\}$ is obtained by grid-evaluating $\mathrm{AR}-c$ over a per-IV Wald-ratio envelope, locating sign changes, and refining each boundary with \verb|uniroot|; the four geometries of \S\ref{sec:ARK1} carry over verbatim. Each gene fixes $K\!\ge\!3$ masks $\times\,c$ cell types of instruments, giving $K-1\ge 2$ over-identifying degrees of freedom.
-
-\section{HEIDI-rv: within-burden leave-one-out heterogeneity}
-\label{sec:heidi}
-Let $\hat{\mathbf b}_{xy}^{\,\text{per-var}}\in\mathbb R^m$ denote the per-variant Wald ratios within a single burden, $\Sigma_{\hat b}$ their (first-order delta) covariance, and $C\in\mathbb R^{(m-1)\times m}$ any full-row-rank mean-centring contrast. Define
+following \citet{AndersonRubin1949,WangKang2022,PatelLaneBurgess2024}. The level-$\alpha$ confidence set is
 \begin{equation}
-\delta=C\,\hat{\mathbf b}_{xy}^{\,\text{per-var}},\qquad V_\delta=C\,\Sigma_{\hat b}\,C^\top,\qquad T=\delta^\top V_\delta^{+}\delta.
-\label{eq:heidi}
+\mathcal{C}_{1-\alpha} \;=\; \bigl\{\beta_0 : \mathrm{AR}(\beta_0) \le \chi^2_{K,\,1-\alpha}\bigr\}.
+\label{eq:CSK2}
 \end{equation}
-Under $H_0$ of homogeneity, $T$ follows a \emph{generalized} $\chi^2$ whose Davies/Kuonen weights are the \textbf{non-zero eigenvalues of $V_\delta$} \citep{Davies1980,Kuonen1999,Zhu2016}. Using the eigenvalues of $V_\delta^{+}V_\delta$ instead collapses $T$ to plain $\chi^2_{\mathrm{rank}(V_\delta)}$ because $V_\delta^{+}V_\delta$ is the orthogonal projector onto $\mathrm{range}(V_\delta)$ (eigenvalues $\{1,\dots,1,0,\dots,0\}$), discarding scale and yielding anti-conservative tails.
 
-\begin{remark}[Power]\label{rem:heidipower}
-A single pleiotropic variant contributes $\mathcal O(1/m)$ to the burden Wald, so HEIDI-rv is a \emph{sensitivity diagnostic}, not a primary pleiotropy test. It is paired with annotation-class and cell-type concordance (\S\ref{sec:annotconcord}--\ref{sec:ctconcord}).
-\end{remark}
+\paragraph{Output.} A scalar function $\beta_0\mapsto\mathrm{AR}(\beta_0)$ ready for inversion (Step~7) and minimization (Step~8).
 
-\section{Annotation-class concordance}
-\label{sec:annotconcord}
-For each mask class $k$, normalize the burden-on-outcome effect by an anchored mediator-scale slope (e.g., burden-on-protein from UKB-PPP \citep{Dhindsa2023,SunKY2024} or deCODE \citep{Ferkingstad2021}):
+\paragraph{What this step tells you.} Each per-mask first-stage F is strictly weaker than the F of any pooled burden, so a naive ``stronger-is-better'' framing argues against stacking. AR turns this on its head: the joint statistic loses nothing in coverage (still uniform in IV strength), and it gains $K-1$ over-identifying degrees of freedom that the pooled burden discards. Coverage stays at the nominal level uniformly because $\mathrm{AR}(\beta_0)$ is a pivotal function of the reduced-form moment $m(\beta_0)$ --- $\hat{\boldsymbol b}_x$ never appears inverted.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|mrAR_multi()| in \verb|mrAR_multi.R:114|. The $V(\beta_0)$ assembly via $V_{yy}, V_{xx}, V_{xy}$ is at \verb|mrAR_multi.R:155-157|; the AR closure $\beta_0\mapsto m^\top V^{-1} m$ is at \verb|mrAR_multi.R:162-171|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Dropping the cross-term $-2\beta_0 D_y R_{xy} D_x$ when there is sample overlap: silently biases the CI.
+\item Mis-ordering the cross-term as $D_x R_{xy} D_y$: the convention is $V_{xy} = D_y R_{xy} D_x$ (a $K\times K$ matrix whose $(i,j)$ entry is $\mathrm{SE}_{y,i}\,R_{xy,ij}\,\mathrm{SE}_{x,j}$), matched verbatim in \verb|mrAR_multi.R:157|.
+\item Using $\chi^2_{K-1}$ as the AR reference at $\beta_0$ (it's $\chi^2_K$; $\chi^2_{K-1}$ is the $J$ reference at $\arg\min$, Step~8).
+\item Failing to verify $V(\beta_0)$ is positive-definite over the search grid: under heavy sample overlap and large $|\beta_0|$, $V(\beta_0)$ can become indefinite, in which case the AR value is undefined at that $\beta_0$ and must be flagged.
+\end{itemize}
+
+\section*{Step 7. Grid + uniroot inversion of the AR confidence set}
+
+\paragraph{Input.} The AR function $\beta_0\mapsto\mathrm{AR}(\beta_0)$ from Step~6, the critical value $c=\chi^2_{K,\,1-\alpha}$, and an initial search envelope $[\beta_{\min},\beta_{\max}]$.
+
+\paragraph{Compute.} The algorithm:
+\begin{enumerate}[label=(\arabic*)]
+\item \textbf{Initial envelope.} Compute the per-IV Wald ratios $\{\hat b_{y,k}/\hat b_{x,k}\}_{k=1}^K$; set $\beta_{\min},\beta_{\max}$ to their extremes padded by $\texttt{grid\_pad\_mult}\cdot\max_k|\hat b_{y,k}/\hat b_{x,k}|$.
+\item \textbf{Grid evaluate.} Evaluate $\mathrm{AR}(\beta_0)-c$ on $n_{\mathrm{grid}}$ equally spaced points; mark grid points where $V(\beta_0)$ failed numerically as $+\infty$.
+\item \textbf{Extension check.} If the AR value at either grid endpoint is $\le c$, the level set may leak past the envelope; double the half-width and re-grid, up to \texttt{grid\_extend\_max} times. If still leaking, classify as \texttt{whole\_line} on that side.
+\item \textbf{Sign-change detection.} Find indices where $\mathrm{AR}(\beta_0)-c$ changes sign between consecutive grid points.
+\item \textbf{Root refinement.} For each sign change, call \verb|stats::uniroot()| on $\mathrm{AR}(\beta_0)-c$ over the bracket; collect, sort, and de-duplicate the refined boundary points.
+\item \textbf{Classification.} With $r$ refined roots, the candidate endpoints are $\{-\infty, r_1,\dots,r_n,+\infty\}$; for each interval, test acceptance at an interior midpoint. The CI type is
+\begin{itemize}
+\item \texttt{bounded\_interval} if a single accepted interval has finite endpoints (or one infinite endpoint after grid exhaustion),
+\item \texttt{disconnected\_union} if multiple accepted intervals,
+\item \texttt{whole\_line} if the entire grid is accepted,
+\item \texttt{empty} if no interior midpoint is accepted.
+\end{itemize}
+\end{enumerate}
+
+\paragraph{Output.} A CI type label and a list of $(l,u)$ intervals reporting the accepted level set.
+
+\paragraph{What this step tells you.} The geometric classification of Step~4 generalizes verbatim to $K\ge 2$: the same four shapes appear, indexed by the same weak-vs-strong-IV distinction (now jointly across the $K$ moments). The algorithm is a brute-force inversion --- no closed form exists for $K\ge 2$ --- but each refined root is exact to \texttt{tol = 1e-8}, so the final CI is as accurate as the per-call AR evaluation.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|mrAR_multi()| in \verb|mrAR_multi.R:114|. Envelope construction at \verb|mrAR_multi.R:175-189|, grid extension at \verb|mrAR_multi.R:201-220|, sign-change detection at \verb|mrAR_multi.R:222-225|, uniroot refinement at \verb|mrAR_multi.R:228-242|, CI classification at \verb|mrAR_multi.R:246-319|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Too coarse a grid: two nearby sign changes can be missed, mis-classifying a \texttt{disconnected\_union} as \texttt{bounded\_interval}.
+\item Too tight an envelope: a true unbounded ray gets clipped to a finite endpoint; only the extension loop saves you.
+\item Treating \verb|uniroot| failures (returned as \verb|NA|) as accepted roots --- the implementation explicitly filters non-finite refined roots before classification (\verb|mrAR_multi.R:243|).
+\item Trusting the CI when $V(\beta_0)$ went singular on a sub-interval: the algorithm marks those points $+\infty$ but the user should still inspect the grid trace for warnings.
+\end{itemize}
+
+\section*{Step 8. Sargan-$J$ over-identification at the AR argmin}
+
+\paragraph{Input.} The AR function from Step~6.
+
+\paragraph{Compute.} The point estimate and over-identification statistic are
+\begin{align}
+\hat\beta_{\mathrm{AR}} &\;=\; \arg\min_{\beta_0}\, \mathrm{AR}(\beta_0),
+\label{eq:betaAR}\\[2pt]
+J &\;=\; \mathrm{AR}\bigl(\hat\beta_{\mathrm{AR}}\bigr) \;\xrightarrow{\text{joint validity}}\; \chi^2_{K-1},
+\label{eq:JK}
+\end{align}
+the Sargan / GMM over-identification statistic \citep{Sargan1958,Hansen1982,PatelLaneBurgess2024}. The $J$ p-value is $1 - F_{\chi^2_{K-1}}(J)$. Reject homogeneity (i.e.\ declare horizontal pleiotropy across the $K$ masks) if $J > \chi^2_{K-1,\,1-\alpha}$.
+
+\paragraph{Output.} $\hat\beta_{\mathrm{AR}}$, $J$, and the $J$ p-value.
+
+\paragraph{What this step tells you.} If the three masks all genuinely instrument the same $X\to Y$ effect, they should agree on $\beta$; the minimum AR value $J$ then has $K-1$ degrees of freedom (one degree consumed by fitting $\beta$). A large $J$ says the masks disagree more than chance allows, so at least one of the $K$ instruments is violating exclusion or monotonicity. Critically, $J$ is a \emph{joint} test: it tells you something is wrong but not which mask is the culprit; HEIDI-rv (Step~10) and annotation-class concordance (Step~11) localize the problem.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|mrAR_multi()| in \verb|mrAR_multi.R:114|. The $\arg\min$ via \verb|stats::optimize()| with grid fallback is at \verb|mrAR_multi.R:321-335|; the $J$ p-value computation with $\mathrm{df}=K-1$ is at \verb|mrAR_multi.R:337-341|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Reporting $J\sim\chi^2_K$: the degree of freedom is $K-1$, not $K$, because one df is consumed by the AR argmin. Mis-stating this anti-conservatively under-rejects pleiotropy.
+\item Interpreting a small $J$ as ``no pleiotropy'': it means ``no detectable inter-mask pleiotropy at this power'' --- coherent pleiotropy (Step~14) can pass $J$ silently.
+\item Reading $\hat\beta_{\mathrm{AR}}$ as a standalone point estimate without flagging the AR CI: in weak-IV regimes the argmin can sit far from the bulk of the accepted set.
+\item Using a different argmin (e.g.\ delta-method midpoint) and then declaring $J$ at that value: $J$ is specifically $\min\mathrm{AR}$.
+\end{itemize}
+
+\section*{Step 9. Sample-overlap correction via the AR cross-term}
+
+\paragraph{Input.} The across-sample correlation $\rho$ (or block $R_{xy}$) from Step~0.
+
+\paragraph{Compute.} The sample-overlap correction enters AR through a single cross-term. At $K=1$ the denominator of Eq.~\eqref{eq:ARK1} is
 \begin{equation}
-\tilde\beta^{(k)}_{xy}=\frac{\hat\beta^{(k)}_{\mathrm{burden},y}}{\hat\beta^{(k)}_{\mathrm{burden}\to\mathrm{protein}}},\qquad Q=\sum_{k=1}^K w_k\bigl(\tilde\beta^{(k)}_{xy}-\bar{\tilde\beta}_{xy}\bigr)^2\;\xrightarrow{H_0}\;\chi^2_{K-1},
-\label{eq:cochranQ}
+\mathrm{SE}_y^{\,2} + \beta_0^{\,2}\,\mathrm{SE}_x^{\,2} \;-\; 2\,\beta_0\,\rho\,\mathrm{SE}_x\,\mathrm{SE}_y,
+\label{eq:overlap-K1}
 \end{equation}
-a Cochran $Q$ \citep{Cochran1954} with inverse-variance weights $w_k$. The pQTL anchor places pLoF, missense:LC, and regulatory masks on a common per-protein scale, so any residual heterogeneity is plausibly horizontal pleiotropy or class-specific mechanism rather than a unit mismatch.
-
-\section{Cell-type concordance}
-\label{sec:ctconcord}
-The same $Q$ construction applies across SAIGE-QTL cell types $c$ within a fixed $(g,k)$ tuple, testing whether the burden's causal slope is shared across PBMC immune subsets (\citealp{Cuomo2025} TenK10K Phase~1; 28 immune cell types). Disagreement across $c$ is the cell-type-specific pleiotropy axis; agreement strengthens transportability of the implied target effect.
-
-\section{Sensitivity}
-\label{sec:sensitivity}
-Following the omitted-variable framework of \citet{CinelliHazlett2025} (IV extension; primary) and \citet{CinelliHazlett2020} (OLS origin), the first-stage partial $R^2$ and robustness value are
+and at $K\ge 2$ the covariance matrix of Eq.~\eqref{eq:Vbeta} contains the matrix cross-term
 \begin{equation}
-R^2_{Z\to X}\approx\frac{t^2}{t^2+n-2},\qquad RV=\frac{\sqrt{t^2+4}-t}{2},\qquad t=\hat b_x/\mathrm{SE}_x,\;\; n=n_x.
-\label{eq:CH}
+-\,2\,\beta_0\, D_y\, R_{xy}\, D_x.
+\label{eq:overlap-K2}
 \end{equation}
-For the outcome side, the MR E-value \citep{SwansonVanderWeele2020} translates a standardized causal slope $\beta_{\mathrm{std}}$ to a risk-ratio scale and bounds the unmeasured-confounder strength required to overturn the conclusion,
+The defaults $\rho=0$ / $R_{xy}=\mathbf{0}$ recover the two-sample non-overlapping case \citep{BurgessOverlap2016}.
+
+\paragraph{Output.} A corrected $V(\beta_0)$ that propagates into Steps~6--8.
+
+\paragraph{What this step tells you.} The cross-term flips sign with $\beta_0$: as $\beta_0$ crosses zero, the sample-overlap correction reverses direction. This means overlap inflates the AR denominator on one side of zero and deflates it on the other, asymmetrically widening or shrinking the CI depending on which sign of $\beta$ the data favor. Treating $\rho=0$ in a one-sample analysis (e.g.\ both arms from UKB) is a silent type-I error inflation when $\rho>0$ and $\beta_0$ and $\hat\beta$ share a sign.
+
+\paragraph{Code reference (\texttt{rvMR}).} For $K=1$: $\rho$ enters at \verb|mrAR.R:116| in the $B$ coefficient $-2(\hat b_x\hat b_y - c\rho\,\mathrm{SE}_x\,\mathrm{SE}_y)$. For $K\ge 2$: $R_{xy}$ enters at \verb|mrAR_multi.R:157| as $V_{xy} = D_y R_{xy} D_x$ and propagates through the closure at \verb|mrAR_multi.R:164|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Defaulting to $\rho=0$ in one-sample analyses --- a common silent error.
+\item Mis-ordering the matrix product as $D_x R_{xy} D_y$ instead of $D_y R_{xy} D_x$ (the convention used in the code).
+\item Estimating $R_{xy}$ from LD-score regression intercept without checking the sample-overlap proportion: the LDSC intercept conflates overlap with cross-trait genetic covariance.
+\item Forgetting that the cross-term's sign-flip makes the AR CI asymmetric about zero even when $\rho$ is a constant.
+\end{itemize}
+
+\section*{Step 10. HEIDI-rv within-burden heterogeneity}
+
+\paragraph{Input.} A single mask burden of size $m$ variants with per-variant Wald ratios $\hat{\boldsymbol b}_{xy}^{\,\mathrm{per-var}}\in\mathbb{R}^m$ and their joint covariance $\Sigma_{\hat b}\in\mathbb{R}^{m\times m}$ (delta method applied per variant, with the genotype LD matrix $\Sigma_G$ supplying the cross-variant covariance).
+
+\paragraph{Compute.} Choose any full-row-rank contrast $C\in\mathbb{R}^{(m-1)\times m}$ that annihilates a constant vector (e.g.\ the mean-centering contrast $C = I_{m-1} \;|\, -\mathbf{1}_{m-1}/(m-1)$, or first-differences). Define
 \begin{equation}
-\mathrm{RR}\approx\exp(0.91\,\beta_{\mathrm{std}}),\qquad E=\mathrm{RR}+\sqrt{\mathrm{RR}(\mathrm{RR}-1)}.
+\delta \;=\; C\,\hat{\boldsymbol b}_{xy}^{\,\mathrm{per-var}} \;\in\; \mathbb{R}^{m-1},\qquad V_\delta \;=\; C\,\Sigma_{\hat b}\,C^\top \;\in\; \mathbb{R}^{(m-1)\times(m-1)}.
+\label{eq:contrast}
+\end{equation}
+The test statistic is the generalized quadratic form
+\begin{equation}
+T \;=\; \delta^\top\, V_\delta^{+}\, \delta,
+\label{eq:Theidi}
+\end{equation}
+where $V_\delta^{+}$ is the Moore--Penrose pseudoinverse. Under $H_0:\delta=0$, $T$ follows a \emph{generalized $\chi^2$} --- a weighted sum of independent $\chi^2_1$ variables with weights equal to the \textbf{non-zero eigenvalues of $V_\delta$ itself}. The tail probability is computed by the Davies algorithm \citep{Davies1980,Kuonen1999}, e.g.\
+\begin{equation}
+\mathrm{Pr}(T \ge t \mid H_0) \;=\; \texttt{CompQuadForm::davies}\bigl(q = t,\, \lambda = \mathrm{eig}_{\ne 0}(V_\delta)\bigr).
+\label{eq:davies}
+\end{equation}
+
+\paragraph{Output.} The HEIDI-rv test statistic $T$, the Davies $p$-value, and the effective degrees of freedom (number of non-zero eigenvalues of $V_\delta$).
+
+\paragraph{What this step tells you.} HEIDI-rv asks whether the per-variant Wald ratios inside a single burden agree with each other. Agreement supports the homogeneity assumption underlying Step~3; disagreement suggests at least one variant inside the mask is exerting horizontal pleiotropy. The headline correctness claim is the weight choice: passing the eigenvalues of $V_\delta^{+}V_\delta$ to Davies is \emph{wrong}, because $V_\delta^{+}V_\delta$ is the orthogonal projector onto $\mathrm{range}(V_\delta)$ and therefore has only $\{1,\dots,1,0,\dots,0\}$ eigenvalues; that choice collapses the generalized $\chi^2$ to plain $\chi^2_{\mathrm{rank}(V_\delta)}=\chi^2_{m-1}$, an anti-conservative null. The non-zero eigenvalues of $V_\delta$ itself carry the actual covariance scale and are the correct Davies weights. A single pleiotropic variant in a burden of size $m$ contributes only $\mathcal{O}(1/m)$ to the burden Wald, so HEIDI-rv power scales as $\mathcal{O}(1/m)$ in the bulk-versus-singleton-outlier regime; treat it as a sensitivity diagnostic, not a primary pleiotropy test \citep{Zhu2016}.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|heidi_rv()| in \verb|heidi_rv.R:102| (currently a stub: \verb|stop("not implemented")|). The intended implementation passes \verb|lambda = eig_nz(V_delta)| to \verb|CompQuadForm::davies|.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Using eigenvalues of $V_\delta^{+}V_\delta$ (or of $V_\delta V_\delta^{+}$) as Davies weights: anti-conservative collapse to $\chi^2_{m-1}$. Headline trap.
+\item Failing to drop zero eigenvalues from the weight vector when monomorphic-in-sample variants make $V_\delta$ rank-deficient: numerically passes $0$-weighted $\chi^2_1$ components, inflating the apparent df.
+\item Calling HEIDI-rv a primary pleiotropy test: the $\mathcal{O}(1/m)$ insensitivity to single-variant outliers makes it a sanity check, not a verdict.
+\item Trying to run HEIDI-rv from STAARpipeline aggregate output alone: requires SAIGE-QTL and Genebass re-run in single-variant mode plus the LD matrix.
+\end{itemize}
+
+\section*{Step 11. Annotation-class concordance via pQTL-anchor normalization}
+
+\paragraph{Input.} For each annotation class $k\in\{\mathrm{pLoF},\mathrm{mis{:}LC},\mathrm{reg}\}$: the class-specific burden Wald ratio $\hat\beta^{(k)}_{xy}$ with SE from Steps~3/4, and the pQTL-anchor burden-on-protein effect $(\hat\beta^{(k)}_{\mathrm{burden}\to\mathrm{protein}},\,\mathrm{SE}^{(k)}_{\mathrm{burden}\to\mathrm{protein}})$ from UKB-PPP rare-variant \citep{Dhindsa2023,SunUKBPPP2023} or deCODE \citep{Ferkingstad2021}.
+
+\paragraph{Compute.} Mediator-scale normalization places each class on a common per-protein-unit scale:
+\begin{equation}
+\tilde\beta^{(k)}_{xy} \;=\; \frac{\hat\beta^{(k)}_{\mathrm{burden},y}}{\hat\beta^{(k)}_{\mathrm{burden}\to\mathrm{protein}}}.
+\label{eq:pqtl-norm}
+\end{equation}
+Variance propagation by the delta method gives $\mathrm{Var}(\tilde\beta^{(k)}_{xy})$. The Cochran $Q$ across classes is
+\begin{equation}
+Q \;=\; \sum_{k=1}^{K} w_k\bigl(\tilde\beta^{(k)}_{xy} - \bar{\tilde\beta}\bigr)^2 \;\xrightarrow{H_0}\; \chi^2_{K-1},\qquad w_k \;=\; \frac{1}{\mathrm{Var}(\tilde\beta^{(k)}_{xy})},\quad \bar{\tilde\beta} \;=\; \frac{\sum_k w_k\,\tilde\beta^{(k)}_{xy}}{\sum_k w_k},
+\label{eq:cochran-Q}
+\end{equation}
+following the standard heterogeneity construction \citep{Cochran1954}.
+
+\paragraph{Output.} $Q$, the $\chi^2_{K-1}$ $p$-value, and a per-class table of $\tilde\beta^{(k)}_{xy}$.
+
+\paragraph{What this step tells you.} Raw class-specific $\hat\beta^{(k)}_{\mathrm{burden},y}$ are \emph{not} directly comparable across classes: pLoF, missense:LC, and regulatory variants each hit the gene with a different effect on protein abundance, so the same downstream $\beta$ on the outcome produces three different burden-on-outcome slopes. The pQTL anchor in the denominator of Eq.~\eqref{eq:pqtl-norm} removes the class-specific mediator scaling, putting the three classes on a common per-protein-unit axis. After normalization, Cochran's $Q$ tests homogeneity at $\mathrm{df}=K-1$. A large $Q$ flags class-specific mechanism (dominant-negative, gain-of-function, regulatory-only effects) or class-specific pleiotropy --- it triggers mechanism investigation, not automatic rejection.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|annotation_concord()| in \verb|annotation_concord.R:85| (stub: \verb|stop("not implemented")|). Roxygen documents the required \verb|estimates_list| schema with \verb|b_burden_to_protein| and \verb|se_burden_to_protein| fields per class.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Skipping pQTL-anchor normalization: raw $\hat\beta^{(k)}_{\mathrm{burden},y}$ disagree by construction.
+\item Using a common-variant pQTL anchor (Sun BB 2018 INTERVAL or 2023 UKB-PPP common-variant \citep{SunINTERVAL2018,SunUKBPPP2023}) when only rare-variant burden-on-protein effects are available: the scale conversion is wrong if the anchor is a single common variant rather than the matched mask burden.
+\item Citing Han--Eskin 2011 \emph{AJHG} 88:586 for sign concordance: that paper is random-effects meta-analysis, not sign-concordance.
+\item Reading a small $Q$ as a clean bill of health: coherent pleiotropy (Step~14) routes all three classes through the same confounder and passes $Q$.
+\end{itemize}
+
+\section*{Step 12. Cell-type concordance}
+
+\paragraph{Input.} For a fixed $(g,k)$: per-cell-type burden Wald ratios $\hat\beta^{(c)}_{xy}$ with SEs across $c=1,\dots,C$ cell types ($C=28$ PBMC immune subsets in TenK10K Phase~1 \citep{Cuomo2025}).
+
+\paragraph{Compute.} The cell-type Cochran $Q$ is the analogue of Eq.~\eqref{eq:cochran-Q} along the cell-type axis:
+\begin{equation}
+Q_{\mathrm{cell}} \;=\; \sum_{c=1}^{C} w_c\bigl(\hat\beta^{(c)}_{xy} - \bar\beta\bigr)^2 \;\xrightarrow{H_0}\; \chi^2_{C-1},\qquad w_c \;=\; \frac{1}{\mathrm{Var}(\hat\beta^{(c)}_{xy})},
+\label{eq:Qcell}
+\end{equation}
+with $\bar\beta = \sum_c w_c \hat\beta^{(c)}_{xy} / \sum_c w_c$. The full joint stratified AR formulation stacks $K\cdot C$ instruments (Step~6 with $K\to KC$).
+
+\paragraph{Output.} $Q_{\mathrm{cell}}$, the $\chi^2_{C-1}$ $p$-value, and a per-cell-type estimate table.
+
+\paragraph{What this step tells you.} Cell-type concordance is the third over-identification axis (after within-burden HEIDI-rv and between-class annotation $Q$). Homogeneity across $c$ supports the inference that $\beta$ is a property of the gene rather than a cell-type-specific regulatory artifact. Disagreement can reflect genuine tissue-specific regulation (a feature, e.g.\ a hepatocyte-specific effect on LDL) or cell-type-specific pleiotropy (a bug). Either way, $Q_{\mathrm{cell}}$ alone cannot distinguish them; the diagnosis is mechanistic follow-up. The first cell-type cis-MR comparator at PBMC resolution is \citet{Ray2025} (14 immune types).
+
+\paragraph{Code reference (\texttt{rvMR}).} Not currently a dedicated function in the package; the cell-type axis is implemented as a higher-level wrapper that loops \verb|wald_burden()| (\verb|wald_burden.R:77|) and \verb|mrAR()| (\verb|mrAR.R:88|) across cell types, followed by the same Cochran-$Q$ machinery sketched for \verb|annotation_concord()| (\verb|annotation_concord.R:85|).
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Inflating $C$ by including cell types with $\le$ a few donors carrying any mask variant: per-cell-type SEs become unreliable and $Q_{\mathrm{cell}}$ is dominated by noise.
+\item Asserting hepatocyte resolution from TenK10K Phase~1: it is PBMC-only; hepatocyte and adipocyte coverage await Phase~2.
+\item Confabulating ``Ge 2025'' as the sc-cis-MR comparator: the actual reference is Ray et al.\ 2025 \emph{AJHG} 112(7):1597 \citep{Ray2025}.
+\item Combining cell-type $Q$ with annotation-class $Q$ via Fisher's method without accounting for the shared $(g)$ axis: the two $Q$s are not independent.
+\end{itemize}
+
+\section*{Step 13. Sensitivity scalars (Cinelli--Hazlett and E-value)}
+
+\paragraph{Input.} The first-stage $t$-statistic $t=\hat b_x/\mathrm{SE}_x$, the exposure-sample size $n_x$, the standardized Wald ratio $\beta_{\mathrm{std}}$ (point and CI-bound versions).
+
+\paragraph{Compute.} The two-sample summary-stat adaptation of the Cinelli--Hazlett 2025 IV partial $R^2$ is \citep{CinelliHazlett2025,CinelliHazlett2020}
+\begin{equation}
+R^2_{Z\to X} \;\approx\; \frac{t^2}{t^2 + n_x - 2},\qquad t \;=\; \frac{\hat b_x}{\mathrm{SE}_x},
+\label{eq:partialR2}
+\end{equation}
+and the robustness value is
+\begin{equation}
+RV \;=\; \frac{\sqrt{t^2 + 4} - t}{2}.
+\label{eq:RV}
+\end{equation}
+For the outcome scale, the Swanson--VanderWeele 2020 risk-ratio approximation \citep{SwansonVanderWeele2020} and VanderWeele--Ding 2017 E-value \citep{VanderWeeleDing2017} give
+\begin{equation}
+\mathrm{RR} \;\approx\; \exp\!\bigl(0.91 \cdot \beta_{\mathrm{std}}\bigr),\qquad E \;=\; \mathrm{RR} + \sqrt{\mathrm{RR}\,(\mathrm{RR}-1)}.
 \label{eq:Evalue}
 \end{equation}
+Report both at the point estimate ($E_{\mathrm{point}}$) and at the CI bound nearest the null ($E_{\mathrm{CI}}$); the latter is more conservative and is the value typically reported.
 
-\section{Limitations}
-\label{sec:limits}
-\textbf{Coherent pleiotropy} --- all variants in a burden routed through the same upstream confounder --- is invisible to all three over-identification axes: HEIDI-rv is $\mathcal O(1/m)$-insensitive (Remark~\ref{rem:heidipower}); annotation-class concordance passes if the confounder is class-shared; cell-type concordance passes if it is cell-type-shared. The mitigation is sensitivity bounds (\S\ref{sec:sensitivity}) and partial-identification intervals under invalid-IV assumptions \citep{WangTchetgen2018}; these are honest limits, not fixes. \textbf{Cell-type substrate.} TenK10K Phase~1 \citep{Cuomo2025} covers 28 PBMC immune cell types only; hepatocyte- and adipocyte-resolved burden eQTLs await Phase~2. Headline targets PCSK9 and HMGCR are hepatocyte-biased, so v1 substitutes a plasma-pQTL-anchored mediator-scale normalization (\S\ref{sec:annotconcord}) where the cis-eQTL is unavailable. \textbf{Power.} At typical rare-variant minor-allele counts (10--50 carriers) per-mask first-stage $F$ is often single-digit --- which is precisely why AR, not a Stock--Yogo $F>10$ filter, is the inference of choice.
+\paragraph{Output.} The pair $(R^2_{Z\to X},\,RV)$ on the first-stage side and the pair $(E_{\mathrm{point}},\,E_{\mathrm{CI}})$ on the outcome side.
+
+\paragraph{What this step tells you.} $RV$ is the minimum partial $R^2$ that an unobserved violator of the exclusion restriction would need with \emph{both} the instrument and the outcome to nullify the effect. $RV$ is invariant to the instrument's scale, so it makes $K=1$ runs comparable across genes. The E-value is the minimum association strength on the risk-ratio scale that an unmeasured confounder would need with both arms to explain away $\hat\beta_{xy}$. A high $RV$ and a high $E$-value together say the effect is hard to wish away with plausible unmeasured confounding; a low value of either says the inference is fragile.
+
+\paragraph{Code reference (\texttt{rvMR}).} \verb|iv_partial_r2()| in \verb|sensitivity.R:48| and \verb|e_value()| in \verb|sensitivity.R:99| (both currently stubs: \verb|stop("not implemented")|).
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Sign error on $RV$: the correct form is $(\sqrt{t^2+4}-t)/2$ (positive scalar); the reverse $(t-\sqrt{t^2+4})/2$ is negative and meaningless as a partial $R^2$.
+\item Citing only the 2020 \emph{JRSS-B} OLS paper without the 2025 \emph{Biometrika} IV-specific extension: the 2025 paper is the primary IV reference; the 2020 paper is the OLS origin.
+\item Using a non-0.91 coefficient in the RR approximation: Swanson--VanderWeele 2020 fixes the constant at 0.91 for continuous outcomes.
+\item Reporting only the point E-value: the CI-bound E-value is the standard conservative summary.
+\end{itemize}
+
+\section*{Step 14. Gene-level decision rule}
+
+\paragraph{Input.} For each gene: the multi-IV AR CI (Step~7), the $J$ p-value (Step~8), the HEIDI-rv $p$-value per mask (Step~10), the annotation-class $Q$ $p$-value (Step~11), the cell-type $Q$ $p$-value (Step~12), and the sensitivity scalars $(RV,\,E_{\mathrm{CI}})$ (Step~13).
+
+\paragraph{Compute.} The decision tree combines the six axes:
+\begin{enumerate}[label=(D\arabic*)]
+\item \textbf{AR CI excludes zero?} If the AR confidence set (Step~7) is \texttt{bounded\_interval} or \texttt{disconnected\_union} and does not contain $0$, the data say something non-null about $\beta$. If \texttt{whole\_line}, return \emph{inconclusive} (no signal); if \texttt{empty}, flag as numerical artifact and re-run with a finer grid.
+\item \textbf{Joint validity?} If $J$ rejects at level $\alpha$ ($J > \chi^2_{K-1,\,1-\alpha}$), the masks disagree on $\beta$; return \emph{pleiotropy-suspect}.
+\item \textbf{Within-burden homogeneity?} If HEIDI-rv rejects on any mask, downgrade to \emph{pleiotropy-suspect}; otherwise note as ``no within-burden outlier detected at $\mathcal{O}(1/m)$ power.''
+\item \textbf{Annotation-class concordance?} If the class $Q$ rejects, downgrade to \emph{pleiotropy-suspect / mechanism-investigate} and proceed to mechanism follow-up (dominant-negative, gain-of-function).
+\item \textbf{Cell-type concordance?} If $Q_{\mathrm{cell}}$ rejects, note as ``cell-type-specific effect'' and flag whether the discordant cell type is biologically expected (e.g.\ hepatocyte effect on LDL) or anomalous.
+\item \textbf{Sensitivity floor?} If $RV$ is small (default threshold: $RV < 0.05$) or $E_{\mathrm{CI}}<1.5$, return \emph{inconclusive (fragile to unmeasured confounding)} regardless of the AR CI.
+\end{enumerate}
+A gene is called \emph{causal} only if the AR CI excludes zero, $J$, HEIDI-rv on every mask, annotation $Q$, and cell-type $Q$ all fail to reject at level $\alpha$, and both $RV$ and $E_{\mathrm{CI}}$ exceed the pre-specified thresholds.
+
+\paragraph{Output.} A gene-level label in $\{$\emph{causal}, \emph{inconclusive}, \emph{pleiotropy-suspect}$\}$ with the full diagnostic vector attached.
+
+\paragraph{What this step tells you.} The decision rule is conjunctive on validity (every over-id axis must pass) and is conservative under coherent pleiotropy. The honest limit is that if every variant in every mask routes through the same upstream unmeasured confounder, none of the three over-id axes can detect it: HEIDI-rv is $\mathcal{O}(1/m)$-insensitive, annotation-class $Q$ passes if the confounder is class-shared, cell-type $Q$ passes if it is cell-type-shared. The sensitivity scalars $(RV,\,E_{\mathrm{CI}})$ are the only defense against coherent pleiotropy, and partial-identification bounds under invalid IV \citep{WangTchetgen2018} are the formal version of that defense. The framing is ``honest limit, not a fix'' \citep{CinelliHazlett2025}.
+
+\paragraph{Code reference (\texttt{rvMR}).} The decision tree is not encoded as a single function; it is the calling convention that composes \verb|wald_burden()| (\verb|wald_burden.R:77|), \verb|mrAR()| (\verb|mrAR.R:88|), \verb|mrAR_multi()| (\verb|mrAR_multi.R:114|), \verb|heidi_rv()| (\verb|heidi_rv.R:102|), \verb|annotation_concord()| (\verb|annotation_concord.R:85|), \verb|iv_partial_r2()| (\verb|sensitivity.R:48|), and \verb|e_value()| (\verb|sensitivity.R:99|) on a per-gene basis.
+
+\paragraph{Pitfalls.}
+\begin{itemize}
+\item Treating any single axis as sufficient: a clean AR CI with a failing $J$ is not a causal call.
+\item Reading non-rejection of $J$, HEIDI-rv, and the two $Q$s as proof of validity: it is consistent with coherent pleiotropy, which the three axes cannot see.
+\item Using Stock--Yogo $F>10$ as a pre-filter at any stage of this tree: this is precisely the filter AR was chosen to make unnecessary.
+\item Reporting the AR point estimate $\hat\beta_{\mathrm{AR}}$ without the CI type label: a disconnected or whole-line CI carries information that a point estimate buries.
+\end{itemize}
 
 \begin{thebibliography}{99}
+
+\bibitem[Anderson and Rubin, 1949]{AndersonRubin1949}
+Anderson TW, Rubin H (1949). Estimation of the parameters of a single equation in a complete system of stochastic equations. \emph{Annals of Mathematical Statistics} 20(1):46--63.
+
+\bibitem[Burgess and Labrecque, 2018]{BurgessLabrecque2018}
+Burgess S, Labrecque JA (2018). Mendelian randomization with a binary exposure variable: interpretation and presentation of causal estimates. \emph{European Journal of Epidemiology} 33(10):947--952.
+
+\bibitem[Burgess et al., 2013]{BurgessButterworthThompson2013}
+Burgess S, Butterworth A, Thompson SG (2013). Mendelian randomization analysis with multiple genetic variants using summarized data. \emph{Genetic Epidemiology} 37(7):658--665.
+
+\bibitem[Burgess et al., 2016]{BurgessOverlap2016}
+Burgess S, Davies NM, Thompson SG (2016). Bias due to participant overlap in two-sample Mendelian randomization. \emph{Genetic Epidemiology} 40(7):597--608.
 
 \bibitem[Cinelli and Hazlett, 2020]{CinelliHazlett2020}
 Cinelli C, Hazlett C (2020). Making sense of sensitivity: extending omitted variable bias. \emph{Journal of the Royal Statistical Society: Series B} 82(1):39--67.
@@ -155,9 +510,6 @@ Cinelli C, Hazlett C (2025). An omitted variable bias framework for sensitivity 
 \bibitem[Cochran, 1954]{Cochran1954}
 Cochran WG (1954). The combination of estimates from different experiments. \emph{Biometrics} 10(1):101--129.
 
-\bibitem[Burgess et al., 2013]{BurgessButterworthThompson2013}
-Burgess S, Butterworth A, Thompson SG (2013). Mendelian randomization analysis with multiple genetic variants using summarized data. \emph{Genetic Epidemiology} 37(7):658--665.
-
 \bibitem[Cuomo et al., 2025]{Cuomo2025}
 Cuomo ASE, et al. (2025). TenK10K Phase 1: cell-type-specific eQTLs in 28 PBMC immune cell types. \emph{medRxiv} 2025.03.20.25324352.
 
@@ -165,13 +517,13 @@ Cuomo ASE, et al. (2025). TenK10K Phase 1: cell-type-specific eQTLs in 28 PBMC i
 Davies RB (1980). Algorithm AS 155: the distribution of a linear combination of $\chi^2$ random variables. \emph{Applied Statistics} 29(3):323--333.
 
 \bibitem[Dhindsa et al., 2023]{Dhindsa2023}
-Dhindsa RS, et al. (2023). Rare variant associations with plasma protein levels in the UK Biobank. \emph{Nature} 622:339--347.
+Dhindsa RS, et al. (2023). Rare variant associations with plasma protein levels in the UK Biobank. \emph{Nature} 622(7982):339--347.
 
 \bibitem[Didelez and Sheehan, 2007]{DidelezSheehan2007}
 Didelez V, Sheehan N (2007). Mendelian randomization as an instrumental variable approach to causal inference. \emph{Statistical Methods in Medical Research} 16(4):309--330.
 
 \bibitem[Ferkingstad et al., 2021]{Ferkingstad2021}
-Ferkingstad E, et al. (2021). Large-scale integration of the plasma proteome with genetics and disease. \emph{Nature Genetics} 53:1712--1721.
+Ferkingstad E, et al. (2021). Large-scale integration of the plasma proteome with genetics and disease. \emph{Nature Genetics} 53(12):1712--1721.
 
 \bibitem[Fieller, 1954]{Fieller1954}
 Fieller EC (1954). Some problems in interval estimation. \emph{Journal of the Royal Statistical Society: Series B} 16(2):175--185.
@@ -201,7 +553,10 @@ Madsen BE, Browning SR (2009). A groupwise association test for rare mutations u
 Patel A, Lane J, Burgess S (2024). Anderson--Rubin tests for Mendelian randomization with weak and possibly invalid instruments. \emph{arXiv:}2408.09868.
 
 \bibitem[Pierce and Burgess, 2013]{PierceBurgess2013}
-Pierce BL, Burgess S (2013). Efficient design for Mendelian randomization studies: subsample and 2-sample IV estimators. \emph{American Journal of Epidemiology} 178(7):1177--1184.
+Pierce BL, Burgess S (2013). Efficient design for Mendelian randomization studies: subsample and two-sample instrumental variable estimators. \emph{American Journal of Epidemiology} 178(7):1177--1184.
+
+\bibitem[Ray et al., 2025]{Ray2025}
+Ray D, et al. (2025). Single-cell cis-Mendelian randomization across 14 immune cell types. \emph{American Journal of Human Genetics} 112(7):1597.
 
 \bibitem[Robins, 1994]{Robins1994}
 Robins JM (1994). Correcting for non-compliance in randomized trials using structural nested mean models. \emph{Communications in Statistics --- Theory and Methods} 23(8):2379--2412.
@@ -209,11 +564,20 @@ Robins JM (1994). Correcting for non-compliance in randomized trials using struc
 \bibitem[Sargan, 1958]{Sargan1958}
 Sargan JD (1958). The estimation of economic relationships using instrumental variables. \emph{Econometrica} 26(3):393--415.
 
+\bibitem[Sun et al., 2018]{SunINTERVAL2018}
+Sun BB, Maranville JC, Peters JE, Stacey D, Staley JR, et al.\ (2018). Genomic atlas of the human plasma proteome. \emph{Nature} 558(7708):73--79.
+
+\bibitem[Sun et al., 2023]{SunUKBPPP2023}
+Sun BB, Chiou J, Traylor M, Benner C, Hsu YH, et al.\ (2023). Plasma proteomic associations with genetics and health in the UK Biobank. \emph{Nature} 622(7982):329--338.
+
 \bibitem[Sun et al., 2024]{SunKY2024}
 Sun KY, et al. (2024). A deep catalogue of protein-coding variation in 983{,}578 individuals. \emph{Nature} 631(8021):583--592.
 
 \bibitem[Swanson and VanderWeele, 2020]{SwansonVanderWeele2020}
 Swanson SA, VanderWeele TJ (2020). E-values for Mendelian randomization. \emph{Epidemiology} 31(3):e23--e24.
+
+\bibitem[VanderWeele and Ding, 2017]{VanderWeeleDing2017}
+VanderWeele TJ, Ding P (2017). Sensitivity analysis in observational research: introducing the E-value. \emph{Annals of Internal Medicine} 167(4):268--274.
 
 \bibitem[Wang and Kang, 2022]{WangKang2022}
 Wang S, Kang H (2022). Weak-instrument-robust tests in two-sample summary-data Mendelian randomization. \emph{Biometrics} 78(4):1699--1713.
@@ -223,6 +587,9 @@ Wang L, Tchetgen Tchetgen EJ (2018). Bounded, efficient and multiply robust esti
 
 \bibitem[Wu et al., 2011]{WuSKAT2011}
 Wu MC, Lee S, Cai T, Li Y, Boehnke M, Lin X (2011). Rare-variant association testing for sequencing data with the sequence kernel association test. \emph{American Journal of Human Genetics} 89(1):82--93.
+
+\bibitem[Zhou et al., 2022]{ZhouSAIGEgene2022}
+Zhou W, et al. (2022). SAIGE-GENE+ improves the efficiency and accuracy of set-based rare variant association tests. \emph{Nature Genetics} 54(10):1466--1469.
 
 \bibitem[Zhou, Cuomo et al., 2024]{ZhouCuomo2024}
 Zhou W, Cuomo ASE, et al. (2024). SAIGE-QTL maps genetic regulation of gene expression in single cells with multi-ancestry sample sizes. \emph{medRxiv} 2024.05.15.24307317.
