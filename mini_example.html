@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RARE &amp; MR-CARV · 数据生成走查 (mini example) · rvSMR</title>
+<script>
+  // Apply theme before paint to avoid flash
+  (function () {
+    try {
+      var saved = localStorage.getItem('rvsmr-theme');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  })();
+</script>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev-2: #1c2128;
+    --bg-zebra: rgba(255,255,255,0.025);
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --fg-dim: #6e7681;
+    --accent: #58a6ff;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+
+    --c-rare:    #a78bfa;
+    --c-mrcarv:  #d29922;
+    --c-callout: #2dd4bf;
+    --c-good:    #3fb950;
+    --c-warn:    #f4b860;
+    --c-num:     #79c0ff;
+
+    --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-serif: "Songti SC", "SimSun", Charter, Georgia, serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg: #fafbfc;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f1f4f8;
+    --bg-zebra: rgba(0,0,0,0.025);
+    --fg: #1f2328;
+    --fg-muted: #57606a;
+    --fg-dim: #8c959f;
+    --accent: #0969da;
+    --border: rgba(0, 0, 0, 0.12);
+    --border-strong: rgba(0, 0, 0, 0.22);
+
+    --c-rare:    #7c3aed;
+    --c-mrcarv:  #9a6700;
+    --c-callout: #0d9488;
+    --c-good:    #1a7f37;
+    --c-warn:    #9a6700;
+    --c-num:     #0550ae;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.9em; }
+  h1, h2, h3, h4 { color: var(--fg); margin: 0; font-weight: 600; }
+  h1 { font-size: 1.75rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+  h3 { font-size: 0.85rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 26px; margin-bottom: 10px; }
+  h4 { font-size: 1.0rem; margin-bottom: 6px; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 20px; }
+
+  header.site-header {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+  .header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 14px 0;
+  }
+  .subtitle { color: var(--fg-muted); font-size: 0.92rem; margin-top: 2px; }
+  .theme-toggle {
+    background: var(--bg-elev);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .theme-toggle:hover { border-color: var(--border-strong); }
+
+  section { margin: 36px 0; }
+
+  .lead {
+    font-family: var(--font-serif);
+    font-size: 1.02rem;
+    color: var(--fg-muted);
+    max-width: 880px;
+    line-height: 1.75;
+    margin-top: 12px;
+  }
+
+  .method-banner {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .method-banner.rare    { background: rgba(167, 139, 250, 0.18); color: var(--c-rare);    border: 1px solid rgba(167, 139, 250, 0.45); }
+  .method-banner.mrcarv  { background: rgba(210, 153, 34, 0.18);  color: var(--c-mrcarv);  border: 1px solid rgba(210, 153, 34, 0.45); }
+  .method-banner.callout { background: rgba(45, 212, 191, 0.18);  color: var(--c-callout); border: 1px solid rgba(45, 212, 191, 0.45); }
+
+  /* Step card */
+  .step {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px 18px;
+    margin: 14px 0;
+  }
+  .step .step-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .step .num {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-elev-2);
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
+  }
+  .step.rare .num   { color: var(--c-rare); }
+  .step.mrcarv .num { color: var(--c-mrcarv); }
+  .step h4 { color: var(--fg); }
+  .step .annot {
+    color: var(--fg-muted);
+    font-size: 0.88rem;
+    font-style: italic;
+    margin: 4px 0 8px;
+  }
+
+  /* Matrix tables */
+  table.matrix {
+    border-collapse: separate;
+    border-spacing: 0;
+    margin: 6px 0;
+    font-family: var(--font-mono);
+    font-size: 0.92rem;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  table.matrix th, table.matrix td {
+    padding: 5px 10px;
+    border: 1px solid var(--border);
+    text-align: right;
+    min-width: 42px;
+  }
+  table.matrix thead th {
+    background: var(--bg-elev);
+    color: var(--fg-muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-align: center;
+  }
+  table.matrix tbody tr:nth-child(even) td { background: var(--bg-zebra); }
+  table.matrix td.rowlbl {
+    color: var(--fg-muted);
+    font-size: 0.78rem;
+    text-align: right;
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border-strong);
+  }
+  table.matrix td.num { color: var(--c-num); }
+  table.matrix td.zero { color: var(--fg-dim); }
+  table.matrix td.hi   { color: var(--c-good); font-weight: 600; }
+
+  /* Two matrices side by side */
+  .mrow {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    margin: 8px 0;
+  }
+  .mrow .mcell { display: flex; flex-direction: column; gap: 4px; }
+  .mrow .mcap  { color: var(--fg-muted); font-size: 0.82rem; }
+
+  /* Arithmetic block */
+  .arith {
+    background: var(--bg-elev-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    padding: 8px 14px;
+    margin: 8px 0;
+    font-family: var(--font-mono);
+    font-size: 0.88rem;
+    color: var(--fg);
+    line-height: 1.85;
+    overflow-x: auto;
+  }
+  .arith .lbl { color: var(--fg-muted); }
+  .arith .op  { color: var(--fg-dim); }
+  .arith .res { color: var(--c-good); font-weight: 600; }
+  .arith .zero { color: var(--fg-dim); }
+
+  /* Why-this details */
+  details.why {
+    margin: 10px 0 4px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 14px;
+  }
+  details.why > summary {
+    cursor: pointer;
+    color: var(--fg-muted);
+    font-size: 0.86rem;
+    padding: 8px 0;
+    list-style: none;
+    user-select: none;
+  }
+  details.why > summary::before {
+    content: "▶";
+    display: inline-block;
+    transform: rotate(0deg);
+    transition: transform 0.15s;
+    margin-right: 6px;
+    font-size: 0.7em;
+    color: var(--fg-dim);
+  }
+  details.why[open] > summary::before { transform: rotate(90deg); }
+  details.why > summary:hover { color: var(--fg); }
+  details.why .body {
+    padding: 4px 0 12px;
+    color: var(--fg);
+    font-size: 0.93rem;
+    line-height: 1.7;
+  }
+
+  /* Hard-simplification notice */
+  .notice {
+    background: rgba(244, 184, 96, 0.10);
+    border-left: 3px solid var(--c-warn);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    font-size: 0.92rem;
+    line-height: 1.7;
+  }
+  .notice strong { color: var(--fg); }
+
+  /* Final callout (Section 3) */
+  .compare-box {
+    border-left: 4px solid var(--c-callout);
+    background: rgba(45, 212, 191, 0.08);
+    padding: 18px 22px;
+    border-radius: 0 10px 10px 0;
+    margin: 18px 0;
+  }
+  .compare-box h3 { margin-top: 0; color: var(--c-callout); }
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-top: 12px;
+  }
+  .compare-grid .cell {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
+  .compare-grid .cell h4 {
+    margin: 0 0 6px;
+    font-size: 0.85rem;
+    color: var(--fg-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .compare-grid .cell ul { margin: 4px 0; padding-left: 18px; }
+  .compare-grid .cell li { margin: 2px 0; }
+  .compare-grid .cell code { color: var(--c-num); }
+  @media (max-width: 720px) {
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+  .punchline {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: var(--bg-elev-2);
+    border-radius: 8px;
+    font-family: var(--font-serif);
+    line-height: 1.75;
+    border: 1px solid var(--border);
+  }
+
+  /* TOC */
+  .toc {
+    display: flex; gap: 14px; flex-wrap: wrap;
+    padding: 10px 0;
+    font-size: 0.88rem;
+    color: var(--fg-muted);
+  }
+  .toc a { padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px; }
+
+  footer.site-footer {
+    border-top: 1px solid var(--border);
+    margin-top: 56px;
+    padding: 22px 0 30px;
+    color: var(--fg-muted);
+    font-size: 0.88rem;
+  }
+  footer .footer-links {
+    display: flex; flex-wrap: wrap; gap: 18px;
+  }
+
+  @media (max-width: 720px) {
+    .container { padding: 0 14px; }
+    h1 { font-size: 1.3rem; }
+    h2 { font-size: 1.1rem; }
+    .step { padding: 12px 12px 14px; }
+    table.matrix { font-size: 0.85rem; }
+    table.matrix th, table.matrix td { padding: 4px 6px; min-width: 34px; }
+    .arith { font-size: 0.82rem; padding: 7px 10px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div>
+      <h1>RARE &amp; MR-CARV · 数据生成走查 (mini example)</h1>
+      <div class="subtitle">n=4, p 缩小到 2-3, 让每个矩阵都肉眼可读 · 配套 <a href="methods_diagram.html">methods_diagram.html</a> · <a href="comparator_validation.html">comparator_validation.html</a></div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">切换 dark / light</button>
+  </div>
+</header>
+
+<main class="container">
+
+<section id="intro">
+  <p class="lead">
+    本页用一个 <strong>n=4</strong> 的玩具版本, 一步一步把 RARE 和 MR-CARV
+    的 simulation pipeline 走一遍. 每个矩阵都写在屏幕上, 每个乘法都展开,
+    目的就是让"为什么这么生数据"看得见、摸得着.
+  </p>
+  <p class="lead" style="margin-top: 8px;">
+    为了直观, 我们用 <code class="mono">seed=1</code> + <code class="mono">n=4</code> 的玩具版本; 真实仿真 <code class="mono">n=50000</code>
+    且基因型是 <em>Gaussian copula 切的</em>, 这里直接用整数 dosage. 数值都四舍五入到 1–3 位小数, 方便用脑子追.
+  </p>
+
+  <div class="notice">
+    <strong>诚实说出来的简化 — </strong>
+    <ul style="margin: 6px 0 0; padding-left: 22px;">
+      <li>基因型 <code class="mono">G</code>: 真实是 Gaussian copula → 按 MAF 分位切; 这里我们 <em>直接写下</em> 整数 dosage <code class="mono">{0,1,2}</code>, 大致符合 MAF.</li>
+      <li>混杂 <code class="mono">U</code>: 真实是 <code class="mono">N(0, I)</code> 然后按 <code class="mono">h²</code> 缩放; 这里只取 1 位小数的 <code class="mono">N(0,1)</code> 近似值.</li>
+      <li>所有效应系数 (<code class="mono">δ, κ, θ, ψ, γ</code>) 都说成是 "<em>从对应方差的 normal 里抽一次</em>", 数值已经四舍五入到 2 位小数.</li>
+      <li>RARE 总样本量 n=4 算 <code class="mono">Var/Cov</code> 时用 <code class="mono">n</code> (population estimator), 不用 <code class="mono">n-1</code>.</li>
+      <li>真因果 <code class="mono">β₁ = 0.01</code> (RARE) 和 <code class="mono">β = 0.04</code> (MR-CARV) 都是小的非零 alternative, 不是 null.</li>
+      <li><strong>RARE 还有两个源码里的细节本玩具版没体现</strong> (审计标出): (a) 真实仿真总样本是 <code class="mono">100K</code>, 拆成 <code class="mono">50K summary panel + 50K calculation panel</code> 两份独立抽; (b) Y 的噪声方差是 <em>异方差</em> 的, 按样本的 PRS 排序缩放 <code class="mono">σᵢ = (PRSᵢ − PRSmin)/(PRSmax − PRSmin) + 0.05</code> — 这是 <code class="mono">simulationl.R</code> 里没在论文写出来的设计选择.</li>
+    </ul>
+  </div>
+
+  <div class="toc">
+    <a href="#rare">Section 1 · RARE</a>
+    <a href="#mrcarv">Section 2 · MR-CARV</a>
+    <a href="#compare">Section 3 · 关键对比</a>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!--                  Section 1 · RARE                       -->
+<!-- ====================================================== -->
+<section id="rare">
+  <span class="method-banner rare">RARE · Bayesian MVMR</span>
+  <h2>Section 1 · RARE 玩具版</h2>
+  <p class="lead">
+    我们要识别 $X_1 \to Y$ 的因果效应 $\beta_1$, 同时 RARE 还显式建立了
+    <strong>潜在混杂 U</strong>、<strong>correlated pleiotropy κ</strong>、<strong>uncorrelated pleiotropy θ</strong> 三层
+    "干扰". 所以下面会看到 3 个矩阵叠在一起决定 $X_1$ 和 $Y$.
+  </p>
+
+  <!-- Step 1 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 1</span><h4>设定真因果参数 — 我们要识别的量</h4></div>
+    <p>主曝光 → outcome 的真效应 (在 power cell 里设非零, 在 type-I cell 里设 0):</p>
+    <div class="arith">
+      <span class="lbl">β₁</span> <span class="op">=</span> <span class="res">0.01</span>  &nbsp;&nbsp;<span class="lbl">(主曝光 X₁ → Y, 这是我们要估的)</span><br>
+      <span class="lbl">β₂</span> <span class="op">=</span> <span class="res">0.20</span>  &nbsp;&nbsp;<span class="lbl">(次曝光 X₂ → Y, 固定大值, 用来制造 MVMR 设定)</span>
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 2</span><h4>解释方差超参 h² (决定每条通路的方差预算)</h4></div>
+    <p>RARE 通过 $h^2$ 控制每个矩阵的整体方差. 玩具版直接给数:</p>
+    <div class="arith">
+      <span class="lbl">h²_γ₁</span> = 0.10 &nbsp;(common IV 对 X₁ 的总解释)<br>
+      <span class="lbl">h²_δ</span>   = 0.08 &nbsp;(rare IV 对 X₁ 的总解释)<br>
+      <span class="lbl">h²_κₓ</span>  = 0.02 &nbsp;(CHP: G → X₁ → Y 之外的 G → X₁ 路径)<br>
+      <span class="lbl">h²_θ, h²_κᵧ, h²_ψ</span> = 0.02 &nbsp;(其他通路, 都固定 0.02)
+    </div>
+    <details class="why"><summary>为什么要 h²?</summary><div class="body">
+      RARE 的 prior 不是"每个 SNP 独立 N(0,1)", 而是"<em>每个 G→X 通道总方差 = h²</em>".
+      所以单个系数的方差 = h² / p_active.
+      这样不管 p 多大, 模拟的"信号强度"都保持可比.
+    </div></details>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 3</span><h4>抽 MAF (minor allele frequency)</h4></div>
+    <div class="mrow">
+      <div class="mcell">
+        <div class="mcap">公共 SNPs (Unif(0.05, 0.5))</div>
+        <table class="matrix">
+          <thead><tr><th>SNP</th><th>c1</th><th>c2</th><th>c3</th></tr></thead>
+          <tbody><tr><td class="rowlbl">MAF</td><td class="num">0.30</td><td class="num">0.45</td><td class="num">0.20</td></tr></tbody>
+        </table>
+      </div>
+      <div class="mcell">
+        <div class="mcap">稀有 SNPs (Unif(0.005, 0.01))</div>
+        <table class="matrix">
+          <thead><tr><th>SNP</th><th>r1</th><th>r2</th></tr></thead>
+          <tbody><tr><td class="rowlbl">MAF</td><td class="num">0.008</td><td class="num">0.009</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="annot">(从两个均匀分布里抽出来的 — 公共相对常见, 稀有非常罕)</p>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 4</span><h4>基因型矩阵 G (4 × 5)</h4></div>
+    <p>每行 1 个样本, 每列 1 个 SNP. 公共部分按 MAF 给整数 dosage (0/1/2); 稀有部分几乎全 0, 偶尔 1.</p>
+    <div class="mrow">
+      <div class="mcell">
+        <div class="mcap">G_common (4 × 3)</div>
+        <table class="matrix">
+          <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">s1</td><td class="num">1</td><td class="num">2</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s2</td><td class="zero">0</td><td class="num">1</td><td class="num">1</td></tr>
+            <tr><td class="rowlbl">s3</td><td class="num">2</td><td class="num">1</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s4</td><td class="num">1</td><td class="zero">0</td><td class="num">2</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mcell">
+        <div class="mcap">G_rare (4 × 2)</div>
+        <table class="matrix">
+          <thead><tr><th></th><th>r1</th><th>r2</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">s1</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s2</td><td class="zero">0</td><td class="num">1</td></tr>
+            <tr><td class="rowlbl">s3</td><td class="num">1</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s4</td><td class="zero">0</td><td class="zero">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mcell">
+        <div class="mcap">G = [G_common | G_rare] (4 × 5)</div>
+        <table class="matrix">
+          <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">s1</td><td class="num">1</td><td class="num">2</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s2</td><td class="zero">0</td><td class="num">1</td><td class="num">1</td><td class="zero">0</td><td class="num">1</td></tr>
+            <tr><td class="rowlbl">s3</td><td class="num">2</td><td class="num">1</td><td class="zero">0</td><td class="num">1</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s4</td><td class="num">1</td><td class="zero">0</td><td class="num">2</td><td class="zero">0</td><td class="zero">0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="annot">(简化, 真实是 Gaussian copula 抽 multivariate normal + 按 MAF 分位切, 这里直接写 dosage)</p>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 5</span><h4>混杂矩阵 U (4 × 2)</h4></div>
+    <p>每元素 ~ N(0, 1) 然后整体缩放到方差 ≈ 0.8. 真实数据里这个 <em>看不到</em>; 在仿真里造出来是为了让它同时驱动 X 和 Y, 制造混杂.</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">s1</td><td class="num">0.4</td><td class="num">−0.3</td></tr>
+        <tr><td class="rowlbl">s2</td><td class="num">−0.1</td><td class="num">0.7</td></tr>
+        <tr><td class="rowlbl">s3</td><td class="num">0.2</td><td class="num">−0.5</td></tr>
+        <tr><td class="rowlbl">s4</td><td class="num">−0.4</td><td class="num">0.1</td></tr>
+      </tbody>
+    </table>
+    <p class="annot">(从 N(0,1) 抽 8 个数, 1 位小数; 列向量长度 4)</p>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 6</span><h4>IV → X₁ 系数 δ (长度 5)</h4></div>
+    <p>抽自 N(0, h²_δ / p_rare = 0.08/2 = 0.04). 在 RARE 的实验设置里, <strong>rare SNP 才是 IV</strong>; common 部分的 IV 系数我们都置零 (这里只演示 rare-IV 通路).</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+      <tbody><tr><td class="rowlbl">δ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.15</td><td class="num">−0.08</td></tr></tbody>
+    </table>
+    <p class="annot">(从 N(0, 0.04) 抽 2 个 rare 项, 公共那 3 个手动置零)</p>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 7</span><h4>CHP 系数 κₓ (长度 5)</h4></div>
+    <p>抽自 N(0, h²_κₓ / p = 0.02/5 = 0.004). Correlated pleiotropy: 这是 "G → X₁ 通道里跟 IV 信号 <em>相关</em>的非 IV 部分".</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+      <tbody><tr><td class="rowlbl">κₓ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.04</td><td class="num">−0.03</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 8 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 8</span><h4>混杂载荷 ψₓ (长度 2)</h4></div>
+    <p>U 怎样影响 X₁. 长度跟 U 的列数一致.</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
+      <tbody><tr><td class="rowlbl">ψₓ</td><td class="num">0.5</td><td class="num">0.3</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 9 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 9</span><h4>噪声 ε₁ (长度 4)</h4></div>
+    <p>每个样本一个独立 small noise.</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">ε₁</td><td class="num">0.10</td><td class="num">−0.20</td><td class="num">0.05</td><td class="num">0.15</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 10 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 10</span><h4>组装主曝光 X₁ — 把 4 层加在一起</h4></div>
+    <p>$$ X_1 \;=\; G\delta \;+\; G\kappa_x \;+\; U\psi_x \;+\; \varepsilon_1 $$</p>
+
+    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">10a. G · δ (每样本一个标量)</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> [1, 2, 0, 0, 0] · [0, 0, 0, 0.15, −0.08] = 1·0 + 2·0 + 0·0 + 0·0.15 + 0·(−0.08) = <span class="res">0</span><br>
+<span class="lbl">s2:</span> [0, 1, 1, 0, 1] · [0, 0, 0, 0.15, −0.08] = 0 + 0 + 0 + 0 + 1·(−0.08) = <span class="res">−0.08</span><br>
+<span class="lbl">s3:</span> [2, 1, 0, 1, 0] · [0, 0, 0, 0.15, −0.08] = 0 + 0 + 0 + 1·0.15 + 0 = <span class="res">0.15</span><br>
+<span class="lbl">s4:</span> [1, 0, 2, 0, 0] · [0, 0, 0, 0.15, −0.08] = 0 + 0 + 0 + 0 + 0 = <span class="res">0</span>
+    </div>
+
+    <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10b. G · κₓ</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> [1, 2, 0, 0, 0] · [0, 0, 0, 0.04, −0.03] = <span class="res">0</span><br>
+<span class="lbl">s2:</span> [0, 1, 1, 0, 1] · [0, 0, 0, 0.04, −0.03] = 0 + 0 + 0 + 0 + 1·(−0.03) = <span class="res">−0.03</span><br>
+<span class="lbl">s3:</span> [2, 1, 0, 1, 0] · [0, 0, 0, 0.04, −0.03] = 0 + 0 + 0 + 1·0.04 + 0 = <span class="res">0.04</span><br>
+<span class="lbl">s4:</span> [1, 0, 2, 0, 0] · [0, 0, 0, 0.04, −0.03] = <span class="res">0</span>
+    </div>
+
+    <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10c. U · ψₓ</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> [0.4, −0.3] · [0.5, 0.3] = 0.4·0.5 + (−0.3)·0.3 = 0.20 − 0.09 = <span class="res">0.11</span><br>
+<span class="lbl">s2:</span> [−0.1, 0.7] · [0.5, 0.3] = −0.05 + 0.21 = <span class="res">0.16</span><br>
+<span class="lbl">s3:</span> [0.2, −0.5] · [0.5, 0.3] = 0.10 − 0.15 = <span class="res">−0.05</span><br>
+<span class="lbl">s4:</span> [−0.4, 0.1] · [0.5, 0.3] = −0.20 + 0.03 = <span class="res">−0.17</span>
+    </div>
+
+    <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10d. 加起来 → X₁</h4>
+    <div class="arith">
+<span class="lbl">s1:</span>  0    + 0     + 0.11  + 0.10  = <span class="res">0.21</span><br>
+<span class="lbl">s2:</span> −0.08 + (−0.03) + 0.16  + (−0.20) = <span class="res">−0.15</span><br>
+<span class="lbl">s3:</span>  0.15 + 0.04  + (−0.05) + 0.05  = <span class="res">0.19</span><br>
+<span class="lbl">s4:</span>  0    + 0     + (−0.17) + 0.15  = <span class="res">−0.02</span>
+    </div>
+    <table class="matrix" style="margin-top: 8px;">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">X₁</td><td class="hi">0.21</td><td class="hi">−0.15</td><td class="hi">0.19</td><td class="hi">−0.02</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 11 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 11</span><h4>组装次曝光 X₂ (同一套路, 不同系数)</h4></div>
+    <p>$$ X_2 \;=\; G\gamma_2 \;+\; G\kappa_{x_2} \;+\; U\psi_{x_2} \;+\; \varepsilon_2 $$</p>
+    <p>参数 (1 次抽样得到):</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">γ₂</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.10</td><td class="num">−0.05</td></tr>
+        <tr><td class="rowlbl">κₓ₂</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.02</td><td class="num">−0.02</td></tr>
+      </tbody>
+    </table>
+    <table class="matrix">
+      <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
+      <tbody><tr><td class="rowlbl">ψₓ₂</td><td class="num">0.3</td><td class="num">0.4</td></tr></tbody>
+    </table>
+    <table class="matrix">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">ε₂</td><td class="num">−0.05</td><td class="num">0.10</td><td class="num">0.20</td><td class="num">−0.10</td></tr></tbody>
+    </table>
+
+    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">11a. G · γ₂</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> [1,2,0,0,0] · [0,0,0,0.10,−0.05] = <span class="res">0</span><br>
+<span class="lbl">s2:</span> [0,1,1,0,1] · [0,0,0,0.10,−0.05] = 1·(−0.05) = <span class="res">−0.05</span><br>
+<span class="lbl">s3:</span> [2,1,0,1,0] · [0,0,0,0.10,−0.05] = 1·0.10 = <span class="res">0.10</span><br>
+<span class="lbl">s4:</span> [1,0,2,0,0] · [0,0,0,0.10,−0.05] = <span class="res">0</span>
+    </div>
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11b. G · κₓ₂</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> <span class="res">0</span> &nbsp;&nbsp; <span class="lbl">s2:</span> 1·(−0.02) = <span class="res">−0.02</span> &nbsp;&nbsp; <span class="lbl">s3:</span> 1·0.02 = <span class="res">0.02</span> &nbsp;&nbsp; <span class="lbl">s4:</span> <span class="res">0</span>
+    </div>
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11c. U · ψₓ₂</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> 0.4·0.3 + (−0.3)·0.4 = 0.12 − 0.12 = <span class="res">0.00</span><br>
+<span class="lbl">s2:</span> −0.1·0.3 + 0.7·0.4 = −0.03 + 0.28 = <span class="res">0.25</span><br>
+<span class="lbl">s3:</span> 0.2·0.3 + (−0.5)·0.4 = 0.06 − 0.20 = <span class="res">−0.14</span><br>
+<span class="lbl">s4:</span> −0.4·0.3 + 0.1·0.4 = −0.12 + 0.04 = <span class="res">−0.08</span>
+    </div>
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11d. 加起来 → X₂</h4>
+    <div class="arith">
+<span class="lbl">s1:</span>  0    + 0     + 0.00  + (−0.05) = <span class="res">−0.05</span><br>
+<span class="lbl">s2:</span> −0.05 + (−0.02) + 0.25  + 0.10  = <span class="res">0.28</span><br>
+<span class="lbl">s3:</span>  0.10 + 0.02  + (−0.14) + 0.20  = <span class="res">0.18</span><br>
+<span class="lbl">s4:</span>  0    + 0     + (−0.08) + (−0.10) = <span class="res">−0.18</span>
+    </div>
+    <table class="matrix" style="margin-top: 8px;">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">X₂</td><td class="hi">−0.05</td><td class="hi">0.28</td><td class="hi">0.18</td><td class="hi">−0.18</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 12 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 12</span><h4>组装 outcome Y</h4></div>
+    <p>$$ Y \;=\; \beta_1 X_1 \;+\; \beta_2 X_2 \;+\; G\kappa_y \;+\; G\theta \;+\; U\psi_y \;+\; \varepsilon_y $$</p>
+    <p>新系数 (一次抽出来的; θ 是 UHP — uncorrelated pleiotropy):</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">κᵧ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.05</td><td class="num">−0.04</td></tr>
+        <tr><td class="rowlbl">θ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.03</td><td class="num">−0.02</td></tr>
+      </tbody>
+    </table>
+    <table class="matrix">
+      <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
+      <tbody><tr><td class="rowlbl">ψᵧ</td><td class="num">0.4</td><td class="num">0.2</td></tr></tbody>
+    </table>
+    <table class="matrix">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">εᵧ</td><td class="num">0.05</td><td class="num">−0.10</td><td class="num">0.10</td><td class="num">0.00</td></tr></tbody>
+    </table>
+
+    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12a. β₁·X₁  和  β₂·X₂</h4>
+    <div class="arith">
+<span class="lbl">β₁X₁:</span> 0.01·[0.21, −0.15, 0.19, −0.02] = [<span class="res">0.0021</span>, <span class="res">−0.0015</span>, <span class="res">0.0019</span>, <span class="res">−0.0002</span>]<br>
+<span class="lbl">β₂X₂:</span> 0.20·[−0.05, 0.28, 0.18, −0.18] = [<span class="res">−0.010</span>, <span class="res">0.056</span>, <span class="res">0.036</span>, <span class="res">−0.036</span>]
+    </div>
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12b. G·κᵧ &nbsp;&amp;&nbsp; G·θ</h4>
+    <div class="arith">
+<span class="lbl">G·κᵧ:</span><br>
+&nbsp;&nbsp;s1: 0 &nbsp; s2: 1·(−0.04) = <span class="res">−0.04</span> &nbsp; s3: 1·0.05 = <span class="res">0.05</span> &nbsp; s4: 0<br>
+<span class="lbl">G·θ &nbsp;:</span><br>
+&nbsp;&nbsp;s1: 0 &nbsp; s2: 1·(−0.02) = <span class="res">−0.02</span> &nbsp; s3: 1·0.03 = <span class="res">0.03</span> &nbsp; s4: 0
+    </div>
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12c. U·ψᵧ</h4>
+    <div class="arith">
+<span class="lbl">s1:</span> 0.4·0.4 + (−0.3)·0.2 = 0.16 − 0.06 = <span class="res">0.10</span><br>
+<span class="lbl">s2:</span> −0.1·0.4 + 0.7·0.2 = −0.04 + 0.14 = <span class="res">0.10</span><br>
+<span class="lbl">s3:</span> 0.2·0.4 + (−0.5)·0.2 = 0.08 − 0.10 = <span class="res">−0.02</span><br>
+<span class="lbl">s4:</span> −0.4·0.4 + 0.1·0.2 = −0.16 + 0.02 = <span class="res">−0.14</span>
+    </div>
+
+    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12d. 全部加起来 → Y</h4>
+    <div class="arith">
+<span class="lbl">s1:</span>  0.0021 + (−0.010) + 0     + 0     + 0.10  + 0.05  = <span class="res">0.142</span><br>
+<span class="lbl">s2:</span> −0.0015 + 0.056   + (−0.04) + (−0.02) + 0.10  + (−0.10) = <span class="res">−0.006</span><br>
+<span class="lbl">s3:</span>  0.0019 + 0.036   + 0.05  + 0.03  + (−0.02) + 0.10  = <span class="res">0.198</span><br>
+<span class="lbl">s4:</span> −0.0002 + (−0.036) + 0     + 0     + (−0.14) + 0.00  = <span class="res">−0.176</span>
+    </div>
+    <table class="matrix" style="margin-top: 8px;">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.142</td><td class="hi">−0.006</td><td class="hi">0.198</td><td class="hi">−0.176</td></tr></tbody>
+    </table>
+    <details class="why"><summary>为什么 Y 里要塞这么多项?</summary><div class="body">
+      RARE 的核心卖点就是它 <em>显式</em> 建模 CHP (κᵧ) 和 UHP (θ) — 这两条
+      "直接 G → Y" 通道是 valid-instrument 假设的最常见破坏方式. 在仿真里
+      把它们生进去, 才能测算法在 pleiotropy 存在时还能不能识别 β₁.
+      混杂 U 通过 ψ_y 进 Y 制造 confounding bias.
+      对比一下: MR-CARV 仿真里 Y = β X + ε, 上面这些都没有.
+    </div></details>
+  </div>
+
+  <!-- Step 13 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 13</span><h4>计算 GWAS summary stats (示范 2 个 SNP)</h4></div>
+    <p>对每个 SNP j: $\hat\beta_{x,j} = \dfrac{\mathrm{Cov}(G_{:,j}, X_1)}{\mathrm{Var}(G_{:,j})}$ &nbsp;&nbsp; (population formula, 分母用 n=4)</p>
+
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP c1 (公共, MAF=0.30): G[:,c1] = [1, 0, 2, 1]</h4>
+    <div class="arith">
+<span class="lbl">mean(G_c1):</span> (1+0+2+1)/4 = <span class="res">1.0</span><br>
+<span class="lbl">centered G_c1:</span> [0, −1, 1, 0]<br>
+<span class="lbl">mean(X₁):</span> (0.21 + (−0.15) + 0.19 + (−0.02))/4 = 0.23/4 = <span class="res">0.0575</span><br>
+<span class="lbl">centered X₁:</span> [0.1525, −0.2075, 0.1325, −0.0775]<br>
+<span class="lbl">Cov:</span> [0·0.1525 + (−1)·(−0.2075) + 1·0.1325 + 0·(−0.0775)] / 4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= (0 + 0.2075 + 0.1325 + 0) / 4 = 0.340/4 = <span class="res">0.085</span><br>
+<span class="lbl">Var:</span> (0² + (−1)² + 1² + 0²)/4 = 2/4 = <span class="res">0.5</span><br>
+<span class="lbl">β̂_x,c1 :</span> 0.085 / 0.5 = <span class="res">0.170</span>
+    </div>
+
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP r1 (稀有, MAF=0.008): G[:,r1] = [0, 0, 1, 0]</h4>
+    <div class="arith">
+<span class="lbl">mean:</span> 1/4 = <span class="res">0.25</span><br>
+<span class="lbl">centered:</span> [−0.25, −0.25, 0.75, −0.25]<br>
+<span class="lbl">Cov:</span> [(−0.25)·0.1525 + (−0.25)·(−0.2075) + 0.75·0.1325 + (−0.25)·(−0.0775)] / 4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= (−0.0381 + 0.0519 + 0.0994 + 0.0194) / 4 = 0.1325/4 = <span class="res">0.0331</span><br>
+<span class="lbl">Var:</span> (0.0625·3 + 0.5625)/4 = 0.75/4 = <span class="res">0.1875</span><br>
+<span class="lbl">β̂_x,r1:</span> 0.0331 / 0.1875 = <span class="res">0.177</span>
+    </div>
+
+    <p style="margin-top: 10px; color: var(--fg-muted); font-size: 0.92rem;">
+      (其他 SNP 同理 — 同样的 Cov/Var 套路, 也会同样算 $\hat\beta_{y,j}$. 总共 5 个 SNP × 2 个 outcome = 10 个 summary 数对.)
+    </p>
+  </div>
+
+  <!-- Step 14 -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">Step 14</span><h4>下游 — 喂给 RARE 的 Gibbs sampler</h4></div>
+    <p>
+      RARE 的推断核心是 spike-and-slab 选 IV + Gibbs 采 $(\beta_1, \beta_2, \text{indicator}, \text{precision})$.
+      玩具版不实跑 Gibbs (n=4 也跑不出来), 这里只展示算法的 <em>input</em> 是上面这一表的 summary stats:
+    </p>
+    <div class="arith">
+<span class="lbl">输入到 Gibbs 的:</span><br>
+&nbsp;&nbsp;{β̂_x₁,j, β̂_x₂,j, β̂_y,j : j = 1..5}  &nbsp;←  共 15 个 effect-size 估计值<br>
+&nbsp;&nbsp;{SE_x₁,j, SE_x₂,j, SE_y,j : j = 1..5}  &nbsp;←  对应的 standard errors<br>
+&nbsp;&nbsp;LD matrix R (5 × 5)  &nbsp;&nbsp;&nbsp;←  本玩具版退化成单位阵 I₅<br>
+<br>
+<span class="lbl">输出 (假装跑完了):</span><br>
+&nbsp;&nbsp;β₁ posterior mean ≈ <span class="res">0.01</span>  &nbsp; (真值 0.01, 真 n=50000 才有 power)<br>
+&nbsp;&nbsp;PIP_j for each SNP (是否被选为 IV)
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!--                Section 2 · MR-CARV                      -->
+<!-- ====================================================== -->
+<section id="mrcarv">
+  <span class="method-banner mrcarv">MR-CARV · IVW + burden</span>
+  <h2>Section 2 · MR-CARV 玩具版</h2>
+  <p class="lead">
+    MR-CARV 的仿真 <strong>故意</strong>简化: 没有混杂 U, 没有 CHP, 没有 UHP. 它的核心创新点是
+    <em>burden 怎么构</em> + <em>每个 rare SNP 是否 causal 用 Bernoulli 抽</em> + <em>annotation 进 logit</em>.
+    所以下面 X 和 Y 都比 RARE 短得多.
+  </p>
+
+  <!-- Step 1 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 1</span><h4>真因果参数</h4></div>
+    <div class="arith">
+      <span class="lbl">β</span> = <span class="res">0.04</span> &nbsp; (cont/cont cell; 单变量, 没有 X₂)
+    </div>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 2</span><h4>基因型矩阵 G (4 × 6)</h4></div>
+    <p>2 个 common SNP + 4 个 rare SNP. 公共按 MAF 给 0/1/2; 稀有几乎全 0, 偶尔 1.</p>
+    <div class="mrow">
+      <div class="mcell">
+        <div class="mcap">G_common (4 × 2)</div>
+        <table class="matrix">
+          <thead><tr><th></th><th>c1</th><th>c2</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">s1</td><td class="num">1</td><td class="num">2</td></tr>
+            <tr><td class="rowlbl">s2</td><td class="zero">0</td><td class="num">1</td></tr>
+            <tr><td class="rowlbl">s3</td><td class="num">2</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s4</td><td class="num">1</td><td class="num">1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="mcell">
+        <div class="mcap">G_rare (4 × 4)</div>
+        <table class="matrix">
+          <thead><tr><th></th><th>r1</th><th>r2</th><th>r3</th><th>r4</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">s1</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s2</td><td class="num">1</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s3</td><td class="zero">0</td><td class="num">1</td><td class="zero">0</td><td class="zero">0</td></tr>
+            <tr><td class="rowlbl">s4</td><td class="zero">0</td><td class="zero">0</td><td class="zero">0</td><td class="num">1</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <p class="annot">(简化, 真实是 sim1000G 抽真实 1000-Genomes haplotype, 这里直接写 dosage)</p>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 3</span><h4>公共 SNP 效应 α_common (固定常数)</h4></div>
+    <p>MR-CARV 把所有 common IV 的效应 <strong>统一设成 0.5</strong> (不是随机抽), 这样 4 个 (玩具是 2 个) IV 对 X 的贡献是固定的可比基准.</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>c1</th><th>c2</th></tr></thead>
+      <tbody><tr><td class="rowlbl">α_common</td><td class="num">0.5</td><td class="num">0.5</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 4</span><h4>稀有 SNP 效应 α_rare (MAF-缩放)</h4></div>
+    <p>$$ \alpha_j \;=\; c_0 \cdot \lvert \log_{10} \mathrm{MAF}_j \rvert, \quad c_0 = 0.5 $$</p>
+    <p>4 个 rare 的 MAF:</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>r1</th><th>r2</th><th>r3</th><th>r4</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">MAF</td><td class="num">0.005</td><td class="num">0.008</td><td class="num">0.010</td><td class="num">0.003</td></tr>
+      </tbody>
+    </table>
+    <div class="arith">
+<span class="lbl">r1:</span> 0.5 · |log₁₀(0.005)| = 0.5 · 2.301 = <span class="res">1.151</span><br>
+<span class="lbl">r2:</span> 0.5 · |log₁₀(0.008)| = 0.5 · 2.097 = <span class="res">1.048</span><br>
+<span class="lbl">r3:</span> 0.5 · |log₁₀(0.010)| = 0.5 · 2.000 = <span class="res">1.000</span><br>
+<span class="lbl">r4:</span> 0.5 · |log₁₀(0.003)| = 0.5 · 2.523 = <span class="res">1.261</span>
+    </div>
+    <details class="why"><summary>为什么 α 跟 MAF 反相关?</summary><div class="body">
+      负选择假设: 越罕的等位通常效应越大 (功能越破坏性, 自然选择没来得及把它压低). 这是 MR-CARV 仿真里
+      内嵌的 prior. 真实里 α 怎么跟 MAF 关联是个开放问题.
+    </div></details>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 5</span><h4>Bernoulli causal-indicator φ (annotation → 概率)</h4></div>
+    <p>每个 rare SNP 有 5 个 annotation 列 (0/1 编码). 用 logit 模型把 annotation 转成 "这个 SNP 真 causal 的概率", 然后抽 Bernoulli.</p>
+    <p>Annotation 矩阵 A (4 rare SNP × 5 annot):</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>a1</th><th>a2</th><th>a3</th><th>a4</th><th>a5</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">r1</td><td class="num">1</td><td class="zero">0</td><td class="num">1</td><td class="zero">0</td><td class="num">1</td></tr>
+        <tr><td class="rowlbl">r2</td><td class="zero">0</td><td class="num">1</td><td class="zero">0</td><td class="num">1</td><td class="zero">0</td></tr>
+        <tr><td class="rowlbl">r3</td><td class="num">1</td><td class="num">1</td><td class="zero">0</td><td class="zero">0</td><td class="num">1</td></tr>
+        <tr><td class="rowlbl">r4</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="zero">0</td></tr>
+      </tbody>
+    </table>
+    <p>$$ \mathrm{logit}\,P(\varphi_j=1) \;=\; b_0 + \sum_{i=1}^{5} b_i A_{ji}, \quad b_0 = -\log 5 \approx -1.609,\; b_i = \log 5 \approx 1.609 $$</p>
+    <p>(b₀ 选 −log 5, 让 "0 个 annotation 活跃" → expit(−1.609) ≈ 0.17, "1 个活跃" → 0.5, 越多越接近 1)</p>
+    <div class="arith">
+<span class="lbl">r1:</span> A·b = 3 annot active &nbsp;⇒&nbsp; logit = −1.609 + 3·1.609 = <span class="res">3.218</span> &nbsp;⇒&nbsp; p = expit(3.218) ≈ <span class="res">0.961</span><br>
+<span class="lbl">r2:</span> 2 active &nbsp;⇒&nbsp; logit = −1.609 + 2·1.609 = <span class="res">1.609</span> &nbsp;⇒&nbsp; p ≈ <span class="res">0.833</span><br>
+<span class="lbl">r3:</span> 3 active &nbsp;⇒&nbsp; logit = <span class="res">3.218</span> &nbsp;⇒&nbsp; p ≈ <span class="res">0.961</span><br>
+<span class="lbl">r4:</span> 4 active &nbsp;⇒&nbsp; logit = <span class="res">4.827</span> &nbsp;⇒&nbsp; p ≈ <span class="res">0.992</span>
+    </div>
+    <p>从 Bernoulli(p) 各抽一次 (seed=1 给定):</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>r1</th><th>r2</th><th>r3</th><th>r4</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">φ</td><td class="hi">1</td><td class="hi">1</td><td class="zero">0</td><td class="hi">1</td></tr>
+      </tbody>
+    </table>
+    <p>φ = 0 的 SNP 把 α 置零, 所以最终生效的 α_rare:</p>
+    <table class="matrix">
+      <thead><tr><th></th><th>r1</th><th>r2</th><th>r3</th><th>r4</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">α_rare · φ</td><td class="num">1.151</td><td class="num">1.048</td><td class="zero">0</td><td class="num">1.261</td></tr>
+      </tbody>
+    </table>
+    <details class="why"><summary>为什么用 Bernoulli 而不是直接 spike-and-slab?</summary><div class="body">
+      MR-CARV 的方法假设 burden 里只有一部分 SNP 真 causal; 仿真用 Bernoulli 抽这个二元指标
+      就直接对应这个假设. 概率被 annotation 调制是 STAAR 思想 (functional annotations 提升 prior).
+    </div></details>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 6</span><h4>组装暴露 X = G α + ε &nbsp; (没有 U, 没有 CHP, 没有 UHP)</h4></div>
+    <p>$$ X_i \;=\; \sum_{j \in \text{common}} \alpha_{c,j} G_{ij} \;+\; \sum_{j \in \text{rare}} (\varphi_j \alpha_j) G_{ij} \;+\; \varepsilon_i $$</p>
+    <p>取 ε = [0.05, −0.10, 0.10, −0.05]:</p>
+    <div class="arith">
+<span class="lbl">s1:</span> 0.5·1 + 0.5·2 + 1.151·0 + 1.048·0 + 0·0 + 1.261·0 + 0.05<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= 0.5 + 1.0 + 0 + 0 + 0 + 0 + 0.05 = <span class="res">1.55</span><br>
+<span class="lbl">s2:</span> 0.5·0 + 0.5·1 + 1.151·1 + 1.048·0 + 0·0 + 1.261·0 + (−0.10)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= 0 + 0.5 + 1.151 + 0 + 0 + 0 + (−0.10) = <span class="res">1.551</span><br>
+<span class="lbl">s3:</span> 0.5·2 + 0.5·0 + 1.151·0 + 1.048·1 + 0·0 + 1.261·0 + 0.10<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= 1.0 + 0 + 0 + 1.048 + 0 + 0 + 0.10 = <span class="res">2.148</span><br>
+<span class="lbl">s4:</span> 0.5·1 + 0.5·1 + 1.151·0 + 1.048·0 + 0·0 + 1.261·1 + (−0.05)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= 0.5 + 0.5 + 0 + 0 + 0 + 1.261 + (−0.05) = <span class="res">2.211</span>
+    </div>
+    <table class="matrix" style="margin-top: 8px;">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">X</td><td class="hi">1.550</td><td class="hi">1.551</td><td class="hi">2.148</td><td class="hi">2.211</td></tr></tbody>
+    </table>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 7</span><h4>组装 outcome Y = β X + εᵧ</h4></div>
+    <p>取 εᵧ = [0.02, −0.03, 0.04, −0.01], β = 0.04.</p>
+    <div class="arith">
+<span class="lbl">s1:</span> 0.04 · 1.550 + 0.02 = 0.062 + 0.02 = <span class="res">0.082</span><br>
+<span class="lbl">s2:</span> 0.04 · 1.551 + (−0.03) = 0.0620 − 0.03 = <span class="res">0.032</span><br>
+<span class="lbl">s3:</span> 0.04 · 2.148 + 0.04 = 0.0859 + 0.04 = <span class="res">0.126</span><br>
+<span class="lbl">s4:</span> 0.04 · 2.211 + (−0.01) = 0.0884 − 0.01 = <span class="res">0.078</span>
+    </div>
+    <table class="matrix" style="margin-top: 8px;">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.082</td><td class="hi">0.032</td><td class="hi">0.126</td><td class="hi">0.078</td></tr></tbody>
+    </table>
+    <details class="why"><summary>为什么 Y 这么干净?</summary><div class="body">
+      MR-CARV 仿真里 <code class="mono">Y = βX + ε</code>, 没有 G→Y 直接通道, 没有 confounding.
+      这是它 Type-I 漂亮的根本原因 — pleiotropy 场景<em>从来没生</em>, 自然不会失败.
+      参看 Section 3 的对比.
+    </div></details>
+  </div>
+
+  <!-- Step 8 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 8</span><h4>Burden 构建 — 把 4 个 rare 压成 1 个 score</h4></div>
+    <p>权重 $w_j = \mathrm{Beta\text{-}pdf}(\mathrm{MAF}_j; 1, 25) = 25 \cdot (1-\mathrm{MAF}_j)^{24}$ — 越罕权重越大.</p>
+    <div class="arith">
+<span class="lbl">w₁:</span> 25 · (0.995)²⁴ = 25 · 0.8866 = <span class="res">22.16</span><br>
+<span class="lbl">w₂:</span> 25 · (0.992)²⁴ = 25 · 0.8246 = <span class="res">20.62</span><br>
+<span class="lbl">w₃:</span> 25 · (0.990)²⁴ = 25 · 0.7857 = <span class="res">19.64</span><br>
+<span class="lbl">w₄:</span> 25 · (0.997)²⁴ = 25 · 0.9304 = <span class="res">23.26</span>
+    </div>
+    <p>$$ B_i \;=\; \sum_{j=1}^{4} w_j \, G^{\text{rare}}_{ij} $$</p>
+    <div class="arith">
+<span class="lbl">s1:</span> 22.16·0 + 20.62·0 + 19.64·0 + 23.26·0 = <span class="res">0.00</span><br>
+<span class="lbl">s2:</span> 22.16·1 + 20.62·0 + 19.64·0 + 23.26·0 = <span class="res">22.16</span><br>
+<span class="lbl">s3:</span> 22.16·0 + 20.62·1 + 19.64·0 + 23.26·0 = <span class="res">20.62</span><br>
+<span class="lbl">s4:</span> 22.16·0 + 20.62·0 + 19.64·0 + 23.26·1 = <span class="res">23.26</span>
+    </div>
+    <table class="matrix" style="margin-top: 8px;">
+      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+      <tbody><tr><td class="rowlbl">B</td><td class="hi">0.00</td><td class="hi">22.16</td><td class="hi">20.62</td><td class="hi">23.26</td></tr></tbody>
+    </table>
+    <details class="why"><summary>Beta(1,25) 怎么选的?</summary><div class="body">
+      这是 STAAR 默认权重. Beta(1,25) 的 pdf 在 MAF=0 附近最大, MAF=0.1 已经几乎 0,
+      所以"越罕的等位携带更大权重". MR-CARV 还会同时跑 Beta(1,1) (等权重),
+      最后用 Cauchy combination 合并 p-values.
+    </div></details>
+  </div>
+
+  <!-- Step 9 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 9</span><h4>Summary stats (2 common + 1 burden = 3 个 IV)</h4></div>
+    <p>跟 RARE Step 13 同样的 Cov/Var 公式 — 这里只写结果:</p>
+    <p style="font-size: 0.9rem; color: var(--fg-muted);">
+      mean(X) = (1.550+1.551+2.148+2.211)/4 = 7.460/4 = <code class="mono">1.865</code><br>
+      mean(Y) = (0.082+0.032+0.126+0.078)/4 = 0.318/4 = <code class="mono">0.0795</code><br>
+      centered X = [−0.315, −0.314, &nbsp;0.283, &nbsp;0.346]<br>
+      centered Y = [&nbsp;0.0025, −0.0475, &nbsp;0.0465, −0.0015]
+    </p>
+
+    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">SNP c1 (G_c[:,1] = [1, 0, 2, 1], mean=1)</h4>
+    <div class="arith">
+centered G_c1 = [0, −1, 1, 0]<br>
+Cov(G_c1, X) = (0·(−0.315) + (−1)·(−0.314) + 1·0.283 + 0·0.346)/4 = 0.597/4 = <span class="res">0.1493</span><br>
+Var(G_c1)    = (0 + 1 + 1 + 0)/4 = <span class="res">0.5</span><br>
+<span class="lbl">β̂_x,c1</span> = 0.1493 / 0.5 = <span class="res">0.299</span><br>
+Cov(G_c1, Y) = (0·0.0025 + (−1)·(−0.0475) + 1·0.0465 + 0·(−0.0015))/4 = 0.094/4 = <span class="res">0.0235</span><br>
+<span class="lbl">β̂_y,c1</span> = 0.0235 / 0.5 = <span class="res">0.047</span>
+    </div>
+
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP c2 (G_c[:,2] = [2, 1, 0, 1], mean=1)</h4>
+    <div class="arith">
+centered G_c2 = [1, 0, −1, 0]<br>
+Cov(G_c2, X) = (1·(−0.315) + 0 + (−1)·0.283 + 0)/4 = −0.598/4 = <span class="res">−0.1495</span><br>
+<span class="lbl">β̂_x,c2</span> = −0.1495 / 0.5 = <span class="res">−0.299</span><br>
+Cov(G_c2, Y) = (1·0.0025 + 0 + (−1)·0.0465 + 0)/4 = −0.044/4 = <span class="res">−0.011</span><br>
+<span class="lbl">β̂_y,c2</span> = −0.011 / 0.5 = <span class="res">−0.022</span>
+    </div>
+
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">Burden B = [0, 22.16, 20.62, 23.26], mean = 66.04/4 = 16.51</h4>
+    <div class="arith">
+centered B = [−16.51, 5.65, 4.11, 6.75]<br>
+Cov(B, X) = ((−16.51)·(−0.315) + 5.65·(−0.314) + 4.11·0.283 + 6.75·0.346)/4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= (5.201 + (−1.774) + 1.163 + 2.336) / 4 = 6.926 / 4 = <span class="res">1.732</span><br>
+Var(B) = (16.51² + 5.65² + 4.11² + 6.75²)/4 = (272.58 + 31.92 + 16.89 + 45.56)/4 = 366.95/4 = <span class="res">91.74</span><br>
+<span class="lbl">β̂_x,burden</span> = 1.732 / 91.74 = <span class="res">0.0189</span><br>
+Cov(B, Y) = ((−16.51)·0.0025 + 5.65·(−0.0475) + 4.11·0.0465 + 6.75·(−0.0015))/4<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= (−0.0413 + (−0.2684) + 0.1911 + (−0.0101)) / 4 = −0.1287 / 4 = <span class="res">−0.0322</span><br>
+<span class="lbl">β̂_y,burden</span> = −0.0322 / 91.74 = <span class="res">−0.000351</span>
+    </div>
+
+    <table class="matrix" style="margin-top: 10px;">
+      <thead><tr><th>IV</th><th>β̂_x</th><th>β̂_y</th></tr></thead>
+      <tbody>
+        <tr><td class="rowlbl">c1</td><td class="hi">0.299</td><td class="hi">0.047</td></tr>
+        <tr><td class="rowlbl">c2</td><td class="hi">−0.299</td><td class="hi">−0.022</td></tr>
+        <tr><td class="rowlbl">burden</td><td class="hi">0.0189</td><td class="hi">−0.000351</td></tr>
+      </tbody>
+    </table>
+    <p class="annot">3 个 IV 对应 3 个 (β̂_x, β̂_y) 对 (共 6 个标量).</p>
+  </div>
+
+  <!-- Step 10 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 10</span><h4>IVW 估计 — 把 3 个 IV 合成 1 个 β̂</h4></div>
+    <p>(主仿真有 4 common + 4 burden = 8 IV; 玩具只有 3, 但 IVW 公式不变.)</p>
+    <p>$$ \hat\beta_{\mathrm{IVW}} \;=\; \frac{\sum_k w_k \,\hat\beta_{x,k}\,\hat\beta_{y,k}}{\sum_k w_k\,\hat\beta_{x,k}^{\,2}} $$</p>
+    <p>玩具没有 SE, 用 unit weights $w_k = 1$:</p>
+    <div class="arith">
+<span class="lbl">分子:</span> 0.299·0.047 + (−0.299)·(−0.022) + 0.0189·(−0.000351)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= 0.01405 + 0.00658 + (−0.0000066)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= <span class="res">0.02062</span><br>
+<span class="lbl">分母:</span> 0.299² + (−0.299)² + 0.0189²<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= 0.0894 + 0.0894 + 0.000357<br>
+&nbsp;&nbsp;&nbsp;&nbsp;= <span class="res">0.1792</span><br>
+<span class="lbl">β̂_IVW</span> = 0.02062 / 0.1792 = <span class="res">0.115</span>
+    </div>
+    <p>(真值 β = 0.04. 玩具版 n=4 信噪比太低, 估值离真值远是预期; 真实 n=50000 才有 power.)</p>
+  </div>
+
+  <!-- Step 11 -->
+  <div class="step mrcarv">
+    <div class="step-head"><span class="num">Step 11</span><h4>跟 RARE 的对比</h4></div>
+    <p>看完 RARE 的 14 步和 MR-CARV 的 10 步, 该看清的:</p>
+    <ul style="margin: 4px 0; padding-left: 22px; line-height: 1.85;">
+      <li><strong>RARE 显式建 3 层干扰</strong>: U (混杂) → ψ → X 和 Y; G → κ → X 和 Y (CHP); G → θ → Y (UHP).</li>
+      <li><strong>MR-CARV 啥都没建</strong>: Y = β X + ε, X = Σα G + ε. 没有 U, 没有 G→Y 直接路径.</li>
+      <li>所以同一份 n=50000 仿真里, RARE 才能测出 "在 pleiotropy 存在时是否还能识别 β"; MR-CARV 测不了 — 因为它的仿真<em>没生</em>这个场景.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ====================================================== -->
+<!--             Section 3 · 关键对比 callout                -->
+<!-- ====================================================== -->
+<section id="compare">
+  <span class="method-banner callout">关键对比</span>
+  <h2>Section 3 · 一张表看完两者的差别</h2>
+
+  <div class="compare-box">
+    <h3>变量 inventory</h3>
+    <div class="compare-grid">
+      <div class="cell">
+        <h4>只在 RARE 里有</h4>
+        <ul>
+          <li><code>U</code> — 潜在混杂</li>
+          <li><code>κₓ, κᵧ</code> — CHP 系数</li>
+          <li><code>θ</code> — UHP 系数</li>
+          <li><code>ψₓ, ψᵧ</code> — 混杂载荷</li>
+          <li><code>β₂, X₂</code> — 次曝光通道</li>
+          <li><code>γ₂</code> — common-IV 通道</li>
+        </ul>
+      </div>
+      <div class="cell">
+        <h4>两个都有 (共享骨架)</h4>
+        <ul>
+          <li><code>G</code> — 基因型矩阵</li>
+          <li><code>X</code> — 暴露</li>
+          <li><code>Y</code> — outcome</li>
+          <li><code>ε</code> — 高斯噪声</li>
+          <li><code>α</code> 或 <code>δ</code> — IV → X 系数</li>
+          <li>summary stats <code>(β̂_x, β̂_y)</code></li>
+        </ul>
+      </div>
+      <div class="cell">
+        <h4>只在 MR-CARV 里有</h4>
+        <ul>
+          <li><code>φ</code> — Bernoulli causal indicator</li>
+          <li>annotation 矩阵 <code>A</code></li>
+          <li><code>b₀, b_i</code> — logit 系数</li>
+          <li>burden 权重 <code>w_j = Beta(MAF; 1,25)</code></li>
+          <li>burden score <code>B</code></li>
+          <li><code>α = c₀·|log₁₀ MAF|</code> 缩放</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="punchline">
+      <strong>一句话:</strong>
+      <em>RARE</em> 在仿真里建了 pleiotropy 通道 (<code class="mono">G → Y</code> 直接, 通过 κᵧ 和 θ)
+      以及混杂通道 (<code class="mono">U → X, U → Y</code> 共同祖先), 所以它的仿真<em>会</em>把
+      "valid-instrument 假设破坏掉" 这个最常见的失败模式生进数据;
+      <em>MR-CARV</em> 完全没建 — <code class="mono">Y = β X + ε</code> — 这是为什么它的 Type-I 看着好,
+      因为它<strong>根本没测 pleiotropy 场景</strong>.
+      所以两者的"Type-I 通过"含义完全不一样, 不能直接比较.
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-links">
+      <a href="methods_diagram.html">← methods_diagram.html</a>
+      <a href="comparator_validation.html">comparator_validation.html</a>
+      <a href="VALIDATION_PLAN.md">VALIDATION_PLAN.md</a>
+      <a href="research_RARE.md">research_RARE.md</a>
+      <a href="research_MR-CARV.md">research_MR-CARV.md</a>
+      <a href="https://github.com/" target="_blank" rel="noopener">GitHub repo</a>
+    </div>
+    <div style="margin-top: 10px; font-size: 0.8rem; color: var(--fg-dim);">
+      rvSMR · Sethi lab · n=4 玩具走查 · 主题与 methods_diagram.html / comparator_validation.html 同步 (localStorage key <code class="mono">rvsmr-theme</code>)
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Theme toggle with localStorage persistence (shares key 'rvsmr-theme' with sibling pages)
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    function apply(t) {
+      if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      else document.documentElement.removeAttribute('data-theme');
+    }
+    function current() {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+    btn.addEventListener('click', function () {
+      var next = current() === 'light' ? 'dark' : 'light';
+      apply(next);
+      try { localStorage.setItem('rvsmr-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+
+</body>
+</html>
