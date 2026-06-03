@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>rvSMR comparator validation viewer</title>
+<script>
+  // Apply theme before paint to avoid flash
+  (function () {
+    try {
+      var saved = localStorage.getItem('rvsmr-theme');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  })();
+</script>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev-2: #1c2128;
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --fg-dim: #6e7681;
+    --accent: #58a6ff;
+    --border: rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --good: #2ea043;
+    --good-bg: rgba(46, 160, 67, 0.14);
+    --bad: #f85149;
+    --bad-bg: rgba(248, 81, 73, 0.14);
+    --warn: #d29922;
+    --warn-bg: rgba(210, 153, 34, 0.14);
+    --code-bg: #0b0f14;
+
+    --c-rare: #b39ddb;
+    --c-mrcarv: #f4b860;
+    --c-wangkang: #4db6ac;
+    --c-plb: #f08080;
+    --c-mrbee: #94c19a;
+    --c-rvsmr: #dc143c;
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-serif: Charter, Georgia, "Times New Roman", serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff;
+    --bg-elev: #f6f8fa;
+    --bg-elev-2: #eef2f6;
+    --fg: #1f2328;
+    --fg-muted: #57606a;
+    --fg-dim: #8c959f;
+    --accent: #0969da;
+    --border: rgba(0, 0, 0, 0.08);
+    --border-strong: rgba(0, 0, 0, 0.16);
+    --good: #1a7f37;
+    --good-bg: rgba(26, 127, 55, 0.10);
+    --bad: #cf222e;
+    --bad-bg: rgba(207, 34, 46, 0.09);
+    --warn: #9a6700;
+    --warn-bg: rgba(154, 103, 0, 0.10);
+    --code-bg: #f6f8fa;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre, .mono { font-family: var(--font-mono); }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 14px;
+    overflow-x: auto;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--fg);
+    margin: 0;
+  }
+  h1, h2, h3, h4 { color: var(--fg); margin: 0; font-weight: 600; }
+  h1 { font-size: 1.85rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.35rem; margin-bottom: 0.6rem; letter-spacing: -0.005em; }
+  h3 { font-size: 1.05rem; }
+  h4 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-muted); }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* Header */
+  header.site-header {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+  .header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 14px 0;
+  }
+  .header-text { min-width: 0; }
+  .subtitle { color: var(--fg-muted); font-size: 0.92rem; margin-top: 2px; }
+  .source-line { color: var(--fg-dim); font-size: 0.78rem; margin-top: 2px; }
+  .theme-toggle {
+    background: var(--bg-elev);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-family: var(--font-sans);
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .theme-toggle:hover { border-color: var(--border-strong); }
+
+  section { margin: 38px 0; }
+  .lead {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--fg-muted);
+    max-width: 760px;
+    line-height: 1.7;
+    margin-top: 12px;
+  }
+
+  /* Stat cards */
+  .stat-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .stat-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 18px 16px;
+  }
+  .stat-big {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--fg);
+    letter-spacing: -0.01em;
+  }
+  .stat-big .qualifier {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--fg-muted);
+    margin-left: 6px;
+  }
+  .stat-sub {
+    color: var(--fg-muted);
+    font-size: 0.85rem;
+    margin-top: 6px;
+  }
+  .stat-card.opening { border-left: 3px solid var(--c-rvsmr); }
+
+  /* Comparison table */
+  .table-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: auto;
+    background: var(--bg-elev);
+    max-height: 70vh;
+  }
+  table.cmp {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 0.84rem;
+    min-width: 820px;
+  }
+  table.cmp th, table.cmp td {
+    padding: 9px 11px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.cmp th {
+    background: var(--bg-elev-2);
+    position: sticky; top: 0;
+    font-weight: 600;
+    color: var(--fg);
+    cursor: pointer;
+    user-select: none;
+    z-index: 2;
+  }
+  table.cmp th:first-child {
+    position: sticky; left: 0; z-index: 3;
+    background: var(--bg-elev-2);
+  }
+  table.cmp td:first-child {
+    position: sticky; left: 0;
+    background: var(--bg-elev);
+    font-weight: 600;
+    color: var(--fg);
+    z-index: 1;
+    border-right: 1px solid var(--border);
+  }
+  table.cmp tr:hover td { background: var(--bg-elev-2); }
+  table.cmp tr:hover td:first-child { background: var(--bg-elev-2); }
+  table.cmp th .sort-ind { color: var(--fg-dim); margin-left: 4px; font-size: 0.78rem; }
+  td.cell-bad { background: var(--bad-bg); color: var(--bad); }
+  td.cell-good { background: var(--good-bg); color: var(--good); }
+  td.cell-warn { background: var(--warn-bg); }
+  table.cmp tr:hover td.cell-bad { background: var(--bad-bg); }
+  table.cmp tr:hover td.cell-good { background: var(--good-bg); }
+
+  /* Method cards */
+  .method-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--method-color, var(--accent));
+    border-radius: 12px;
+    padding: 22px;
+    margin-bottom: 22px;
+  }
+  .method-header {
+    display: flex; flex-wrap: wrap; gap: 12px;
+    align-items: flex-start; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .method-title { color: var(--method-color, var(--fg)); font-size: 1.5rem; letter-spacing: -0.01em; }
+  .method-cite { color: var(--fg-muted); font-size: 0.85rem; margin-top: 4px; }
+  .method-links { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge {
+    display: inline-block;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    color: var(--fg);
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+  }
+  .badge.gh {
+    background: var(--bg-elev-2);
+    border-color: var(--border-strong);
+  }
+  .badge.gh.absent {
+    background: var(--bad-bg);
+    color: var(--bad);
+    border-color: var(--bad);
+  }
+  .badge.doi { color: var(--accent); border-color: var(--accent); }
+  .badge.arxiv { color: var(--warn); border-color: var(--warn); }
+
+  .method-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 8px;
+  }
+  .method-block { min-width: 0; }
+  .method-block h4 { margin-bottom: 8px; }
+
+  table.mini {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.82rem;
+  }
+  table.mini th, table.mini td {
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.mini th {
+    color: var(--fg-muted);
+    font-weight: 600;
+    width: 40%;
+  }
+  table.mini tr:last-child td, table.mini tr:last-child th { border-bottom: none; }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    font-family: var(--font-mono);
+    color: var(--fg);
+  }
+
+  .callout {
+    margin-top: 14px;
+    border-left: 3px solid var(--c-rvsmr);
+    background: rgba(220, 20, 60, 0.07);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.88rem;
+  }
+  .callout strong { color: var(--c-rvsmr); }
+
+  /* Synthesis matrix */
+  .matrix-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elev);
+  }
+  table.matrix {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 0.84rem;
+    min-width: 700px;
+  }
+  table.matrix th, table.matrix td {
+    padding: 9px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  table.matrix th { background: var(--bg-elev-2); font-weight: 600; }
+  table.matrix td:first-child, table.matrix th:first-child {
+    text-align: left;
+    background: var(--bg-elev);
+    font-weight: 500;
+    color: var(--fg);
+  }
+  table.matrix td.col-rvsmr { background: rgba(220, 20, 60, 0.06); }
+  .glyph { font-size: 1.05rem; display: inline-block; position: relative; cursor: help; }
+  .glyph.yes { color: var(--good); }
+  .glyph.no  { color: var(--bad); }
+  .glyph.maybe { color: var(--warn); }
+  .glyph[data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-elev-2);
+    color: var(--fg);
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 5px 9px;
+    white-space: nowrap;
+    font-size: 0.74rem;
+    font-family: var(--font-sans);
+    pointer-events: none;
+    z-index: 99;
+  }
+
+  /* Chart */
+  .chart-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    margin-top: 14px;
+  }
+  .chart-canvas-wrap { position: relative; height: 280px; }
+
+  /* SVG schematic */
+  .schematic-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+  }
+  .schematic-card svg { width: 100%; height: auto; max-height: 360px; }
+  .schematic-desc { color: var(--fg-muted); font-size: 0.9rem; margin-top: 10px; }
+  .schematic-tag {
+    display: inline-block; font-size: 0.7rem;
+    background: var(--warn-bg); color: var(--warn);
+    border: 1px solid var(--warn); border-radius: 4px;
+    padding: 1px 6px; margin-left: 8px;
+    font-family: var(--font-mono);
+  }
+
+  /* Tracks (rvSMR's plan) */
+  details.plan-section {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elev);
+    padding: 14px 18px;
+  }
+  details.plan-section > summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.05rem;
+    list-style: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  details.plan-section > summary::before {
+    content: "▸";
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+    transition: transform 0.15s;
+  }
+  details.plan-section[open] > summary::before { transform: rotate(90deg); }
+  .track-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 16px;
+  }
+  .track-card {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    border-top: 3px solid var(--accent);
+  }
+  .track-card h3 { font-size: 1rem; margin-bottom: 6px; }
+  .track-card p { font-size: 0.86rem; color: var(--fg-muted); margin: 6px 0 8px; }
+  .status-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .status-badge.unblocked { background: var(--good-bg); color: var(--good); border: 1px solid var(--good); }
+  .status-badge.blocked { background: var(--bad-bg); color: var(--bad); border: 1px solid var(--bad); }
+
+  /* Footer */
+  footer.site-footer {
+    border-top: 1px solid var(--border);
+    color: var(--fg-muted);
+    padding: 24px 0 40px;
+    font-size: 0.85rem;
+    margin-top: 40px;
+  }
+  .footer-links { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    h1 { font-size: 1.45rem; }
+    .stat-bar { grid-template-columns: 1fr; }
+    .method-grid { grid-template-columns: 1fr; }
+    .track-grid { grid-template-columns: 1fr; }
+    .header-row { flex-direction: column; align-items: flex-start; }
+    body { font-size: 14px; }
+    pre { font-size: 11.5px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div class="header-text">
+      <h1>rvSMR comparator validation viewer</h1>
+      <div class="subtitle">How five MR methods validate &mdash; and where they leave gaps</div>
+      <div class="source-line">
+        data sources:
+        <a href="research_RARE.md">research_RARE.md</a> &middot;
+        <a href="research_MR-CARV.md">research_MR-CARV.md</a> &middot;
+        <a href="research_AR_cisMR_comparators.md">research_AR_cisMR_comparators.md</a> &middot;
+        <a href="VALIDATION_PLAN.md">VALIDATION_PLAN.md</a>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle color scheme">Toggle theme</button>
+  </div>
+</header>
+
+<main class="container">
+
+  <section id="intro">
+    <p class="lead">
+      Five Mendelian-randomization methods (RARE, MR-CARV, Wang&ndash;Kang, Patel&ndash;Lane&ndash;Burgess, cis-MRBEE) form
+      the comparator landscape for <em>rvSMR</em>, a rare-variant single-gene MR method using Anderson&ndash;Rubin inference.
+      Each paper sets a partial bar for what counts as &ldquo;validation&rdquo; in modern MR &mdash; some run weak-IV
+      sweeps, some ship code, some use drug-target positive controls, none assemble a curated negative-control panel.
+      This page walks each method's choices side-by-side so the gaps rvSMR can credibly close are visible at a glance.
+    </p>
+  </section>
+
+  <section id="headline-stats" aria-label="Headline insights">
+    <h2>Headline insights</h2>
+    <div class="stat-bar">
+      <div class="stat-card">
+        <div class="stat-big">5 / 5 <span class="qualifier">papers cite a coverage figure</span></div>
+        <div class="stat-sub">&hellip; but only <strong>2 / 5</strong> actually show <em>coverage vs $F$-statistic</em>
+          (Wang&ndash;Kang Fig 6, Patel&ndash;Lane&ndash;Burgess Fig 2). The other three skip the canonical sweep.</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-big">3 / 5 <span class="qualifier">ship a GitHub repo with simulation code</span></div>
+        <div class="stat-sub">RARE, Patel&ndash;Lane&ndash;Burgess, and cis-MRBEE publish runnable code.
+          MR-CARV ships an R package <em>without</em> the simulation generator;
+          Wang&ndash;Kang has no public repo at all.</div>
+      </div>
+      <div class="stat-card opening">
+        <div class="stat-big">0 / 5 <span class="qualifier">use a curated negative-control panel</span></div>
+        <div class="stat-sub">No comparator ships biologically implausible (gene&times;outcome) pairs as a
+          calibration check. <strong style="color:var(--c-rvsmr)">rvSMR's opening.</strong></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="comparison">
+    <h2>Side-by-side comparison</h2>
+    <p class="lead" style="margin-bottom:14px;">
+      Thirteen validation dimensions &times; five methods. Sticky header + first column;
+      click any header to sort. Cells marked <span style="color:var(--bad)">red</span> are absent;
+      <span style="color:var(--good)">green</span> are canonical strong claims.
+    </p>
+    <div class="table-wrap">
+      <table class="cmp" id="cmpTable">
+        <thead>
+          <tr>
+            <th data-col="0">Dimension <span class="sort-ind">&#x2195;</span></th>
+            <th data-col="1">RARE (Cheng 2025) <span class="sort-ind">&#x2195;</span></th>
+            <th data-col="2">MR-CARV (Zhang 2026) <span class="sort-ind">&#x2195;</span></th>
+            <th data-col="3">Wang&ndash;Kang 2022 <span class="sort-ind">&#x2195;</span></th>
+            <th data-col="4">Patel&ndash;Lane&ndash;Burgess 2024 <span class="sort-ind">&#x2195;</span></th>
+            <th data-col="5">cis-MRBEE (Yang 2025) <span class="sort-ind">&#x2195;</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>GitHub</td>
+            <td><a href="https://github.com/Hide-in-lab/RARE" target="_blank" rel="noopener">Hide-in-lab/RARE</a></td>
+            <td><a href="https://github.com/yu-zhang-oYo/mr.carv" target="_blank" rel="noopener">yu-zhang-oYo/mr.carv</a></td>
+            <td class="cell-bad">not found</td>
+            <td><a href="https://github.com/ash-res/mvmr-weakiv" target="_blank" rel="noopener">ash-res/mvmr-weakiv</a></td>
+            <td><a href="https://github.com/harryyiheyang/MRBEEX" target="_blank" rel="noopener">harryyiheyang/MRBEEX</a></td>
+          </tr>
+          <tr>
+            <td>Sim genotype source</td>
+            <td>synthetic + UKBB sanity</td>
+            <td>1000G real haplotypes</td>
+            <td>Binomial(2, p) synthetic</td>
+            <td>multivariate-normal synthetic</td>
+            <td>cis-window 1000G LD</td>
+          </tr>
+          <tr>
+            <td># instruments</td>
+            <td>1 000 common + 20 rare</td>
+            <td>4 common + 4 burdens</td>
+            <td>100</td>
+            <td>4 (baseline; up to 8)</td>
+            <td>~3 per exposure</td>
+          </tr>
+          <tr>
+            <td>Sample size</td>
+            <td>$n = 50\,000$ fixed</td>
+            <td>$n = 1\text{k} / 2\text{k} / 10\text{k}$</td>
+            <td>$n = 100\,000$</td>
+            <td>$n = 5\,000$ + subsamples</td>
+            <td>$n = 300 / 3\text{k} / 30\text{k}$</td>
+          </tr>
+          <tr>
+            <td>Weak-IV sweep</td>
+            <td class="cell-bad">NONE</td>
+            <td class="cell-bad">NONE</td>
+            <td class="cell-good">$r \in \{1, 4, 16, 25\}$ (~$F$)</td>
+            <td class="cell-good">$F_{\min} \approx 6, 10, 30$ + $\xi$</td>
+            <td class="cell-warn">implicit via $n$</td>
+          </tr>
+          <tr>
+            <td>Type-I reps</td>
+            <td>300</td>
+            <td>10 000</td>
+            <td>1 000</td>
+            <td>not specified</td>
+            <td>500</td>
+          </tr>
+          <tr>
+            <td>Coverage figure</td>
+            <td class="cell-bad">absent</td>
+            <td class="cell-bad">absent</td>
+            <td class="cell-good">Fig 6 (canonical)</td>
+            <td class="cell-good">Fig 2 (canonical)</td>
+            <td class="cell-warn">implicit</td>
+          </tr>
+          <tr>
+            <td>Comparators</td>
+            <td>MV-IVW, MV-Egger, MV-LASSO, GRAPPLE</td>
+            <td>IVW, dIVW, MR-RAPS</td>
+            <td>MR-Egger, RAPS, WM, Q</td>
+            <td>IVW, GMM, AR, Kleibergen, Andrews</td>
+            <td>cis-MVIVW, PC-GMM, MRBEE-IPOD, TGFM, TGVIS</td>
+          </tr>
+          <tr>
+            <td>Real-data positive control</td>
+            <td>HDL&rarr;T2D (textbook)</td>
+            <td>HDL&rarr;preeclampsia (no PCSK9)</td>
+            <td>BMI&rarr;SBP (Zhao 2020 reprise)</td>
+            <td>MAP/PP&rarr;stroke + UKB subsample</td>
+            <td class="cell-good">PCSK9, APOA1, APOC1, ANGPTL3, CR1 &#10003;</td>
+          </tr>
+          <tr>
+            <td>Negative controls</td>
+            <td class="cell-bad">none</td>
+            <td class="cell-bad">none</td>
+            <td class="cell-bad">none</td>
+            <td class="cell-warn">none (subsample tactic)</td>
+            <td class="cell-bad">none explicit</td>
+          </tr>
+          <tr>
+            <td>Sim code shipped</td>
+            <td class="cell-good">yes (<code>simulation/simulationl.R</code>)</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-bad">no (no repo)</td>
+            <td class="cell-good">yes (R package)</td>
+            <td class="cell-good">yes (R package)</td>
+          </tr>
+          <tr>
+            <td>Figure notebook</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-warn">partial</td>
+            <td class="cell-good">yes (Tutorial PDF)</td>
+          </tr>
+          <tr>
+            <td>Zenodo deposit</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-bad">no</td>
+            <td class="cell-warn">example data on Dropbox</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:0.8rem;color:var(--fg-dim);margin-top:8px;">
+      Source: <a href="VALIDATION_PLAN.md">VALIDATION_PLAN.md</a> &sect;1.
+    </p>
+  </section>
+
+  <section id="methods">
+    <h2>Method cards</h2>
+
+    <!-- ============ RARE ============ -->
+    <article class="method-card" style="--method-color: var(--c-rare);">
+      <div class="method-header">
+        <div>
+          <div class="method-title">RARE</div>
+          <div class="method-cite">
+            Cheng Y. et al. (2025). <em>Brief Bioinform</em> 26(3):bbaf214. MVMR with explicit rare-variant arm.
+          </div>
+        </div>
+        <div class="method-links">
+          <a class="badge doi" href="https://doi.org/10.1093/bib/bbaf214" target="_blank" rel="noopener">DOI</a>
+          <a class="badge" href="https://pubmed.ncbi.nlm.nih.gov/40370099/" target="_blank" rel="noopener">PMID 40370099</a>
+          <a class="badge gh" href="https://github.com/Hide-in-lab/RARE" target="_blank" rel="noopener">GitHub: Hide-in-lab/RARE</a>
+        </div>
+      </div>
+
+      <h4>Generative model</h4>
+<pre><span style="color:var(--fg-muted)"># Individual-level linear SEM (paper Eqs. 7-8; simulation/simulationl.R)</span>
+X1 = G %*% delta  + G %*% kappa_x + U %*% psi_x + eps      <span style="color:var(--fg-muted)"># primary exposure</span>
+X2 = G %*% gamma2                                + eps      <span style="color:var(--fg-muted)"># secondary exposure</span>
+Y  = beta1 * X1 + beta2 * X2 + G %*% kappa_y + G %*% theta + U %*% psi_y + eps
+<span style="color:var(--fg-muted)"># kappa terms drive correlated horizontal pleiotropy (CHP);
+# theta drives uncorrelated horizontal pleiotropy (UHP)</span></pre>
+
+      <div class="method-grid">
+        <div class="method-block">
+          <h4>Parameter sweep</h4>
+          <table class="mini">
+            <tr><th>Sample size $n$</th><td>50 000 (fixed)</td></tr>
+            <tr><th>Common / rare SNPs</th><td>1000 / 20</td></tr>
+            <tr><th>Rare MAF</th><td>&lt; 0.01</td></tr>
+            <tr><th>True $\beta_1$</th><td>0 (null) or 0.01 (signal)</td></tr>
+            <tr><th>Rare-var heritability $h^2_{\gamma_1}$</th><td>$\{0, 10^{-2}, 10^{-1}\}$</td></tr>
+            <tr><th>$F$-stat sweep</th><td><span style="color:var(--bad)">absent</span></td></tr>
+            <tr><th>Replicates</th><td>300 Monte Carlo / cell</td></tr>
+          </table>
+        </div>
+        <div class="method-block">
+          <h4>Comparators</h4>
+          <div class="pill-row">
+            <span class="pill">MV-IVW</span><span class="pill">MV-Egger</span>
+            <span class="pill">MV-LASSO</span><span class="pill">GRAPPLE</span>
+            <span class="pill">naive vs RARE-augmented</span>
+          </div>
+          <h4 style="margin-top:14px;">Real-data sanity</h4>
+          <p style="font-size:0.88rem;margin:0;">
+            Global Lipids Genetics Consortium HDL/LDL summary stats + UKB individual genotypes.
+            HDL&rarr;T2D ($\hat{\beta}=-0.219$, $p=0.003$); LDL&rarr;T2D ($\hat{\beta}=0.264$, $p=0.007$).
+            <span style="color:var(--fg-muted)">No PCSK9 / HMGCR drug-target check, no negative controls,
+            no pQTL replication.</span>
+          </p>
+          <h4 style="margin-top:14px;">Code locations</h4>
+          <div class="pill-row">
+            <span class="pill">simulation/simulationl.R <em>(sic)</em></span>
+            <span class="pill">src/multi_exposures.cpp</span>
+            <span class="pill" style="color:var(--bad)">no real-data driver</span>
+            <span class="pill" style="color:var(--bad)">no figure notebook</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>rvSMR over RARE.</strong> Frequentist AR-coverage instead of unreported Bayesian-credible calibration;
+        explicit weak-IV $F$-sweep; drug-target positive panel (PCSK9, ANGPTL3, APOC3, HMGCR, LPA);
+        negative-control panel; single-command figure pipeline. RARE skips all five.
+      </div>
+    </article>
+
+    <!-- ============ MR-CARV ============ -->
+    <article class="method-card" style="--method-color: var(--c-mrcarv);">
+      <div class="method-header">
+        <div>
+          <div class="method-title">MR-CARV</div>
+          <div class="method-cite">
+            Zhang Y. et al. (2026). <em>Brief Bioinform</em> 27(1):bbaf649. Common + rare combined via Cauchy combination.
+          </div>
+        </div>
+        <div class="method-links">
+          <a class="badge doi" href="https://doi.org/10.1093/bib/bbaf649" target="_blank" rel="noopener">DOI</a>
+          <a class="badge" href="https://pubmed.ncbi.nlm.nih.gov/41499219/" target="_blank" rel="noopener">PMID 41499219</a>
+          <a class="badge gh" href="https://github.com/yu-zhang-oYo/mr.carv" target="_blank" rel="noopener">GitHub: yu-zhang-oYo/mr.carv</a>
+        </div>
+      </div>
+
+      <h4>Generative model</h4>
+<pre><span style="color:var(--fg-muted)"># 1000G real haplotypes; 4 common IVs (chr 15-18) + 4 rare burdens (chr 19-22)</span>
+common IV   : alpha_i = 0.5
+rare-burden : alpha_{j,l} = c0 * |log10(MAF)|,  c0 = 0.5
+MAF weights : Beta(1, 25)  <span style="color:var(--fg-muted"># STAAR default; also Beta(1,1)</span>
+exposure    : X = sum_i alpha_i G_i + sum_burdens + eps      <span style="color:var(--fg-muted"># linear or logit</span>
+outcome     : Y = beta * X + pleiotropy + eps                <span style="color:var(--fg-muted"># linear or logit</span>
+<span style="color:var(--fg-muted)"># burden-level betas and SEs concatenated with common-variant betas/SEs
+# then plugged into IVW / dIVW / MR-RAPS; p-values combined via CCT</span></pre>
+
+      <div class="method-grid">
+        <div class="method-block">
+          <h4>Parameter sweep</h4>
+          <table class="mini">
+            <tr><th>$n_X = n_Y$</th><td>10 000 primary; 1 000 / 2 000 sensitivity</td></tr>
+            <tr><th>Causal-variant ratio</th><td>~15% and ~35% per burden</td></tr>
+            <tr><th>Positive-effect ratio</th><td>100% / 80% / 50%</td></tr>
+            <tr><th>True $\beta$</th><td>0.04 / 0.06 / 0.2 / 0.4 (by trait combo)</td></tr>
+            <tr><th>$F$-stat sweep</th><td><span style="color:var(--bad)">absent</span></td></tr>
+            <tr><th>Type-I reps</th><td>10 000 per cell</td></tr>
+            <tr><th>Power reps</th><td>1 000 per cell</td></tr>
+          </table>
+        </div>
+        <div class="method-block">
+          <h4>Comparators</h4>
+          <div class="pill-row">
+            <span class="pill">IVW</span><span class="pill">dIVW</span><span class="pill">MR-RAPS</span>
+            <span class="pill" style="color:var(--bad)">no Egger / PRESSO / RARE</span>
+          </div>
+          <h4 style="margin-top:14px;">Real-data sanity</h4>
+          <p style="font-size:0.88rem;margin:0;">
+            Selvaraj 2022 WGS lipid stats ($n \approx 66\text{k}$) &rarr; nuMoM2b-HHS preeclampsia
+            (486 cases / 2821 controls, dbGaP phs002808). Headline: HDL&rarr;preeclampsia $\hat{\beta}=-0.020$, $p=0.047$
+            (common-only IVW: $p = 0.066$).
+            <span style="color:var(--fg-muted)">No PCSK9, no negative control, no held-out replication.</span>
+          </p>
+          <h4 style="margin-top:14px;">Code locations</h4>
+          <div class="pill-row">
+            <span class="pill">R/Burden_Effect.R</span>
+            <span class="pill">R/Window_Burden.R</span>
+            <span class="pill">inst/extdata/TC.xlsx (toy)</span>
+            <span class="pill" style="color:var(--bad)">no sim/ folder</span>
+            <span class="pill" style="color:var(--bad)">no analysis driver</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>rvSMR over MR-CARV.</strong> Anderson&ndash;Rubin construction that stays valid as $F \to 0$
+        (MR-CARV leans on dIVW + RAPS); cell-type resolution; CCT reserved for orthogonal axes (not within-gene mask collapse);
+        positive + negative-control panel; sim code shipped (MR-CARV does not).
+      </div>
+    </article>
+
+    <!-- ============ Wang-Kang ============ -->
+    <article class="method-card" style="--method-color: var(--c-wangkang);">
+      <div class="method-header">
+        <div>
+          <div class="method-title">Wang&ndash;Kang</div>
+          <div class="method-cite">
+            Wang S., Kang H. (2022). <em>Biometrics</em> 78(4):1699. AR / Kleibergen / CLR for two-sample MR.
+          </div>
+        </div>
+        <div class="method-links">
+          <a class="badge doi" href="https://doi.org/10.1111/biom.13524" target="_blank" rel="noopener">DOI</a>
+          <a class="badge arxiv" href="https://arxiv.org/abs/1909.06950" target="_blank" rel="noopener">arXiv 1909.06950</a>
+          <a class="badge" href="https://pubmed.ncbi.nlm.nih.gov/34213007/" target="_blank" rel="noopener">PMID 34213007</a>
+          <span class="badge gh absent">GitHub: not found</span>
+        </div>
+      </div>
+
+      <h4>Generative model</h4>
+<pre><span style="color:var(--fg-muted)"># Two-sample, individual-level; Section 3 Eqs. 1/3</span>
+n1 = n2 = 100 000;  L = 100 instruments
+G_j ~ Binomial(2, p_j),  p_j ~ Uniform(0.1, 0.9)
+gamma_j in [ sqrt((r-0.5)/n1) , sqrt((r+0.5)/n1) ]   <span style="color:var(--fg-muted"># local-to-zero IV strength</span>
+(U_i, eps_X_i, eps_Y_i) joint normal,  rho_endog = 0.1
+X_i = G_i %*% gamma + eps_X_i
+Y_i = beta * X_i + alpha_j' G_i + eps_Y_i
+<span style="color:var(--fg-muted)"># r ~= first-stage F-statistic
+# r in {1, 4, 16, 25, 50} -> the central weak-IV stress axis
+# AR statistic: AR(beta_0) = (n1 + n2) * (gamma_hat' Sigma^-1 gamma_hat - ...)
+# rejecting H_0 : beta = beta_0 when AR(beta_0) > chi^2_{L, 1-alpha}</span></pre>
+
+      <div class="method-grid">
+        <div class="method-block">
+          <h4>Parameter sweep</h4>
+          <table class="mini">
+            <tr><th>$n_1 = n_2$</th><td>100 000</td></tr>
+            <tr><th>$L$ instruments</th><td>100</td></tr>
+            <tr><th>Concentration $r$ (~$F$)</th><td><span style="color:var(--good)">$\{1, 4, 16, 25, 50\}$</span></td></tr>
+            <tr><th>Null $\beta_0$</th><td>$[-2, 2]$ grid</td></tr>
+            <tr><th>Invalid-IV fraction</th><td>10% &ndash; 90%</td></tr>
+            <tr><th>Pleiotropy magnitudes $\alpha_j$</th><td>$\{0.003, 0.01, 0.05\}$</td></tr>
+            <tr><th>Replicates</th><td>1 000 per cell</td></tr>
+          </table>
+        </div>
+        <div class="method-block">
+          <h4>Comparators</h4>
+          <div class="pill-row">
+            <span class="pill">MR-Egger.r</span><span class="pill">MR-RAPS</span>
+            <span class="pill">Weighted Median</span><span class="pill">Q-statistic</span>
+            <span class="pill">6 Egger variants (suppl.)</span>
+          </div>
+          <h4 style="margin-top:14px;">Real-data sanity</h4>
+          <p style="font-size:0.88rem;margin:0;">
+            Reprise of Zhao 2020: BMI &rarr; SBP, GIANT + UK Biobank. Two IV sets
+            (25 SNPs at $p<5\!\times\!10^{-8}$, $F=58.14$; 160 SNPs at $p<10^{-4}$, $F=25.46$).
+            <span style="color:var(--fg-muted)">No drug-target / cis-MR; polygenic only.</span>
+          </p>
+          <h4 style="margin-top:14px;">Code locations</h4>
+          <div class="pill-row">
+            <span class="pill" style="color:var(--bad)">no public repo</span>
+            <span class="pill">comparator code via mr.raps CRAN</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>rvSMR over Wang&ndash;Kang.</strong> Same AR backbone, but
+        rare-variant burden masks (Wang&ndash;Kang is single-variant common-IV);
+        cell-type stratified; public reproducible code (Wang&ndash;Kang has no repo);
+        drug-target real-data panel (Wang&ndash;Kang is polygenic BMI&rarr;SBP).
+      </div>
+    </article>
+
+    <!-- ============ Patel-Lane-Burgess ============ -->
+    <article class="method-card" style="--method-color: var(--c-plb);">
+      <div class="method-header">
+        <div>
+          <div class="method-title">Patel&ndash;Lane&ndash;Burgess</div>
+          <div class="method-cite">
+            Patel A., Lane J., Burgess S. (2024). arXiv 2408.09868.
+            Weak instruments in <em>multivariable</em> MR; AR + Kleibergen-OH.
+          </div>
+        </div>
+        <div class="method-links">
+          <a class="badge arxiv" href="https://arxiv.org/abs/2408.09868" target="_blank" rel="noopener">arXiv 2408.09868</a>
+          <a class="badge gh" href="https://github.com/ash-res/mvmr-weakiv" target="_blank" rel="noopener">GitHub: ash-res/mvmr-weakiv</a>
+        </div>
+      </div>
+
+      <h4>Generative model</h4>
+<pre><span style="color:var(--fg-muted)"># Two-sample summary; J = 4 instruments, K = 2 exposures (baseline)</span>
+n_X = n_Y = 5 000
+gamma1 = c(1+xi, 1+xi, 1-xi, 1-xi) * 0.2 * n_X^(-1/2) * mu
+gamma2 = c(1-xi, 1-xi, 1+xi, 1+xi) *       n_X^(-1/2) * mu
+X_k = Z %*% gamma_k + V_k
+Y   = theta1 * X1 + theta2 * X2 + U                    <span style="color:var(--fg-muted)"># truth (1, 0)</span>
+Cor(U, V1) = -0.6, Cor(U, V2) = +0.6, Cor(V1, V2) = 0.3
+Z ~ MVN; off-diagonal correlation up to 0.4
+<span style="color:var(--fg-muted)"># mu = unconditional strength, xi in [0,1] = conditional strength
+# F_min crosses 10 in the swept cells</span></pre>
+
+      <div class="method-grid">
+        <div class="method-block">
+          <h4>Parameter sweep</h4>
+          <table class="mini">
+            <tr><th>$n_X = n_Y$</th><td>5 000 baseline; subsample $\{2\text{k}, 10\text{k}, 20\text{k}, 50\text{k}\}$</td></tr>
+            <tr><th>$J$ instruments</th><td>4 (baseline), up to 8 (supplement)</td></tr>
+            <tr><th>$K$ exposures</th><td>2</td></tr>
+            <tr><th>Unconditional $\mu$, conditional $\xi$</th><td>2D sweep</td></tr>
+            <tr><th>Min cond. $F$</th><td><span style="color:var(--good)">~6, 10, 30</span></td></tr>
+            <tr><th>Replicates</th><td>not specified (100 sub-sample reps for Fig 5)</td></tr>
+          </table>
+        </div>
+        <div class="method-block">
+          <h4>Comparators</h4>
+          <div class="pill-row">
+            <span class="pill">MV-IVW</span><span class="pill">MV-GMM</span>
+            <span class="pill">CS<sub>AR</sub></span><span class="pill">CS<sub>K</sub></span>
+            <span class="pill">CS<sub>R</sub> (Andrews)</span><span class="pill">Kleibergen-OH</span>
+          </div>
+          <h4 style="margin-top:14px;">Real-data sanity</h4>
+          <p style="font-size:0.88rem;margin:0;">
+            MAP + PP &rarr; stroke. UK Biobank $n_X = 367\,283$; GIGASTROKE $n_Y = 727\,571$.
+            Full-sample $F = 73.5$ (MAP), $113.1$ (PP); AR CS empty (overdispersion); Kleibergen-OH non-empty.
+            <strong>Sub-sample tactic</strong>: down-sample UKB to $\{2\text{k}, 10\text{k}, 20\text{k}, 50\text{k}\}$
+            and heat-map 100 CSes per cell &mdash; truth fixed to full-sample point estimate.
+          </p>
+          <h4 style="margin-top:14px;">Code locations</h4>
+          <div class="pill-row">
+            <span class="pill">R package on GitHub</span>
+            <span class="pill">paper has partial figure scripts</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>rvSMR over PLB.</strong> Single-exposure rare-variant setting, not MVMR;
+        cell-type Q on top of overdispersion correction;
+        add curated negative controls + drug-target panel (PLB uses subsample tactic instead).
+        Borrow PLB's <em>Goodhart simulation</em> (Fig 3) and <em>sub-sampling heatmap</em> (Fig 5) directly.
+      </div>
+    </article>
+
+    <!-- ============ cis-MRBEE ============ -->
+    <article class="method-card" style="--method-color: var(--c-mrbee);">
+      <div class="method-header">
+        <div>
+          <div class="method-title">cis-MRBEE</div>
+          <div class="method-cite">
+            Yang Y. et al. (2025). <em>Brief Bioinform</em> 26(3):bbaf250. Multi-gene cis-MR with SuSiE + IPOD.
+          </div>
+        </div>
+        <div class="method-links">
+          <a class="badge doi" href="https://doi.org/10.1093/bib/bbaf250" target="_blank" rel="noopener">DOI</a>
+          <a class="badge" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12140020/" target="_blank" rel="noopener">PMC12140020</a>
+          <a class="badge gh" href="https://github.com/harryyiheyang/MRBEEX" target="_blank" rel="noopener">GitHub: harryyiheyang/MRBEEX</a>
+        </div>
+      </div>
+
+      <h4>Generative model</h4>
+<pre><span style="color:var(--fg-muted)"># Multi-exposure cis-MR; SuSiE 95% credible-set IV selection</span>
+local h^2(exposure)  = 0.3
+local h^2(outcome)   = 0.001   <span style="color:var(--fg-muted)"># split 1:1 causal vs pleiotropy</span>
+per exposure         : 3 informative xQTLs + 1-2 horizontal-pleiotropy variants
+xQTL sample sizes    : n in {300, 3 000, 30 000}     <span style="color:var(--fg-muted)"># weak-IV proxy</span>
+outcome GWAS         : n_Y = 500 000
+<span style="color:var(--fg-muted)"># bias-corrected estimating equations (MRBEE) with double-penalized IPOD
+# for horizontal pleiotropy; CCT not used within-gene</span></pre>
+
+      <div class="method-grid">
+        <div class="method-block">
+          <h4>Parameter sweep</h4>
+          <table class="mini">
+            <tr><th>xQTL $n$</th><td>$\{300, 3\,000, 30\,000\}$</td></tr>
+            <tr><th>Outcome $n_Y$</th><td>500 000</td></tr>
+            <tr><th>$F$-stat sweep</th><td><span style="color:var(--warn)">implicit via $n$</span></td></tr>
+            <tr><th># IVs (per config)</th><td>~3 informative + pleiotropy</td></tr>
+            <tr><th>Local heritability</th><td>0.3 (exposure), 0.001 (outcome)</td></tr>
+            <tr><th>Replicates</th><td>500 per cell</td></tr>
+          </table>
+        </div>
+        <div class="method-block">
+          <h4>Comparators</h4>
+          <div class="pill-row">
+            <span class="pill">cis-MVIVW</span><span class="pill">PC-GMM</span>
+            <span class="pill">MRBEE-IPOD</span><span class="pill">adj. cis-MVIVW</span>
+            <span class="pill">TGFM</span><span class="pill">TGVIS</span>
+          </div>
+          <h4 style="margin-top:14px;">Real-data sanity</h4>
+          <p style="font-size:0.88rem;margin:0;">
+            Two canonical loci. (1) ANGPTL3 region (ANGPTL3, APOA1, APOA5, APOC1, APOC3, PCSK9) &rarr;
+            LDL / HDL / TG; pQTL $n \approx 69\,016$, GLGC $n = 1\,320\,016$; credible set
+            {APOA1, APOC1, PCSK9}. (2) CR1 &rarr; Alzheimer's via brain eQTLs / sceQTLs.
+            <strong style="color:var(--good)">First comparator to use PCSK9 + ANGPTL3 + CR1 as gold-standard panel.</strong>
+          </p>
+          <h4 style="margin-top:14px;">Code locations</h4>
+          <div class="pill-row">
+            <span class="pill">MRBEEX R package</span>
+            <span class="pill">Tutorial-of-CisMRBEE.pdf</span>
+            <span class="pill">CisMRBEE_Real_Data.zip (Dropbox)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout">
+        <strong>rvSMR over cis-MRBEE.</strong> Rare-variant single-gene focus with mask-class
+        identification (cis-MRBEE is common-variant SuSiE inside a multi-gene window);
+        AR closed-form + grid+uniroot for $K \ge 2$ masks (no point-estimate dependence);
+        annotation-class Q calibration via pQTL anchors; negative-control panel.
+      </div>
+    </article>
+  </section>
+
+  <section id="synthesis">
+    <h2>Cross-method synthesis</h2>
+
+    <h3 style="margin-bottom:8px;">Validation tactics matrix</h3>
+    <p class="lead" style="margin-bottom:14px;">
+      <span class="glyph yes">&#10003;</span> present &middot;
+      <span class="glyph maybe">&#9680;</span> partial / implicit &middot;
+      <span class="glyph no">&#10007;</span> absent.
+      Hover any cell for the source. rvSMR column reflects the
+      <a href="VALIDATION_PLAN.md">VALIDATION_PLAN.md</a> tracks.
+    </p>
+    <div class="matrix-wrap">
+      <table class="matrix">
+        <thead>
+          <tr>
+            <th>Validation tactic</th>
+            <th>RARE</th><th>MR-CARV</th><th>Wang&ndash;Kang</th><th>PLB</th><th>cis-MRBEE</th>
+            <th class="col-rvsmr">rvSMR (planned)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Coverage-vs-$F$ figure</td>
+            <td><span class="glyph no" data-tip="No F-statistic axis">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="Fixed effect sizes; no F sweep">&#10007;</span></td>
+            <td><span class="glyph yes" data-tip="Figure 6, r in {1,4,16,25,50}">&#10003;</span></td>
+            <td><span class="glyph yes" data-tip="Figure 2 top row, F_min ~ 6, 10, 30">&#10003;</span></td>
+            <td><span class="glyph maybe" data-tip="Implicit via n in {300, 3k, 30k}">&#9680;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="Track 1 headline plot">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Weak-IV ($F<10$) sweep</td>
+            <td><span class="glyph no" data-tip="Authors note LD-aware 'mitigates' weak IV">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="dIVW + RAPS plug-and-pray">&#10007;</span></td>
+            <td><span class="glyph yes" data-tip="r = 1 (F~1)">&#10003;</span></td>
+            <td><span class="glyph yes" data-tip="F_min ~ 6 cell">&#10003;</span></td>
+            <td><span class="glyph maybe" data-tip="n=300 cell implicit only">&#9680;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="F in {0.5, 1, 2, 5, 10, 30, 100}">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Drug-target positive controls</td>
+            <td><span class="glyph no" data-tip="HDL/LDL only">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="HDL only">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="BMI->SBP polygenic">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="MAP/PP->stroke">&#10007;</span></td>
+            <td><span class="glyph yes" data-tip="PCSK9, APOA1, APOC1, ANGPTL3, CR1">&#10003;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="PCSK9 / ANGPTL3 / APOC3 / HMGCR / LPA">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Curated negative controls</td>
+            <td><span class="glyph no" data-tip="none reported">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="none reported">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="none reported">&#10007;</span></td>
+            <td><span class="glyph maybe" data-tip="Sub-sample tactic, not curated pairs">&#9680;</span></td>
+            <td><span class="glyph no" data-tip="none explicit">&#10007;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="Track 3: ~5 implausible gene x outcome pairs">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>SuSiE fine-mapping</td>
+            <td><span class="glyph no" data-tip="N/A">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="STAAR burdens, no SuSiE">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="N/A">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="N/A">&#10007;</span></td>
+            <td><span class="glyph yes" data-tip="SuSiE 95% credible set">&#10003;</span></td>
+            <td class="col-rvsmr"><span class="glyph no" data-tip="Deliberate skip: too few rare variants per mask">&#10007;</span></td>
+          </tr>
+          <tr>
+            <td>Sub-sampling weak-IV induction</td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td><span class="glyph yes" data-tip="Figure 5 heatmap, n in {2k, 10k, 20k, 50k}">&#10003;</span></td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="Track 4: sub-sample Genebass burden">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Goodhart / selective reporting</td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td><span class="glyph yes" data-tip="Figure 3: coverage with vs without F > 10 screen">&#10003;</span></td>
+            <td><span class="glyph no">&#10007;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="Track 4(b): report coverage with vs without F>10 screen">&#10003;</span></td>
+          </tr>
+          <tr>
+            <td>Reproducible figure pipeline</td>
+            <td><span class="glyph no" data-tip="Sim driver yes; no figure notebook">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="No sim code at all">&#10007;</span></td>
+            <td><span class="glyph no" data-tip="No public repo">&#10007;</span></td>
+            <td><span class="glyph maybe" data-tip="Partial scripts in repo">&#9680;</span></td>
+            <td><span class="glyph yes" data-tip="Tutorial-of-CisMRBEE.pdf + example data">&#10003;</span></td>
+            <td class="col-rvsmr"><span class="glyph yes" data-tip="Quarto figures/ + make figures + Zenodo bundle">&#10003;</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:30px;margin-bottom:8px;">Weakest $F$-stat regime each method actually tested</h3>
+    <p class="lead" style="margin-bottom:10px;">
+      Only Wang&ndash;Kang and Patel&ndash;Lane&ndash;Burgess explored a genuinely weak-IV regime.
+      RARE, MR-CARV, and cis-MRBEE never push $F$ below 10. rvSMR's planned floor: $F \approx 0.5$.
+    </p>
+    <div class="chart-card">
+      <div class="chart-canvas-wrap">
+        <canvas id="fChart"></canvas>
+      </div>
+      <p style="font-size:0.8rem;color:var(--fg-dim);margin:10px 0 0;">
+        RARE / MR-CARV / cis-MRBEE bars represent the implicit floor of the strongest cell they ran (no $F$ axis tested).
+        Values: Wang&ndash;Kang $r=1$ &asymp; $F=1$; PLB $F_{\min}\approx 6$; cis-MRBEE implicit at $n=300$; MR-CARV / RARE not parameterized.
+      </p>
+    </div>
+  </section>
+
+  <section id="canonical-fig">
+    <h2>The canonical coverage figure <span class="schematic-tag">SCHEMATIC</span></h2>
+    <p class="lead" style="margin-bottom:14px;">
+      This is the figure both Wang&ndash;Kang (Fig 6) and Patel&ndash;Lane&ndash;Burgess (Fig 2 top row) make
+      the centerpiece of their paper. $y$-axis: empirical 95% CI coverage from 500&ndash;1000 reps;
+      $x$-axis: first-stage $F$ on log scale. Anderson&ndash;Rubin holds a flat line at 0.95.
+      Wald / IVW collapse below $F=10$, dropping to ~50% at $F=1$.
+      The sketch below shows the qualitative shape rvSMR-AR must reproduce on the rare-variant burden axis.
+    </p>
+    <div class="schematic-card">
+      <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Schematic of weak-IV coverage figure">
+        <defs>
+          <style>
+            .ax { stroke: var(--fg-muted); stroke-width: 1.2; fill: none; }
+            .grid { stroke: var(--border); stroke-width: 1; stroke-dasharray: 3,3; fill: none; }
+            .lbl { fill: var(--fg-muted); font-family: var(--font-sans); font-size: 12px; }
+            .lbl-axis { fill: var(--fg); font-family: var(--font-sans); font-size: 13px; font-weight: 600; }
+            .ar-line { stroke: var(--good); stroke-width: 2.5; fill: none; }
+            .ar-pt { fill: var(--good); }
+            .ivw-line { stroke: var(--bad); stroke-width: 2.5; fill: none; }
+            .ivw-pt { fill: var(--bad); }
+            .nominal { stroke: var(--accent); stroke-width: 1; stroke-dasharray: 5,4; fill: none; opacity: 0.7; }
+          </style>
+        </defs>
+        <!-- Plot area: x [80, 680], y [40, 300] -->
+        <!-- Grid lines (horizontal) -->
+        <line class="grid" x1="80" y1="80"  x2="680" y2="80"  />
+        <line class="grid" x1="80" y1="140" x2="680" y2="140" />
+        <line class="grid" x1="80" y1="200" x2="680" y2="200" />
+        <line class="grid" x1="80" y1="260" x2="680" y2="260" />
+        <!-- y axis -->
+        <line class="ax" x1="80" y1="40" x2="80" y2="300" />
+        <!-- x axis -->
+        <line class="ax" x1="80" y1="300" x2="680" y2="300" />
+        <!-- Y tick labels (coverage) -->
+        <text class="lbl" x="40" y="83">1.00</text>
+        <text class="lbl" x="40" y="83" dy="0"></text>
+        <text class="lbl" x="40" y="92" dy="0"></text>
+        <text class="lbl" x="40" y="143">0.75</text>
+        <text class="lbl" x="40" y="203">0.50</text>
+        <text class="lbl" x="40" y="263">0.25</text>
+        <text class="lbl" x="40" y="303">0.00</text>
+        <!-- nominal 0.95 line -->
+        <line class="nominal" x1="80" y1="92" x2="680" y2="92" />
+        <text class="lbl" x="600" y="86" style="fill:var(--accent);">nominal 0.95</text>
+        <!-- X tick labels (F-stat, log scale: 0.5, 1, 2, 5, 10, 30, 100) -->
+        <text class="lbl" x="100" y="318">0.5</text>
+        <text class="lbl" x="180" y="318">1</text>
+        <text class="lbl" x="260" y="318">2</text>
+        <text class="lbl" x="360" y="318">5</text>
+        <text class="lbl" x="440" y="318">10</text>
+        <text class="lbl" x="540" y="318">30</text>
+        <text class="lbl" x="640" y="318">100</text>
+        <!-- AR line: flat at 0.95 coverage (y ~ 92) with tiny noise -->
+        <polyline class="ar-line" points="100,94  180,92  260,93  360,91  440,93  540,92  640,93" />
+        <circle class="ar-pt" cx="100" cy="94" r="4"/>
+        <circle class="ar-pt" cx="180" cy="92" r="4"/>
+        <circle class="ar-pt" cx="260" cy="93" r="4"/>
+        <circle class="ar-pt" cx="360" cy="91" r="4"/>
+        <circle class="ar-pt" cx="440" cy="93" r="4"/>
+        <circle class="ar-pt" cx="540" cy="92" r="4"/>
+        <circle class="ar-pt" cx="640" cy="93" r="4"/>
+        <!-- IVW / Wald line: collapses from ~0.2 (F=0.5) up to ~0.9 (F=100) -->
+        <polyline class="ivw-line" points="100,260  180,220  260,180  360,135  440,110  540,98  640,94" />
+        <circle class="ivw-pt" cx="100" cy="260" r="4"/>
+        <circle class="ivw-pt" cx="180" cy="220" r="4"/>
+        <circle class="ivw-pt" cx="260" cy="180" r="4"/>
+        <circle class="ivw-pt" cx="360" cy="135" r="4"/>
+        <circle class="ivw-pt" cx="440" cy="110" r="4"/>
+        <circle class="ivw-pt" cx="540" cy="98" r="4"/>
+        <circle class="ivw-pt" cx="640" cy="94" r="4"/>
+        <!-- Legend -->
+        <line x1="430" y1="48" x2="460" y2="48" class="ar-line" />
+        <circle class="ar-pt" cx="445" cy="48" r="3.5"/>
+        <text class="lbl" x="470" y="52">rvSMR-AR (flat at 0.95)</text>
+        <line x1="430" y1="68" x2="460" y2="68" class="ivw-line" />
+        <circle class="ivw-pt" cx="445" cy="68" r="3.5"/>
+        <text class="lbl" x="470" y="72">Wald / IVW (collapses below F = 10)</text>
+        <!-- Axis labels -->
+        <text class="lbl-axis" x="380" y="350" text-anchor="middle">first-stage $F$ (log scale)</text>
+        <text class="lbl-axis" x="-170" y="22" transform="rotate(-90)" text-anchor="middle">empirical 95% CI coverage</text>
+      </svg>
+      <div class="schematic-desc">
+        Sketched data points, not real simulation output. Real numbers will come from Track 1 of the
+        <a href="VALIDATION_PLAN.md">validation plan</a>: 1 000 reps per cell, $F \in \{0.5, 1, 2, 5, 10, 30, 100\}$,
+        decision rule "rvSMR-AR passes if empirical coverage $\in [0.93, 0.97]$ everywhere."
+      </div>
+    </div>
+  </section>
+
+  <section id="rvsmr-plan">
+    <h2>rvSMR's plan</h2>
+    <details class="plan-section" open>
+      <summary>Four parallel validation tracks (from VALIDATION_PLAN.md &sect;3)</summary>
+      <div class="track-grid">
+        <div class="track-card" style="border-top-color: var(--c-rvsmr);">
+          <h3>Track 1 &mdash; Simulation harness with swept $F$</h3>
+          <span class="status-badge unblocked">unblocked &middot; primary</span>
+          <p>1000G-anchored generator with rare-variant mask structure and an explicit $F$ knob.
+            Produces the canonical coverage-vs-$F$ figure across $F \in \{0.5, 1, 2, 5, 10, 30, 100\}$,
+            $\beta \in \{0, 0.04, 0.1, 0.2, 0.4\}$, $K \in \{1, 2, 3, 5\}$ masks.
+            Compares Wald, IVW, dIVW, MR-RAPS, Egger, PRESSO, RARE, classical SMR vs rvSMR-AR.
+            1 000 reps for power; 10 000 for Type-I.</p>
+        </div>
+        <div class="track-card" style="border-top-color: var(--c-mrcarv);">
+          <h3>Track 2 &mdash; Common-variant plumbing test</h3>
+          <span class="status-badge unblocked">unblocked</span>
+          <p>End-to-end PCSK9 $\to$ LDL run on TenK10K Phase 1 common-variant cis-eQTL (Zenodo 17474113, real)
+            $\times$ Genebass burden outputs. Engineering test: prove the pipe handles 14&ndash;23 GB
+            files, real LD, real annotation. Not a methodology test.</p>
+        </div>
+        <div class="track-card" style="border-top-color: var(--c-plb);">
+          <h3>Track 3 &mdash; Real rare-variant exposure</h3>
+          <span class="status-badge blocked">blocked &middot; on Wei / Cuomo</span>
+          <p>Headline panel: 5 RCT-validated genes (PCSK9, ANGPTL3, APOC3, HMGCR, LPA) $\times$ 5 outcomes,
+            $K = 3$ masks $\times$ 28 PBMC cell types. Plus <strong>5 negative-control pairs</strong>
+            (biologically implausible gene$\times$outcome) &mdash; the row no comparator has.
+            Gated on Zenodo 17474113 rare-variant zips being populated (currently 214-byte placeholders).</p>
+        </div>
+        <div class="track-card" style="border-top-color: var(--c-wangkang);">
+          <h3>Track 4 &mdash; Sub-sampling + Goodhart</h3>
+          <span class="status-badge unblocked">unblocked (prototypes on Track 2)</span>
+          <p>Borrowed from Patel&ndash;Lane&ndash;Burgess. (a) Sub-sample Genebass to $n \in \{2\text{k}, 10\text{k}, 50\text{k}, 100\text{k}\}$
+            with truth fixed at full-sample point estimate; heatmap of CI shapes. (b) Goodhart figure:
+            report coverage with and without an $F > 10$ pre-screen.</p>
+        </div>
+        <div class="track-card" style="border-top-color: var(--c-mrbee);">
+          <h3>Track 5 &mdash; Annotation-class Q with pQTL anchors</h3>
+          <span class="status-badge unblocked">unblocked</span>
+          <p>Dhindsa 2023 UKB-PPP rare-variant pQTL anchors normalize class-specific burden-on-outcome estimates;
+            Cochran-Q across the three mask classes (pLoF / mis:LC / reg).
+            Expected $Q$ p-value $> 0.05$ for validated genes.</p>
+        </div>
+        <div class="track-card" style="border-top-color: var(--accent);">
+          <h3>Deliverables</h3>
+          <span class="status-badge unblocked">scaffold + CI gate</span>
+          <p><code>inst/sim/generate.R</code>; <code>tests/testthat/test-coverage_vs_F.R</code> &mdash; CI gate that fails
+            if rvSMR-AR coverage drops below 0.93 anywhere; <code>figures/coverage_vs_F.qmd</code>
+            (single-command Quarto for the headline figure); Zenodo deposit + DOI.</p>
+        </div>
+      </div>
+    </details>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div>Source documents in this repo:</div>
+    <div class="footer-links">
+      <a href="research_RARE.md">research_RARE.md</a>
+      <a href="research_MR-CARV.md">research_MR-CARV.md</a>
+      <a href="research_AR_cisMR_comparators.md">research_AR_cisMR_comparators.md</a>
+      <a href="VALIDATION_PLAN.md">VALIDATION_PLAN.md</a>
+      <a href="https://github.com/FrancisFengLu/rvSMR_Math" target="_blank" rel="noopener">View on GitHub &#8599;</a>
+    </div>
+    <div style="margin-top:12px;color:var(--fg-dim);font-size:0.78rem;">
+      rvSMR comparator validation viewer &middot; single-file HTML &middot; works offline once CDN scripts have loaded.
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ---- Theme toggle ----
+  (function () {
+    var btn = document.getElementById('themeToggle');
+    function current() {
+      return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+    }
+    function apply(theme) {
+      if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+      else document.documentElement.removeAttribute('data-theme');
+      try { localStorage.setItem('rvsmr-theme', theme); } catch (e) {}
+      btn.textContent = theme === 'light' ? 'Dark mode' : 'Light mode';
+      // Re-paint chart if it exists, because Chart.js reads CSS-derived colors at draw time
+      if (window.__fChart) {
+        var c = getComputedStyle(document.documentElement);
+        var fg = c.getPropertyValue('--fg').trim();
+        var fgDim = c.getPropertyValue('--fg-dim').trim();
+        window.__fChart.options.scales.x.ticks.color = fg;
+        window.__fChart.options.scales.y.ticks.color = fg;
+        window.__fChart.options.scales.x.grid.color = c.getPropertyValue('--border').trim();
+        window.__fChart.options.scales.y.grid.color = c.getPropertyValue('--border').trim();
+        window.__fChart.options.scales.x.title.color = fgDim;
+        window.__fChart.options.scales.y.title.color = fgDim;
+        window.__fChart.update();
+      }
+    }
+    btn.textContent = current() === 'light' ? 'Dark mode' : 'Light mode';
+    btn.addEventListener('click', function () {
+      apply(current() === 'light' ? 'dark' : 'light');
+    });
+  })();
+
+  // ---- Sortable comparison table (vanilla, ~30 lines) ----
+  (function () {
+    var table = document.getElementById('cmpTable');
+    if (!table) return;
+    var headers = table.querySelectorAll('th');
+    var tbody = table.querySelector('tbody');
+    var sortState = {}; // col index -> 'asc' | 'desc'
+    function sortBy(col) {
+      var rows = Array.from(tbody.querySelectorAll('tr'));
+      var dir = sortState[col] === 'asc' ? 'desc' : 'asc';
+      sortState = {}; sortState[col] = dir;
+      rows.sort(function (a, b) {
+        var av = a.children[col].innerText.trim().toLowerCase();
+        var bv = b.children[col].innerText.trim().toLowerCase();
+        var an = parseFloat(av.replace(/[^0-9.\-]/g, ''));
+        var bn = parseFloat(bv.replace(/[^0-9.\-]/g, ''));
+        if (!isNaN(an) && !isNaN(bn) && av.match(/[0-9]/) && bv.match(/[0-9]/)) {
+          return dir === 'asc' ? an - bn : bn - an;
+        }
+        return dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+      });
+      rows.forEach(function (r) { tbody.appendChild(r); });
+    }
+    headers.forEach(function (h) {
+      h.addEventListener('click', function () { sortBy(parseInt(h.dataset.col, 10)); });
+    });
+  })();
+
+  // ---- Chart.js: weakest F-stat regime tested per method ----
+  (function () {
+    if (typeof Chart === 'undefined') return;
+    var ctx = document.getElementById('fChart');
+    if (!ctx) return;
+    var styles = getComputedStyle(document.documentElement);
+    var fg = styles.getPropertyValue('--fg').trim();
+    var fgDim = styles.getPropertyValue('--fg-dim').trim();
+    var border = styles.getPropertyValue('--border').trim();
+    var labels = ['RARE', 'MR-CARV', 'cis-MRBEE', 'Patel-Lane-Burgess', 'Wang-Kang', 'rvSMR (planned)'];
+    // Lowest F-stat regime each method actually exercised.
+    // RARE / MR-CARV: not parameterized; we plot the implicit (large) F from their strongest sample-size cell as the floor of what they actually tested.
+    var data  = [50,     50,         3,             6,                      1,             0.5];
+    var colors = [
+      styles.getPropertyValue('--c-rare').trim(),
+      styles.getPropertyValue('--c-mrcarv').trim(),
+      styles.getPropertyValue('--c-mrbee').trim(),
+      styles.getPropertyValue('--c-plb').trim(),
+      styles.getPropertyValue('--c-wangkang').trim(),
+      styles.getPropertyValue('--c-rvsmr').trim()
+    ];
+    window.__fChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'lowest F-statistic tested',
+          data: data,
+          backgroundColor: colors,
+          borderColor: colors,
+          borderWidth: 1
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function (c) {
+                var notes = {
+                  'RARE': 'No F sweep; implicit (alpha + n=50k => F large)',
+                  'MR-CARV': 'No F sweep; effect sizes fixed',
+                  'cis-MRBEE': 'Implicit floor at n=300 cell',
+                  'Patel-Lane-Burgess': 'F_min ~ 6 cell explicitly tested',
+                  'Wang-Kang': 'r = 1 ~ F = 1 cell explicitly tested',
+                  'rvSMR (planned)': 'Track 1: F = 0.5 floor in coverage sweep'
+                };
+                return 'F = ' + c.parsed.x + ' (' + notes[c.label] + ')';
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'logarithmic',
+            min: 0.3, max: 120,
+            title: { display: true, text: 'lowest F tested (log)', color: fgDim },
+            ticks: { color: fg, callback: function (v) { return [0.5, 1, 2, 5, 10, 30, 100].includes(v) ? v : null; } },
+            grid: { color: border }
+          },
+          y: {
+            ticks: { color: fg, font: { weight: '500' } },
+            grid: { color: border }
+          }
+        }
+      }
+    });
+  })();
+</script>
+
+</body>
+</html>
