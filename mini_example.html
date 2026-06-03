@@ -758,6 +758,145 @@
 &nbsp;&nbsp;PIP_j for each SNP (是否被选为 IV)
     </div>
   </div>
+
+  <!-- ====== RARE causal DAG ====== -->
+  <div class="step rare">
+    <div class="step-head"><span class="num">DAG</span><h4>图: RARE 的因果结构 — 所有通道一张图</h4></div>
+    <p class="lead" style="margin-top: 0;">
+      把 Step 1–13 用到的所有变量画成因果图. <strong>关键问题</strong>: 从 G 到 Y 一共有 <em>五</em> 条路径, 其中只有 <span style="color:#3fb950; font-weight:600;">绿色</span> 那条 (G → X₁ → Y, 系数 δ·β₁) 是想识别的真因果效应; 其余四条都是 nuisance.
+    </p>
+
+    <div style="overflow-x: auto; margin-top: 12px;">
+      <svg viewBox="0 0 940 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="RARE causal DAG" style="min-width: 760px; max-width: 100%; display: block; margin: 0 auto;">
+        <defs>
+          <marker id="dag-blue"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="#58a6ff"/></marker>
+          <marker id="dag-green"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><polygon points="0,0 10,5 0,10" fill="#3fb950"/></marker>
+          <marker id="dag-orange" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="#d29922"/></marker>
+          <marker id="dag-red"    viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="#f85149"/></marker>
+          <marker id="dag-purple" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><polygon points="0,0 10,5 0,10" fill="#a78bfa"/></marker>
+        </defs>
+
+        <!-- nodes -->
+        <!-- G -->
+        <circle cx="470" cy="80" r="46" fill="#58a6ff" stroke="#1f6feb" stroke-width="2"/>
+        <text x="470" y="89" text-anchor="middle" fill="#0d1117" font-size="26" font-weight="700">G</text>
+        <text x="470" y="148" text-anchor="middle" fill="#8b949e" font-size="13">基因型 (IV, 已观测)</text>
+
+        <!-- U  (dashed outline = unobserved) -->
+        <circle cx="830" cy="100" r="42" fill="none" stroke="#a78bfa" stroke-width="2.5" stroke-dasharray="6 4"/>
+        <text x="830" y="108" text-anchor="middle" fill="#a78bfa" font-size="22" font-weight="700">U</text>
+        <text x="830" y="160" text-anchor="middle" fill="#8b949e" font-size="13">潜在混杂 (未观测)</text>
+
+        <!-- X1 -->
+        <circle cx="210" cy="320" r="46" fill="#d29922" stroke="#9e7411" stroke-width="2"/>
+        <text x="210" y="328" text-anchor="middle" fill="#0d1117" font-size="22" font-weight="700">X₁</text>
+        <text x="210" y="386" text-anchor="middle" fill="#8b949e" font-size="13">主曝光 (被混杂污染)</text>
+
+        <!-- X2 -->
+        <circle cx="730" cy="320" r="46" fill="#d29922" stroke="#9e7411" stroke-width="2"/>
+        <text x="730" y="328" text-anchor="middle" fill="#0d1117" font-size="22" font-weight="700">X₂</text>
+        <text x="730" y="386" text-anchor="middle" fill="#8b949e" font-size="13">次曝光 (IV-only, 干净)</text>
+
+        <!-- Y -->
+        <circle cx="470" cy="490" r="46" fill="#3fb950" stroke="#1f7a32" stroke-width="2"/>
+        <text x="470" y="498" text-anchor="middle" fill="#0d1117" font-size="24" font-weight="700">Y</text>
+        <text x="470" y="554" text-anchor="middle" fill="#8b949e" font-size="13">结果</text>
+
+        <!-- ======= edges ======= -->
+
+        <!-- (1) G → X1 via δ : blue solid bold (the wanted IV signal) -->
+        <path d="M 432 105 Q 320 200 245 290" stroke="#58a6ff" stroke-width="3" fill="none" marker-end="url(#dag-blue)"/>
+        <text x="295" y="200" fill="#58a6ff" font-size="13" font-weight="600">δ &nbsp;<tspan fill="#8b949e" font-weight="400">(IV → X)</tspan></text>
+
+        <!-- (2) G → X1 via κx : orange dashed -->
+        <path d="M 416 120 Q 270 230 200 275" stroke="#d29922" stroke-width="2" stroke-dasharray="7 4" fill="none" marker-end="url(#dag-orange)"/>
+        <text x="195" y="248" fill="#d29922" font-size="13" font-weight="600">κₓ &nbsp;<tspan fill="#8b949e" font-weight="400">(CHP, X 端)</tspan></text>
+
+        <!-- (3) G → X2 via γ2 : blue solid -->
+        <path d="M 508 105 Q 620 200 695 290" stroke="#58a6ff" stroke-width="3" fill="none" marker-end="url(#dag-blue)"/>
+        <text x="620" y="200" fill="#58a6ff" font-size="13" font-weight="600">γ₂ &nbsp;<tspan fill="#8b949e" font-weight="400">(IV → X₂)</tspan></text>
+
+        <!-- (4) G → Y via κy : orange dashed, long curve through left -->
+        <path d="M 425 118 Q 70 320 432 462" stroke="#d29922" stroke-width="2" stroke-dasharray="7 4" fill="none" marker-end="url(#dag-orange)"/>
+        <text x="70" y="320" fill="#d29922" font-size="13" font-weight="600">κᵧ &nbsp;<tspan fill="#8b949e" font-weight="400">(CHP, Y 端)</tspan></text>
+
+        <!-- (5) G → Y via θ : red dashed, central curve through right -->
+        <path d="M 480 124 Q 560 300 478 446" stroke="#f85149" stroke-width="2.5" stroke-dasharray="7 4" fill="none" marker-end="url(#dag-red)"/>
+        <text x="560" y="295" fill="#f85149" font-size="13" font-weight="600">θ &nbsp;<tspan fill="#8b949e" font-weight="400">(UHP, 仅 Y 端)</tspan></text>
+
+        <!-- (6) X1 → Y via β1 : bright green BOLD (TARGET) -->
+        <path d="M 248 354 Q 350 430 428 470" stroke="#3fb950" stroke-width="4" fill="none" marker-end="url(#dag-green)"/>
+        <text x="280" y="420" fill="#3fb950" font-size="14" font-weight="700">β₁ ← TARGET</text>
+
+        <!-- (7) X2 → Y via β2 : green -->
+        <path d="M 692 354 Q 590 430 512 470" stroke="#3fb950" stroke-width="2.5" fill="none" marker-end="url(#dag-green)"/>
+        <text x="600" y="420" fill="#3fb950" font-size="13" font-weight="600">β₂ &nbsp;<tspan fill="#8b949e" font-weight="400">(= 0.20, 固定)</tspan></text>
+
+        <!-- (8) U → X1 via ψx : purple dashed -->
+        <path d="M 795 115 Q 470 220 252 300" stroke="#a78bfa" stroke-width="2" stroke-dasharray="7 4" fill="none" marker-end="url(#dag-purple)"/>
+        <text x="430" y="218" fill="#a78bfa" font-size="13" font-weight="600">ψₓ &nbsp;<tspan fill="#8b949e" font-weight="400">(混杂 → X₁)</tspan></text>
+
+        <!-- (9) U → Y via ψy : purple dashed -->
+        <path d="M 830 142 Q 740 330 510 472" stroke="#a78bfa" stroke-width="2" stroke-dasharray="7 4" fill="none" marker-end="url(#dag-purple)"/>
+        <text x="770" y="305" fill="#a78bfa" font-size="13" font-weight="600">ψᵧ &nbsp;<tspan fill="#8b949e" font-weight="400">(混杂 → Y)</tspan></text>
+
+        <!-- correlation annotation between κx and κy paths -->
+        <text x="470" y="200" text-anchor="middle" fill="#d29922" font-size="12" font-weight="600">
+          ⟶ corr(κₓ, κᵧ) = ρ_κ ∈ [0.2, 0.5] ⟵
+        </text>
+        <text x="470" y="216" text-anchor="middle" fill="#8b949e" font-size="11">
+          (κₓ 和 κᵧ 不独立 — 这就是 "correlated" 的来源: 共享上游)
+        </text>
+      </svg>
+    </div>
+
+    <h4 style="margin-top: 16px;">5 条 G → Y 通道, 一句话总结</h4>
+    <table class="matrix" style="width: 100%; font-size: 0.92rem;">
+      <thead>
+        <tr><th style="text-align:left;">通道</th><th style="text-align:left;">数学路径</th><th style="text-align:left;">RARE 想干嘛</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span style="color:#3fb950; font-weight:700;">① TARGET</span></td>
+          <td>G → X₁ → Y &nbsp;(系数 δ · β₁)</td>
+          <td><strong>识别 β₁</strong> — 唯一想要的</td>
+        </tr>
+        <tr>
+          <td><span style="color:#3fb950; font-weight:600;">② TARGET</span></td>
+          <td>G → X₂ → Y &nbsp;(系数 γ₂ · β₂)</td>
+          <td>β₂ 已知固定, 帮助识别 β₁</td>
+        </tr>
+        <tr>
+          <td><span style="color:#d29922; font-weight:600;">③ CHP</span></td>
+          <td>G → X₁ via κₓ &nbsp;+ &nbsp; G → Y via κᵧ &nbsp; (相关 ρ_κ)</td>
+          <td><strong>显式建模</strong>; 通过 spike-and-slab 把两端的 κ 一起估出来</td>
+        </tr>
+        <tr>
+          <td><span style="color:#f85149; font-weight:600;">④ UHP</span></td>
+          <td>G → Y via θ &nbsp; (X 端没有对应)</td>
+          <td><strong>显式建模</strong>; 跟 κ 独立, 用单独的 prior</td>
+        </tr>
+        <tr>
+          <td><span style="color:#a78bfa; font-weight:600;">⑤ 混杂</span></td>
+          <td>U → X₁ via ψₓ &nbsp;+&nbsp; U → Y via ψᵧ</td>
+          <td><strong>潜变量</strong>; Gibbs 一起采 ψ_x, ψ_y, U</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <details class="why" open style="margin-top: 12px;">
+      <summary>为什么这张图比 6 条结构方程更有用?</summary>
+      <div class="body">
+        <p>结构方程 (Step 10、11、12) 把每一项的代数写得很全, 但把 <em>关系</em> 藏在符号里. 这张图把同样的信息重排到 "节点–通道" 视角:</p>
+        <ul>
+          <li><strong>CHP vs UHP 的差异变得肉眼可见</strong>: CHP 是一条 "进 G 出两端" 的相关通道 (κₓ 和 κᵧ 之间有 ρ_κ); UHP 只在 Y 端有一条孤立的直接通道 (θ).</li>
+          <li><strong>X₁ 和 X₂ 的不对称性显现</strong>: X₂ 这一臂只有 1 条进入箭头 (γ₂), 而 X₁ 有 3 条 (δ, κₓ, U). 这就是 RARE 把 X₁ 设成 "想识别的脏臂", X₂ 设成 "干净对照臂" 的设计.</li>
+          <li><strong>U 的可怕之处</strong>: 一旦 U 同时影响 X₁ 和 Y, X₁→Y 的边缘关联里就混入 "U 制造的协方差", 这就是经典的 backdoor confounding. IV 方法 (含 RARE) 全靠 G ⊥ U 才能切开这条 backdoor.</li>
+          <li><strong>识别 β₁ 的 IV 假设的图形表达</strong>: relevance = G→X₁ 那条 δ 箭头存在; exclusion = G 没有直接到 Y 的箭头 (← 但 κ 和 θ 让这条假设破了, 所以 RARE 必须显式建它们); exchangeability = G ⊥ U (G 和 U 之间没有箭头).</li>
+        </ul>
+      </div>
+    </details>
+  </div>
 </section>
 
 <!-- ====================================================== -->
