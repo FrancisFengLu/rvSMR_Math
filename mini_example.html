@@ -608,19 +608,19 @@
 
   <!-- Step 11 -->
   <div class="step rare">
-    <div class="step-head"><span class="num">Step 11</span><h4>组装次曝光 X₂ (同一套路, 不同系数)</h4></div>
-    <p>$$ X_2 \;=\; G\gamma_2 \;+\; G\kappa_{x_2} \;+\; U\psi_{x_2} \;+\; \varepsilon_2 $$</p>
+    <div class="step-head"><span class="num">Step 11</span><h4>组装次曝光 X₂ (比 X₁ 短得多 — 只有 IV + 噪声)</h4></div>
+    <p>$$ X_2 \;=\; G\gamma_2 \;+\; \varepsilon_2 $$</p>
+    <details class="why" open><summary>为什么 X₂ 这么干净 (没 CHP 没 confounder)?</summary><div class="body">
+      RARE 论文 Eq. 7–8 和 <code class="mono">simulationl.R</code> 都是这样设置: <strong>X₂ 这一臂没有 CHP 也没有 U 通道</strong>.
+      只有 X₁ 才同时受 IV 信号 (δ), CHP 上游 (κₓ), 和潜在混杂 (U ψₓ) 影响.
+      原因是 RARE 想造的最难场景就是 "想识别的因果效应 β₁ 对应的 X₁ 受混杂污染, 而控制变量 X₂ 是干净的 instrument-only 通道".
+    </div></details>
     <p>参数 (1 次抽样得到):</p>
     <table class="matrix">
       <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
       <tbody>
         <tr><td class="rowlbl">γ₂</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.10</td><td class="num">−0.05</td></tr>
-        <tr><td class="rowlbl">κₓ₂</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.02</td><td class="num">−0.02</td></tr>
       </tbody>
-    </table>
-    <table class="matrix">
-      <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
-      <tbody><tr><td class="rowlbl">ψₓ₂</td><td class="num">0.3</td><td class="num">0.4</td></tr></tbody>
     </table>
     <table class="matrix">
       <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
@@ -634,27 +634,16 @@
 <span class="lbl">s3:</span> [2,1,0,1,0] · [0,0,0,0.10,−0.05] = 1·0.10 = <span class="res">0.10</span><br>
 <span class="lbl">s4:</span> [1,0,2,0,0] · [0,0,0,0.10,−0.05] = <span class="res">0</span>
     </div>
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11b. G · κₓ₂</h4>
+    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11b. 加起来 → X₂</h4>
     <div class="arith">
-<span class="lbl">s1:</span> <span class="res">0</span> &nbsp;&nbsp; <span class="lbl">s2:</span> 1·(−0.02) = <span class="res">−0.02</span> &nbsp;&nbsp; <span class="lbl">s3:</span> 1·0.02 = <span class="res">0.02</span> &nbsp;&nbsp; <span class="lbl">s4:</span> <span class="res">0</span>
-    </div>
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11c. U · ψₓ₂</h4>
-    <div class="arith">
-<span class="lbl">s1:</span> 0.4·0.3 + (−0.3)·0.4 = 0.12 − 0.12 = <span class="res">0.00</span><br>
-<span class="lbl">s2:</span> −0.1·0.3 + 0.7·0.4 = −0.03 + 0.28 = <span class="res">0.25</span><br>
-<span class="lbl">s3:</span> 0.2·0.3 + (−0.5)·0.4 = 0.06 − 0.20 = <span class="res">−0.14</span><br>
-<span class="lbl">s4:</span> −0.4·0.3 + 0.1·0.4 = −0.12 + 0.04 = <span class="res">−0.08</span>
-    </div>
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11d. 加起来 → X₂</h4>
-    <div class="arith">
-<span class="lbl">s1:</span>  0    + 0     + 0.00  + (−0.05) = <span class="res">−0.05</span><br>
-<span class="lbl">s2:</span> −0.05 + (−0.02) + 0.25  + 0.10  = <span class="res">0.28</span><br>
-<span class="lbl">s3:</span>  0.10 + 0.02  + (−0.14) + 0.20  = <span class="res">0.18</span><br>
-<span class="lbl">s4:</span>  0    + 0     + (−0.08) + (−0.10) = <span class="res">−0.18</span>
+<span class="lbl">s1:</span>  0    + (−0.05) = <span class="res">−0.05</span><br>
+<span class="lbl">s2:</span> −0.05 + 0.10  = <span class="res">0.05</span><br>
+<span class="lbl">s3:</span>  0.10 + 0.20  = <span class="res">0.30</span><br>
+<span class="lbl">s4:</span>  0    + (−0.10) = <span class="res">−0.10</span>
     </div>
     <table class="matrix" style="margin-top: 8px;">
       <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">X₂</td><td class="hi">−0.05</td><td class="hi">0.28</td><td class="hi">0.18</td><td class="hi">−0.18</td></tr></tbody>
+      <tbody><tr><td class="rowlbl">X₂</td><td class="hi">−0.05</td><td class="hi">0.05</td><td class="hi">0.30</td><td class="hi">−0.10</td></tr></tbody>
     </table>
   </div>
 
@@ -682,7 +671,7 @@
     <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12a. β₁·X₁  和  β₂·X₂</h4>
     <div class="arith">
 <span class="lbl">β₁X₁:</span> 0.01·[0.21, −0.15, 0.19, −0.02] = [<span class="res">0.0021</span>, <span class="res">−0.0015</span>, <span class="res">0.0019</span>, <span class="res">−0.0002</span>]<br>
-<span class="lbl">β₂X₂:</span> 0.20·[−0.05, 0.28, 0.18, −0.18] = [<span class="res">−0.010</span>, <span class="res">0.056</span>, <span class="res">0.036</span>, <span class="res">−0.036</span>]
+<span class="lbl">β₂X₂:</span> 0.20·[−0.05, 0.05, 0.30, −0.10] = [<span class="res">−0.010</span>, <span class="res">0.010</span>, <span class="res">0.060</span>, <span class="res">−0.020</span>]
     </div>
     <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12b. G·κᵧ &nbsp;&amp;&nbsp; G·θ</h4>
     <div class="arith">
@@ -702,13 +691,13 @@
     <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12d. 全部加起来 → Y</h4>
     <div class="arith">
 <span class="lbl">s1:</span>  0.0021 + (−0.010) + 0     + 0     + 0.10  + 0.05  = <span class="res">0.142</span><br>
-<span class="lbl">s2:</span> −0.0015 + 0.056   + (−0.04) + (−0.02) + 0.10  + (−0.10) = <span class="res">−0.006</span><br>
-<span class="lbl">s3:</span>  0.0019 + 0.036   + 0.05  + 0.03  + (−0.02) + 0.10  = <span class="res">0.198</span><br>
-<span class="lbl">s4:</span> −0.0002 + (−0.036) + 0     + 0     + (−0.14) + 0.00  = <span class="res">−0.176</span>
+<span class="lbl">s2:</span> −0.0015 + 0.010   + (−0.04) + (−0.02) + 0.10  + (−0.10) = <span class="res">−0.052</span><br>
+<span class="lbl">s3:</span>  0.0019 + 0.060   + 0.05  + 0.03  + (−0.02) + 0.10  = <span class="res">0.222</span><br>
+<span class="lbl">s4:</span> −0.0002 + (−0.020) + 0     + 0     + (−0.14) + 0.00  = <span class="res">−0.160</span>
     </div>
     <table class="matrix" style="margin-top: 8px;">
       <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.142</td><td class="hi">−0.006</td><td class="hi">0.198</td><td class="hi">−0.176</td></tr></tbody>
+      <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.142</td><td class="hi">−0.052</td><td class="hi">0.222</td><td class="hi">−0.160</td></tr></tbody>
     </table>
     <details class="why"><summary>为什么 Y 里要塞这么多项?</summary><div class="body">
       RARE 的核心卖点就是它 <em>显式</em> 建模 CHP (κᵧ) 和 UHP (θ) — 这两条
