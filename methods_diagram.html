@@ -389,9 +389,9 @@
           </g>
 
           <!-- Arrows from data row down to structural row -->
-          <path d="M 200 110 V 145 H 250 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
-          <path d="M 480 110 V 145 H 380 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
-          <path d="M 480 110 V 145 H 620 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 200 110 V 145 H 230 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 480 110 V 145 H 300 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 480 110 V 145 H 770 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
 
           <!-- Row 2: structural equations -->
           <!-- Box 3: X1 -->
@@ -406,11 +406,11 @@
 
           <!-- Box 4: X2 -->
           <g>
-            <rect x="380" y="175" width="220" height="100" rx="10" ry="10" fill="#d29922" opacity="0.95" stroke="#9e7411" stroke-width="1.5"/>
-            <text x="490" y="200" text-anchor="middle" class="box-label">暴露 2: X₂</text>
-            <text x="490" y="225" text-anchor="middle" class="box-sub">= G·γ₂  (次要曝光)</text>
-            <text x="490" y="245" text-anchor="middle" class="box-sub">+ ε</text>
-            <text x="490" y="263" text-anchor="middle" class="box-sub">(no CHP/conf in this arm)</text>
+            <rect x="380" y="175" width="200" height="100" rx="10" ry="10" fill="#d29922" opacity="0.95" stroke="#9e7411" stroke-width="1.5"/>
+            <text x="480" y="200" text-anchor="middle" class="box-label">暴露 2: X₂</text>
+            <text x="480" y="225" text-anchor="middle" class="box-sub">= G·γ₂  (次要曝光)</text>
+            <text x="480" y="245" text-anchor="middle" class="box-sub">+ ε</text>
+            <text x="480" y="263" text-anchor="middle" class="box-sub">(no CHP/conf in this arm)</text>
           </g>
 
           <!-- Box 5: Y -->
@@ -424,15 +424,16 @@
           </g>
 
           <!-- arrows X1 -> Y, X2 -> Y -->
-          <path d="M 360 225 L 620 225" stroke="#3fb950" stroke-width="2" fill="none" marker-end="url(#arr-rare)"/>
-          <text x="490" y="218" class="edge-label">β₁ (识别目标)</text>
+          <path d="M 360 215 L 620 215" stroke="#3fb950" stroke-width="2" fill="none" marker-end="url(#arr-rare)"/>
+          <text x="490" y="208" class="edge-label" text-anchor="middle">β₁ (识别目标)</text>
 
-          <path d="M 600 235 L 620 235" stroke="#3fb950" stroke-width="2" fill="none" marker-end="url(#arr-rare)"/>
-          <text x="595" y="255" class="edge-label" text-anchor="end">β₂</text>
+          <path d="M 580 255 L 620 255" stroke="#3fb950" stroke-width="2" fill="none" marker-end="url(#arr-rare)"/>
+          <text x="600" y="248" class="edge-label" text-anchor="middle">β₂</text>
 
           <!-- arrows from structural row to summary stats -->
-          <path d="M 230 275 V 320 H 480 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
-          <path d="M 770 275 V 320 H 480 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 230 275 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 480 275 V 310 H 300 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 770 275 V 320 H 350 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
 
           <!-- Row 3: core algorithm -->
           <!-- Box 6: summary stats -->
@@ -466,7 +467,7 @@
           </g>
 
           <!-- arrow down to CHP/UHP decomp -->
-          <path d="M 600 440 V 475 H 600 V 495" stroke="#3fb950" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
+          <path d="M 600 440 V 495" stroke="#3fb950" stroke-width="1.5" fill="none" marker-end="url(#arr-rare)"/>
 
           <!-- Row 4: output decomp -->
           <g>
@@ -565,7 +566,7 @@
           </g>
 
           <!-- arrows down to two IV branches -->
-          <path d="M 220 110 V 145 H 220 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
+          <path d="M 220 110 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
           <path d="M 220 110 V 145 H 600 V 175" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
 
           <!-- Box 2: common IV -->
@@ -599,8 +600,8 @@
           </g>
 
           <!-- arrows down to summary stats -->
-          <path d="M 220 265 V 310 H 380 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
-          <path d="M 945 265 V 310 H 600 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
+          <path d="M 220 265 V 310 H 300 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
+          <path d="M 945 265 V 310 H 470 V 340" stroke="#8b949e" stroke-width="1.5" fill="none" marker-end="url(#arr-mrc)"/>
 
           <!-- Box 5: summary stats -->
           <g>
