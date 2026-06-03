@@ -1,0 +1,23 @@
+Running run_all() with n_reps=1000...
+
+=== A: Null (beta=0, F=20) (n=1000 reps) ===
+  duration: 81.1s
+  Coverage AR = 0.951 | Coverage naive = 0.955 | F_mean = 21.15
+  Rej beta=0 (AR / naive) = 0.049 / 0.045
+  J p<0.05 rate = 0.038
+  Bias mean / median = +0.0005 / -0.0011
+  Shape: 
+bounded_interval            empty 
+           0.983            0.017 
+
+=== B: Strong IV (beta=0.4, F=20) (n=1000 reps) ===
+  duration: 81.1s
+  Coverage AR = 0.954 | Coverage naive = 0.959 | F_mean = 21.04
+  Rej beta=0 (AR / naive) = 0.724 / 0.851
+  J p<0.05 rate = 0.047
+  Bias mean / median = +0.0016 / -0.0080
+  Shape: 
+bounded_interval            empty 
+           0.979            0.021 
+
+=== C: Weak IV (beta=0.4, F=1) (n=1000 reps) ===
