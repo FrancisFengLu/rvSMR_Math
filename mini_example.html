@@ -1493,10 +1493,10 @@
     <div class="step-head"><span class="num">Step 7</span><h4>组装 Y — 矩阵形状视角 (最简, 2 项)</h4></div>
 
     <div class="shape-eq">
-      $$ \underbrace{Y}_{n \times 1} \;=\; \underbrace{\beta \, X}_{n \times 1} \;+\; \underbrace{\varepsilon_y}_{n \times 1} $$
+      $$ \underbrace{Y}_{n \times 1} \;=\; \underbrace{\color{#f85149}{\beta_{\text{true}}}}_{\substack{\text{我们设的真值} \\ \text{算法看不到}}} \cdot \underbrace{X}_{n \times 1} \;+\; \underbrace{\varepsilon_y}_{n \times 1} $$
     </div>
 
-    <p>β 是标量, X 是 (n × 1). Scalar × vector = vector, 再 element-wise 加噪声. 没有 G→Y 直接通道, 没有 U.</p>
+    <p><strong style="color:#f85149;">β 在这一步注入</strong> — 它是我们 (data generator) 自己拧的旋钮, 算法 (IVW 或 mrAR_multi) 永远看不到. 算法只看 b_x, b_y, SE 这些 summary stats, 要靠它们 "反推" 出 β. 测试问的就是: 反推得准吗?</p>
 
     <!-- Shape SVG: β·X + εy = Y -->
     <svg class="shape-svg" viewBox="0 0 460 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MR-CARV Y assembly shape diagram">
@@ -1557,6 +1557,125 @@
         </table>
       </div>
     </details>
+  </div>
+
+  <!-- ============ TEST: causal injection loop ============ -->
+  <div class="step mrcarv" style="border-left-width: 4px; border-left-color: #f85149;">
+    <div class="step-head"><span class="num" style="background:#f85149;color:#0d1117;">TEST</span><h4>因果效应 β 是怎么 "注入" 测试数据的 — 真值 → 数据 → 算法 → 验证</h4></div>
+
+    <p>关键设计: <strong style="color:#f85149;">β 是我们设的真值, 算法看不到</strong>. 验证 = 看算法返回的 CI 含不含真 β.</p>
+
+    <div style="overflow-x: auto; margin: 14px 0;">
+      <svg viewBox="0 0 1120 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="causal injection test loop" style="min-width: 900px; max-width: 100%; display: block; margin: 0 auto;">
+        <defs>
+          <marker id="arr-test" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <polygon points="0,0 10,5 0,10" fill="#8b949e"/>
+          </marker>
+          <marker id="arr-test-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <polygon points="0,0 10,5 0,10" fill="#f85149"/>
+          </marker>
+        </defs>
+
+        <!-- Top lane label -->
+        <text x="20" y="30" font-size="13" font-weight="700" fill="#f85149">DATA GENERATOR 这边 (我们都知道)</text>
+
+        <!-- 1) Truth box -->
+        <rect x="40" y="50" width="180" height="80" rx="10" fill="#f85149" fill-opacity="0.18" stroke="#f85149" stroke-width="2"/>
+        <text x="130" y="78" text-anchor="middle" font-size="14" font-weight="700" fill="#f85149">真值 (我们设)</text>
+        <text x="130" y="103" text-anchor="middle" font-size="22" font-weight="700" fill="#f85149">β = 0.04</text>
+        <text x="130" y="122" text-anchor="middle" font-size="11" fill="#8b949e">cont/cont cell 默认</text>
+
+        <!-- arrow 1 → 2 -->
+        <path d="M 220 90 L 280 90" stroke="#f85149" stroke-width="2.5" fill="none" marker-end="url(#arr-test-red)"/>
+        <text x="250" y="80" text-anchor="middle" font-size="11" fill="#8b949e">注入</text>
+
+        <!-- 2) Y assembly box -->
+        <rect x="280" y="50" width="220" height="80" rx="10" fill="#3fb950" fill-opacity="0.18" stroke="#3fb950" stroke-width="2"/>
+        <text x="390" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#3fb950">Step 7: 装配 Y</text>
+        <text x="390" y="100" text-anchor="middle" font-size="14" font-weight="700" fill="#e6edf3">Y = β · X + εᵧ</text>
+        <text x="390" y="118" text-anchor="middle" font-size="11" fill="#8b949e">(X 来自 Step 6)</text>
+
+        <!-- arrow 2 → 3 -->
+        <path d="M 500 90 L 560 90" stroke="#8b949e" stroke-width="2" fill="none" marker-end="url(#arr-test)"/>
+
+        <!-- 3) Summary stats box -->
+        <rect x="560" y="50" width="220" height="80" rx="10" fill="#58a6ff" fill-opacity="0.18" stroke="#58a6ff" stroke-width="2"/>
+        <text x="670" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#58a6ff">计算 summary stats</text>
+        <text x="670" y="98" text-anchor="middle" font-size="12" font-weight="600" fill="#e6edf3">b_x = Cov(G,X) / Var(G)</text>
+        <text x="670" y="116" text-anchor="middle" font-size="12" font-weight="600" fill="#e6edf3">b_y = Cov(G,Y) / Var(G)</text>
+
+        <!-- WALL between data side and algorithm side -->
+        <line x1="820" y1="20" x2="820" y2="340" stroke="#d29922" stroke-width="3" stroke-dasharray="10 6"/>
+        <text x="826" y="20" font-size="11" font-weight="700" fill="#d29922" >▼ 隔离墙</text>
+        <text x="826" y="34" font-size="11" fill="#d29922">算法只能拿到墙右边</text>
+
+        <!-- arrow 3 through wall → 4 -->
+        <path d="M 780 90 L 880 90" stroke="#8b949e" stroke-width="2" fill="none" marker-end="url(#arr-test)"/>
+
+        <!-- 4) Algorithm box -->
+        <rect x="880" y="50" width="220" height="80" rx="10" fill="#a78bfa" fill-opacity="0.18" stroke="#a78bfa" stroke-width="2"/>
+        <text x="990" y="76" text-anchor="middle" font-size="13" font-weight="700" fill="#a78bfa">算法 (盲)</text>
+        <text x="990" y="98" text-anchor="middle" font-size="13" font-weight="600" fill="#e6edf3">mrAR_multi(b_x, b_y, ...)</text>
+        <text x="990" y="116" text-anchor="middle" font-size="11" fill="#8b949e">看不到 β / X / Y / G / U</text>
+
+        <!-- Bottom lane label -->
+        <text x="20" y="190" font-size="13" font-weight="700" fill="#a78bfa">ALGORITHM 这边 (盲跑)</text>
+
+        <!-- 5) Algorithm output -->
+        <rect x="880" y="210" width="220" height="80" rx="10" fill="#a78bfa" fill-opacity="0.32" stroke="#a78bfa" stroke-width="2"/>
+        <text x="990" y="236" text-anchor="middle" font-size="13" font-weight="700" fill="#a78bfa">算法输出</text>
+        <text x="990" y="258" text-anchor="middle" font-size="13" font-weight="600" fill="#e6edf3">β̂ + 95% CI [β_lo, β_hi]</text>
+        <text x="990" y="278" text-anchor="middle" font-size="11" fill="#8b949e">+ Sargan-J p-value</text>
+
+        <!-- arrow algorithm → output -->
+        <path d="M 990 130 L 990 210" stroke="#a78bfa" stroke-width="2" fill="none" marker-end="url(#arr-test)"/>
+
+        <!-- arrow back across wall: verdict comparing output vs truth -->
+        <path d="M 880 250 L 220 250" stroke="#f85149" stroke-width="2" stroke-dasharray="6 4" fill="none" marker-end="url(#arr-test-red)"/>
+        <text x="540" y="240" text-anchor="middle" font-size="12" fill="#f85149">回头对比: <tspan font-weight="700">0.04 ∈ [β_lo, β_hi] ?</tspan></text>
+
+        <!-- 6) Verdict box (bottom-left) -->
+        <rect x="40" y="210" width="180" height="80" rx="10" fill="#f85149" fill-opacity="0.18" stroke="#f85149" stroke-width="2"/>
+        <text x="130" y="236" text-anchor="middle" font-size="13" font-weight="700" fill="#f85149">验收</text>
+        <text x="130" y="258" text-anchor="middle" font-size="12" font-weight="600" fill="#e6edf3">CI 含 0.04 ?</text>
+        <text x="130" y="278" text-anchor="middle" font-size="11" fill="#8b949e">含 = pass; 不含 = miss</text>
+
+        <!-- Caption -->
+        <text x="560" y="330" text-anchor="middle" font-size="12" fill="#8b949e">跑 N = 1000 次 → 含真值的比例就是 <strong style="color:#e6edf3;">empirical coverage</strong>; 目标 = 95% (within ±2%)</text>
+      </svg>
+    </div>
+
+    <h4 style="margin-top: 14px;">谁知道什么? — 信息分割表</h4>
+    <table class="matrix" style="width: 100%; font-size: 0.92rem;">
+      <thead>
+        <tr><th style="text-align:left;">变量</th><th>Data generator (我们)</th><th>算法 (盲)</th><th>说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span style="color:#f85149;font-weight:700;">β (真值)</span></td><td>✓</td><td>✗</td><td>我们设定; 验证的对象</td></tr>
+        <tr><td>G (基因型)</td><td>✓</td><td>✗</td><td>原始数据, 不传给算法</td></tr>
+        <tr><td>X (暴露)</td><td>✓</td><td>✗</td><td>同上</td></tr>
+        <tr><td>Y (结果)</td><td>✓</td><td>✗</td><td>同上</td></tr>
+        <tr><td>U (混杂)</td><td>—</td><td>✗</td><td>MR-CARV 仿真里没生 U; RARE 仿真里有</td></tr>
+        <tr><td>b_x, b_y, SE_x, SE_y</td><td>✓ (派生)</td><td>✓</td><td>唯一传给算法的输入</td></tr>
+        <tr><td>n_x, n_y</td><td>✓</td><td>✓</td><td>样本量</td></tr>
+        <tr><td>β̂ + CI</td><td>派生</td><td>输出</td><td>算法的产出</td></tr>
+      </tbody>
+    </table>
+
+    <h4 style="margin-top: 12px;">什么算 "测试通过"?</h4>
+    <ul>
+      <li><strong>Coverage (覆盖率)</strong>: 重复 N=1000 次, 每次抽不同的 G/ε/φ, 看 95% CI 含真 β 的比例; 目标 0.95 ± 0.02</li>
+      <li><strong>Bias (偏差)</strong>: 平均 β̂ 跟真 β 的距离; 目标接近 0</li>
+      <li><strong>Type-I error (一类错)</strong>: 真 β = 0 时, CI 不含 0 的比例; 目标 0.05</li>
+      <li><strong>Power (功效)</strong>: 真 β ≠ 0 时, CI 不含 0 的比例; 目标 越高越好</li>
+      <li><strong>CI shape 分布</strong>: 4 种形状 (bounded / disconnected / whole_line / empty) 各占多少; 弱 IV 下应该看到 disconnected / whole_line 出现</li>
+    </ul>
+
+    <details class="why" open><summary>为什么 "盲算法" 的设计如此关键?</summary><div class="body">
+      <p>真实世界用算法时, 你<strong>不知道真 β 是多少</strong> — 否则就不需要做 MR 了. 所以测试必须模拟这个 "盲" 的状态: 算法只能拿到 summary stats, 不能拿到 truth.</p>
+      <p>如果算法能拿到 G, X, Y 或 β, 那就 "作弊" 了 — 这种测试的结果跟真实应用场景完全不相关.</p>
+      <p>这就是为什么 Phase 1 的 sanity test 跑 6 个场景时, 都遵循同一个 protocol: <em>generator 知道一切, 算法只看摘要</em>.</p>
+    </div></details>
   </div>
 
   <!-- Step 8 -->
