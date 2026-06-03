@@ -2,7 +2,7 @@
 
 - Replicates per scenario: **1000**
 - Master seed: 20260603
-- Total wall time: 869.2s
+- Total wall time: 874.0s
 - R version: R version 4.1.2 (2021-11-01)
 - rvMR loaded from /home/francisfenglu4/rvSMR/May_30md/rvMR
 
@@ -15,7 +15,7 @@
 | C: Weak IV (beta=0.4, F=1) | 1000 | 0.950 | 0.985 | 1.97 | +0.6057 | 0.089 | 0.015 |
 | D: Very weak IV (beta=0.4, F=0.5) | 1000 | 0.962 | 0.988 | 1.48 | -0.1834 | 0.061 | 0.007 |
 | E: Pleiotropy (beta=0.4, F=20, 1/3 IVs invalid) | 1000 | 0.021 | 0.318 | 21.00 | +0.5529 | 1.000 | 0.807 |
-| F: Sample overlap (beta=0.4, F=20, R_xy=0.3) | 1000 | 0.899 | 0.972 | 21.06 | +0.0006 | 0.711 | 0.023 |
+| F: Sample overlap (beta=0.4, F=20, R_xy=0.3) | 1000 | 0.943 | 0.972 | 21.06 | -0.0018 | 0.711 | 0.052 |
 
 ## CI shape distribution per scenario
 
@@ -62,8 +62,8 @@
 
 | CI shape | proportion |
 |---|---:|
-| bounded_interval | 0.994 |
-| empty | 0.006 |
+| bounded_interval | 0.979 |
+| empty | 0.021 |
 
 ## Pass / fail interpretation
 
@@ -72,4 +72,4 @@
 - **C: Weak IV (beta=0.4, F=1)**: coverage_AR = 0.950, bias = +0.6057, J-rej = 0.015. AR's headline regime: coverage **must hold** at F≈1. **PASS** -- AR is doing its job.
 - **D: Very weak IV (beta=0.4, F=0.5)**: coverage_AR = 0.962, bias = -0.1834, J-rej = 0.007. F<1: expect many whole_line CIs, but coverage should still ≥ 0.95 (conservative). **PASS** (no under-coverage).
 - **E: Pleiotropy (beta=0.4, F=20, 1/3 IVs invalid)**: coverage_AR = 0.021, bias = +0.5529, J-rej = 0.807. AR no longer valid (model misspecified); but Sargan-J should reject (high J p<0.05 rate). **PASS** (J detects pleiotropy).
-- **F: Sample overlap (beta=0.4, F=20, R_xy=0.3)**: coverage_AR = 0.899, bias = +0.0006, J-rej = 0.023. Coverage should remain ≈ 0.95 when R_xy is supplied. **REVIEW**.
+- **F: Sample overlap (beta=0.4, F=20, R_xy=0.3)**: coverage_AR = 0.943, bias = -0.0018, J-rej = 0.052. Coverage should remain ≈ 0.95 when R_xy is supplied. **PASS**.

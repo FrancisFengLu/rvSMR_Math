@@ -21,3 +21,45 @@ bounded_interval            empty
            0.979            0.021 
 
 === C: Weak IV (beta=0.4, F=1) (n=1000 reps) ===
+  duration: 264.6s
+  Coverage AR = 0.950 | Coverage naive = 0.985 | F_mean = 1.97
+  Rej beta=0 (AR / naive) = 0.089 / 0.006
+  J p<0.05 rate = 0.015
+  Bias mean / median = +0.6057 / -0.0468
+  Shape: 
+  bounded_interval disconnected_union              empty         whole_line 
+             0.263              0.168              0.006              0.563 
+
+=== D: Very weak IV (beta=0.4, F=0.5) (n=1000 reps) ===
+  duration: 286.6s
+  Coverage AR = 0.962 | Coverage naive = 0.988 | F_mean = 1.48
+  Rej beta=0 (AR / naive) = 0.061 / 0.002
+  J p<0.05 rate = 0.007
+  Bias mean / median = -0.1834 / -0.1195
+  Shape: 
+  bounded_interval disconnected_union              empty         whole_line 
+             0.158              0.144              0.001              0.697 
+
+=== E: Pleiotropy (beta=0.4, F=20, 1/3 IVs invalid) (n=1000 reps) ===
+  duration: 80.0s
+  Coverage AR = 0.021 | Coverage naive = 0.318 | F_mean = 21.00
+  Rej beta=0 (AR / naive) = 1.000 / 0.999
+  J p<0.05 rate = 0.807
+  Bias mean / median = +0.5529 / +0.5230
+  Shape: 
+bounded_interval            empty 
+            0.31             0.69 
+
+=== F: Sample overlap (beta=0.4, F=20, R_xy=0.3) (n=1000 reps) ===
+  duration: 80.7s
+  Coverage AR = 0.943 | Coverage naive = 0.972 | F_mean = 21.06
+  Rej beta=0 (AR / naive) = 0.711 / 0.847
+  J p<0.05 rate = 0.052
+  Bias mean / median = -0.0018 / -0.0052
+  Shape: 
+bounded_interval            empty 
+           0.979            0.021 
+
+Total duration: 874.0s
+
+Wrote results.rds and results.md.
