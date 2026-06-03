@@ -355,6 +355,51 @@
     table.matrix th, table.matrix td { padding: 4px 6px; min-width: 34px; }
     .arith { font-size: 0.82rem; padding: 7px 10px; }
   }
+
+  /* Shape-view SVG (matrix-as-box diagrams) */
+  .shape-svg {
+    display: block;
+    margin: 10px auto;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .shape-eq {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 8px 0;
+    font-size: 0.98rem;
+    text-align: center;
+    overflow-x: auto;
+  }
+  .shape-zoom {
+    background: var(--bg-elev-2);
+    border-left: 3px solid var(--c-good);
+    border-radius: 4px;
+    padding: 8px 14px;
+    margin: 8px 0;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    overflow-x: auto;
+  }
+  .shape-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 8px 12px;
+    margin: 6px 0 10px;
+    background: var(--bg-elev-2);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    color: var(--fg-muted);
+  }
+  .shape-legend code { color: var(--fg); }
+  .shape-legend .sw {
+    display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+    vertical-align: middle; margin-right: 4px; opacity: 0.85;
+  }
 </style>
 </head>
 <body>
@@ -566,139 +611,317 @@
 
   <!-- Step 10 -->
   <div class="step rare">
-    <div class="step-head"><span class="num">Step 10</span><h4>组装主曝光 X₁ — 把 4 层加在一起</h4></div>
-    <p>$$ X_1 \;=\; G\delta \;+\; G\kappa_x \;+\; U\psi_x \;+\; \varepsilon_1 $$</p>
+    <div class="step-head"><span class="num">Step 10</span><h4>组装 X₁ — 矩阵形状视角</h4></div>
 
-    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">10a. G · δ (每样本一个标量)</h4>
-    <div class="arith">
+    <div class="shape-eq">
+      $$ \underbrace{X_1}_{n \times 1} \;=\; \underbrace{G\delta}_{(n \times p)(p \times 1)} \;+\; \underbrace{G\kappa_x}_{(n \times p)(p \times 1)} \;+\; \underbrace{U\psi_x}_{(n \times p_u)(p_u \times 1)} \;+\; \underbrace{\varepsilon_1}_{n \times 1} $$
+    </div>
+
+    <p>三个 matrix-vector 乘积 + 一个 noise 向量, 全是 (n × 1) 列向量, 在样本维度 element-wise 加起来 → X₁.</p>
+
+    <!-- Shape SVG: G·δ + G·κx + U·ψx + ε1 = X1 -->
+    <svg class="shape-svg" viewBox="0 0 1140 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="X1 assembly shape diagram">
+      <!-- G·δ block -->
+      <rect x="20"  y="40" width="120" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="80"  y="92" text-anchor="middle" font-size="28" font-weight="700" fill="#0d1117">G</text>
+      <text x="80"  y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 5]</text>
+      <text x="156" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="172" y="16" width="24" height="120" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="184" y="82" text-anchor="middle" font-size="16" font-weight="700" fill="#0d1117">δ</text>
+      <text x="184" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <text x="216" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- G·κx block -->
+      <rect x="234" y="40" width="120" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="294" y="92" text-anchor="middle" font-size="28" font-weight="700" fill="#0d1117">G</text>
+      <text x="294" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 5]</text>
+      <text x="370" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="386" y="16" width="24" height="120" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="398" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="#0d1117">κₓ</text>
+      <text x="398" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <text x="430" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- U·ψx block -->
+      <rect x="450" y="52" width="48" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="474" y="104" text-anchor="middle" font-size="22" font-weight="700" fill="#0d1117">U</text>
+      <text x="474" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 2]</text>
+      <text x="514" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="528" y="76" width="24" height="48" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="540" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">ψₓ</text>
+      <text x="540" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[2 × 1]</text>
+
+      <text x="572" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- ε1 -->
+      <rect x="590" y="52" width="24" height="96" fill="#8b949e" fill-opacity="0.85" rx="4"/>
+      <text x="602" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">ε₁</text>
+      <text x="602" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="634" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">=</text>
+
+      <!-- X1 -->
+      <rect x="654" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.85" rx="4"/>
+      <text x="666" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X₁</text>
+      <text x="666" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <!-- annotation labels -->
+      <text x="184" y="200" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Gδ ∈ ℝ⁴</text>
+      <text x="398" y="200" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Gκₓ ∈ ℝ⁴</text>
+      <text x="540" y="200" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Uψₓ ∈ ℝ⁴</text>
+    </svg>
+
+    <div class="shape-zoom">
+      放大单样本 i (= 1..4):<br>
+      &nbsp;&nbsp;(X₁)<sub>i</sub> = (Gδ)<sub>i</sub> + (Gκₓ)<sub>i</sub> + (Uψₓ)<sub>i</sub> + (ε₁)<sub>i</sub><br>
+      其中 (Gδ)<sub>i</sub> = Σ<sub>j=1..5</sub> G<sub>ij</sub> δ<sub>j</sub> &nbsp; (一个 dot product, 把 p=5 维 collapse 成标量)
+    </div>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#58a6ff;"></span>输入数据 G, U</span>
+      <span><span class="sw" style="background:#d29922;"></span>系数 δ, κₓ, ψₓ</span>
+      <span><span class="sw" style="background:#8b949e;"></span>噪声 ε</span>
+      <span><span class="sw" style="background:#3fb950;"></span>输出 X₁</span>
+      <span><code>·</code> = matrix-vector 乘 (collapse p)</span>
+      <span><code>+</code> = element-wise 加 (shape 必须一致)</span>
+    </div>
+
+    <details class="why" open>
+      <summary>行/列向量惯例 (默认打开)</summary>
+      <div class="body">
+        参数表 (δ, κₓ, ψₓ 等) 在源码里以长度 p 的 1-D 数组存; 在矩阵乘法 <em>G·δ</em> 里它们当 <strong>column vector</strong> 用,
+        即 right-multiply 一个 (n × p) 的 G, 得到一个长度 n 的 column vector. 上图所有 <em>(p × 1)</em> 的窄盒子都是这个意思.
+      </div>
+    </details>
+
+    <details class="why">
+      <summary>看具体数字 (seed=1, n=4) →</summary>
+      <div class="body">
+        <h4 style="margin-top: 4px; color: var(--fg-muted); font-size: 0.9rem;">10a. G · δ (每样本一个标量)</h4>
+        <div class="arith">
 <span class="lbl">s1:</span> [1, 2, 0, 0, 0] · [0, 0, 0, 0.15, −0.08] = 1·0 + 2·0 + 0·0 + 0·0.15 + 0·(−0.08) = <span class="res">0</span><br>
 <span class="lbl">s2:</span> [0, 1, 1, 0, 1] · [0, 0, 0, 0.15, −0.08] = 0 + 0 + 0 + 0 + 1·(−0.08) = <span class="res">−0.08</span><br>
 <span class="lbl">s3:</span> [2, 1, 0, 1, 0] · [0, 0, 0, 0.15, −0.08] = 0 + 0 + 0 + 1·0.15 + 0 = <span class="res">0.15</span><br>
 <span class="lbl">s4:</span> [1, 0, 2, 0, 0] · [0, 0, 0, 0.15, −0.08] = 0 + 0 + 0 + 0 + 0 = <span class="res">0</span>
-    </div>
+        </div>
 
-    <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10b. G · κₓ</h4>
-    <div class="arith">
+        <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10b. G · κₓ</h4>
+        <div class="arith">
 <span class="lbl">s1:</span> [1, 2, 0, 0, 0] · [0, 0, 0, 0.04, −0.03] = <span class="res">0</span><br>
 <span class="lbl">s2:</span> [0, 1, 1, 0, 1] · [0, 0, 0, 0.04, −0.03] = 0 + 0 + 0 + 0 + 1·(−0.03) = <span class="res">−0.03</span><br>
 <span class="lbl">s3:</span> [2, 1, 0, 1, 0] · [0, 0, 0, 0.04, −0.03] = 0 + 0 + 0 + 1·0.04 + 0 = <span class="res">0.04</span><br>
 <span class="lbl">s4:</span> [1, 0, 2, 0, 0] · [0, 0, 0, 0.04, −0.03] = <span class="res">0</span>
-    </div>
+        </div>
 
-    <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10c. U · ψₓ</h4>
-    <div class="arith">
+        <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10c. U · ψₓ</h4>
+        <div class="arith">
 <span class="lbl">s1:</span> [0.4, −0.3] · [0.5, 0.3] = 0.4·0.5 + (−0.3)·0.3 = 0.20 − 0.09 = <span class="res">0.11</span><br>
 <span class="lbl">s2:</span> [−0.1, 0.7] · [0.5, 0.3] = −0.05 + 0.21 = <span class="res">0.16</span><br>
 <span class="lbl">s3:</span> [0.2, −0.5] · [0.5, 0.3] = 0.10 − 0.15 = <span class="res">−0.05</span><br>
 <span class="lbl">s4:</span> [−0.4, 0.1] · [0.5, 0.3] = −0.20 + 0.03 = <span class="res">−0.17</span>
-    </div>
+        </div>
 
-    <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10d. 加起来 → X₁</h4>
-    <div class="arith">
+        <h4 style="margin-top: 14px; color: var(--fg-muted); font-size: 0.9rem;">10d. 加起来 → X₁</h4>
+        <div class="arith">
 <span class="lbl">s1:</span>  0    + 0     + 0.11  + 0.10  = <span class="res">0.21</span><br>
 <span class="lbl">s2:</span> −0.08 + (−0.03) + 0.16  + (−0.20) = <span class="res">−0.15</span><br>
 <span class="lbl">s3:</span>  0.15 + 0.04  + (−0.05) + 0.05  = <span class="res">0.19</span><br>
 <span class="lbl">s4:</span>  0    + 0     + (−0.17) + 0.15  = <span class="res">−0.02</span>
-    </div>
-    <table class="matrix" style="margin-top: 8px;">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">X₁</td><td class="hi">0.21</td><td class="hi">−0.15</td><td class="hi">0.19</td><td class="hi">−0.02</td></tr></tbody>
-    </table>
+        </div>
+        <table class="matrix" style="margin-top: 8px;">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">X₁</td><td class="hi">0.21</td><td class="hi">−0.15</td><td class="hi">0.19</td><td class="hi">−0.02</td></tr></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Step 11 -->
   <div class="step rare">
-    <div class="step-head"><span class="num">Step 11</span><h4>组装次曝光 X₂ (比 X₁ 短得多 — 只有 IV + 噪声)</h4></div>
-    <p>$$ X_2 \;=\; G\gamma_2 \;+\; \varepsilon_2 $$</p>
+    <div class="step-head"><span class="num">Step 11</span><h4>组装 X₂ — 矩阵形状视角 (干净 IV-only 通道)</h4></div>
+
+    <div class="shape-eq">
+      $$ \underbrace{X_2}_{n \times 1} \;=\; \underbrace{G\gamma_2}_{(n \times p)(p \times 1)} \;+\; \underbrace{\varepsilon_2}_{n \times 1} $$
+    </div>
+
+    <p>跟 X₁ 比少了两项 (没有 κ, 没有 U·ψ); 只剩 IV 信号 + 噪声.</p>
+
+    <!-- Shape SVG: G·γ2 + ε2 = X2 -->
+    <svg class="shape-svg" viewBox="0 0 580 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="X2 assembly shape diagram">
+      <rect x="20"  y="40" width="120" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="80"  y="92" text-anchor="middle" font-size="28" font-weight="700" fill="#0d1117">G</text>
+      <text x="80"  y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 5]</text>
+      <text x="156" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="172" y="16" width="24" height="120" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="184" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">γ₂</text>
+      <text x="184" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <text x="216" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <rect x="234" y="52" width="24" height="96" fill="#8b949e" fill-opacity="0.85" rx="4"/>
+      <text x="246" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">ε₂</text>
+      <text x="246" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="278" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">=</text>
+
+      <rect x="298" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.85" rx="4"/>
+      <text x="310" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X₂</text>
+      <text x="310" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="184" y="200" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Gγ₂ ∈ ℝ⁴</text>
+    </svg>
+
+    <div class="shape-zoom">
+      放大单样本 i: (X₂)<sub>i</sub> = (Gγ₂)<sub>i</sub> + (ε₂)<sub>i</sub> &nbsp; (两个标量相加)
+    </div>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#58a6ff;"></span>G</span>
+      <span><span class="sw" style="background:#d29922;"></span>γ₂ (IV 系数)</span>
+      <span><span class="sw" style="background:#8b949e;"></span>ε₂</span>
+      <span><span class="sw" style="background:#3fb950;"></span>X₂</span>
+      <span><code>·</code> matrix-vector | <code>+</code> element-wise</span>
+    </div>
+
     <details class="why" open><summary>为什么 X₂ 这么干净 (没 CHP 没 confounder)?</summary><div class="body">
       RARE 论文 Eq. 7–8 和 <code class="mono">simulationl.R</code> 都是这样设置: <strong>X₂ 这一臂没有 CHP 也没有 U 通道</strong>.
       只有 X₁ 才同时受 IV 信号 (δ), CHP 上游 (κₓ), 和潜在混杂 (U ψₓ) 影响.
       原因是 RARE 想造的最难场景就是 "想识别的因果效应 β₁ 对应的 X₁ 受混杂污染, 而控制变量 X₂ 是干净的 instrument-only 通道".
     </div></details>
-    <p>参数 (1 次抽样得到):</p>
-    <table class="matrix">
-      <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
-      <tbody>
-        <tr><td class="rowlbl">γ₂</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.10</td><td class="num">−0.05</td></tr>
-      </tbody>
-    </table>
-    <table class="matrix">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">ε₂</td><td class="num">−0.05</td><td class="num">0.10</td><td class="num">0.20</td><td class="num">−0.10</td></tr></tbody>
-    </table>
 
-    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">11a. G · γ₂</h4>
-    <div class="arith">
+    <details class="why">
+      <summary>看具体数字 (seed=1, n=4) →</summary>
+      <div class="body">
+        <p>参数 (1 次抽样得到):</p>
+        <table class="matrix">
+          <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">γ₂</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.10</td><td class="num">−0.05</td></tr>
+          </tbody>
+        </table>
+        <table class="matrix">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">ε₂</td><td class="num">−0.05</td><td class="num">0.10</td><td class="num">0.20</td><td class="num">−0.10</td></tr></tbody>
+        </table>
+
+        <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">11a. G · γ₂</h4>
+        <div class="arith">
 <span class="lbl">s1:</span> [1,2,0,0,0] · [0,0,0,0.10,−0.05] = <span class="res">0</span><br>
 <span class="lbl">s2:</span> [0,1,1,0,1] · [0,0,0,0.10,−0.05] = 1·(−0.05) = <span class="res">−0.05</span><br>
 <span class="lbl">s3:</span> [2,1,0,1,0] · [0,0,0,0.10,−0.05] = 1·0.10 = <span class="res">0.10</span><br>
 <span class="lbl">s4:</span> [1,0,2,0,0] · [0,0,0,0.10,−0.05] = <span class="res">0</span>
-    </div>
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11b. 加起来 → X₂</h4>
-    <div class="arith">
+        </div>
+        <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">11b. 加起来 → X₂</h4>
+        <div class="arith">
 <span class="lbl">s1:</span>  0    + (−0.05) = <span class="res">−0.05</span><br>
 <span class="lbl">s2:</span> −0.05 + 0.10  = <span class="res">0.05</span><br>
 <span class="lbl">s3:</span>  0.10 + 0.20  = <span class="res">0.30</span><br>
 <span class="lbl">s4:</span>  0    + (−0.10) = <span class="res">−0.10</span>
-    </div>
-    <table class="matrix" style="margin-top: 8px;">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">X₂</td><td class="hi">−0.05</td><td class="hi">0.05</td><td class="hi">0.30</td><td class="hi">−0.10</td></tr></tbody>
-    </table>
+        </div>
+        <table class="matrix" style="margin-top: 8px;">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">X₂</td><td class="hi">−0.05</td><td class="hi">0.05</td><td class="hi">0.30</td><td class="hi">−0.10</td></tr></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Step 12 -->
   <div class="step rare">
-    <div class="step-head"><span class="num">Step 12</span><h4>组装 outcome Y</h4></div>
-    <p>$$ Y \;=\; \beta_1 X_1 \;+\; \beta_2 X_2 \;+\; G\kappa_y \;+\; G\theta \;+\; U\psi_y \;+\; \varepsilon_y $$</p>
-    <p>新系数 (一次抽出来的; θ 是 UHP — uncorrelated pleiotropy):</p>
-    <table class="matrix">
-      <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
-      <tbody>
-        <tr><td class="rowlbl">κᵧ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.05</td><td class="num">−0.04</td></tr>
-        <tr><td class="rowlbl">θ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.03</td><td class="num">−0.02</td></tr>
-      </tbody>
-    </table>
-    <table class="matrix">
-      <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
-      <tbody><tr><td class="rowlbl">ψᵧ</td><td class="num">0.4</td><td class="num">0.2</td></tr></tbody>
-    </table>
-    <table class="matrix">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">εᵧ</td><td class="num">0.05</td><td class="num">−0.10</td><td class="num">0.10</td><td class="num">0.00</td></tr></tbody>
-    </table>
+    <div class="step-head"><span class="num">Step 12</span><h4>组装 Y — 矩阵形状视角 (6 个 n-vector 相加)</h4></div>
 
-    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12a. β₁·X₁  和  β₂·X₂</h4>
-    <div class="arith">
-<span class="lbl">β₁X₁:</span> 0.01·[0.21, −0.15, 0.19, −0.02] = [<span class="res">0.0021</span>, <span class="res">−0.0015</span>, <span class="res">0.0019</span>, <span class="res">−0.0002</span>]<br>
-<span class="lbl">β₂X₂:</span> 0.20·[−0.05, 0.05, 0.30, −0.10] = [<span class="res">−0.010</span>, <span class="res">0.010</span>, <span class="res">0.060</span>, <span class="res">−0.020</span>]
-    </div>
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12b. G·κᵧ &nbsp;&amp;&nbsp; G·θ</h4>
-    <div class="arith">
-<span class="lbl">G·κᵧ:</span><br>
-&nbsp;&nbsp;s1: 0 &nbsp; s2: 1·(−0.04) = <span class="res">−0.04</span> &nbsp; s3: 1·0.05 = <span class="res">0.05</span> &nbsp; s4: 0<br>
-<span class="lbl">G·θ &nbsp;:</span><br>
-&nbsp;&nbsp;s1: 0 &nbsp; s2: 1·(−0.02) = <span class="res">−0.02</span> &nbsp; s3: 1·0.03 = <span class="res">0.03</span> &nbsp; s4: 0
-    </div>
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12c. U·ψᵧ</h4>
-    <div class="arith">
-<span class="lbl">s1:</span> 0.4·0.4 + (−0.3)·0.2 = 0.16 − 0.06 = <span class="res">0.10</span><br>
-<span class="lbl">s2:</span> −0.1·0.4 + 0.7·0.2 = −0.04 + 0.14 = <span class="res">0.10</span><br>
-<span class="lbl">s3:</span> 0.2·0.4 + (−0.5)·0.2 = 0.08 − 0.10 = <span class="res">−0.02</span><br>
-<span class="lbl">s4:</span> −0.4·0.4 + 0.1·0.2 = −0.16 + 0.02 = <span class="res">−0.14</span>
+    <div class="shape-eq">
+      $$ \underbrace{Y}_{n \times 1} \;=\; \underbrace{\beta_1 X_1}_{n \times 1} \;+\; \underbrace{\beta_2 X_2}_{n \times 1} \;+\; \underbrace{G\kappa_y}_{(n \times p)(p \times 1)} \;+\; \underbrace{G\theta}_{(n \times p)(p \times 1)} \;+\; \underbrace{U\psi_y}_{(n \times p_u)(p_u \times 1)} \;+\; \underbrace{\varepsilon_y}_{n \times 1} $$
     </div>
 
-    <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12d. 全部加起来 → Y</h4>
-    <div class="arith">
-<span class="lbl">s1:</span>  0.0021 + (−0.010) + 0     + 0     + 0.10  + 0.05  = <span class="res">0.142</span><br>
-<span class="lbl">s2:</span> −0.0015 + 0.010   + (−0.04) + (−0.02) + 0.10  + (−0.10) = <span class="res">−0.052</span><br>
-<span class="lbl">s3:</span>  0.0019 + 0.060   + 0.05  + 0.03  + (−0.02) + 0.10  = <span class="res">0.222</span><br>
-<span class="lbl">s4:</span> −0.0002 + (−0.020) + 0     + 0     + (−0.14) + 0.00  = <span class="res">−0.160</span>
+    <p>6 个 (n × 1) 列向量, element-wise 加. 注意 β₁, β₂ 是标量, 把 X₁, X₂ 缩放 (scalar × vector); 其它都是 matrix·vector.</p>
+
+    <!-- Shape SVG: 6-term sum -->
+    <svg class="shape-svg" viewBox="0 0 1180 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Y assembly shape diagram">
+      <!-- β1·X1 -->
+      <text x="32"  y="98" text-anchor="middle" font-size="16" font-weight="700" fill="var(--fg)">β₁</text>
+      <text x="52"  y="98" text-anchor="middle" font-size="16" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="66"  y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.6" rx="4"/>
+      <text x="78"  y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X₁</text>
+      <text x="78"  y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="106" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- β2·X2 -->
+      <text x="128" y="98" text-anchor="middle" font-size="16" font-weight="700" fill="var(--fg)">β₂</text>
+      <text x="148" y="98" text-anchor="middle" font-size="16" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="162" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.6" rx="4"/>
+      <text x="174" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X₂</text>
+      <text x="174" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="202" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- G·κy -->
+      <rect x="220" y="40" width="120" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="280" y="92" text-anchor="middle" font-size="26" font-weight="700" fill="#0d1117">G</text>
+      <text x="280" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 5]</text>
+      <text x="354" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="368" y="16" width="24" height="120" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="380" y="82" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">κᵧ</text>
+      <text x="380" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <text x="412" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- G·θ -->
+      <rect x="430" y="40" width="120" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="490" y="92" text-anchor="middle" font-size="26" font-weight="700" fill="#0d1117">G</text>
+      <text x="490" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 5]</text>
+      <text x="564" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="578" y="16" width="24" height="120" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="590" y="82" text-anchor="middle" font-size="14" font-weight="700" fill="#0d1117">θ</text>
+      <text x="590" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <text x="622" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- U·ψy -->
+      <rect x="640" y="52" width="48" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="664" y="104" text-anchor="middle" font-size="20" font-weight="700" fill="#0d1117">U</text>
+      <text x="664" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 2]</text>
+      <text x="704" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="718" y="76" width="24" height="48" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="730" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">ψᵧ</text>
+      <text x="730" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[2 × 1]</text>
+
+      <text x="762" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- εy -->
+      <rect x="780" y="52" width="24" height="96" fill="#8b949e" fill-opacity="0.85" rx="4"/>
+      <text x="792" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">εᵧ</text>
+      <text x="792" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="824" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">=</text>
+
+      <!-- Y -->
+      <rect x="844" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.95" rx="4"/>
+      <text x="856" y="106" text-anchor="middle" font-size="14" font-weight="700" fill="#0d1117">Y</text>
+      <text x="856" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="380" y="202" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Gκᵧ ∈ ℝ⁴</text>
+      <text x="590" y="202" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Gθ ∈ ℝ⁴</text>
+      <text x="730" y="202" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Uψᵧ ∈ ℝ⁴</text>
+    </svg>
+
+    <div class="shape-zoom">
+      放大单样本 i:<br>
+      &nbsp;&nbsp;Y<sub>i</sub> = β₁(X₁)<sub>i</sub> + β₂(X₂)<sub>i</sub> + (Gκᵧ)<sub>i</sub> + (Gθ)<sub>i</sub> + (Uψᵧ)<sub>i</sub> + (εᵧ)<sub>i</sub><br>
+      6 个标量加起来. (Gκᵧ)<sub>i</sub> = Σ<sub>j</sub> G<sub>ij</sub> κᵧ,<sub>j</sub>.
     </div>
-    <table class="matrix" style="margin-top: 8px;">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.142</td><td class="hi">−0.052</td><td class="hi">0.222</td><td class="hi">−0.160</td></tr></tbody>
-    </table>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#58a6ff;"></span>G, U</span>
+      <span><span class="sw" style="background:#d29922;"></span>κᵧ, θ, ψᵧ</span>
+      <span><span class="sw" style="background:#3fb950;"></span>X₁, X₂, Y</span>
+      <span><span class="sw" style="background:#8b949e;"></span>εᵧ</span>
+      <span><code>·</code> matrix-vector (collapse p / p_u)</span>
+      <span><code>+</code> element-wise (vector shape match)</span>
+    </div>
+
     <details class="why"><summary>为什么 Y 里要塞这么多项?</summary><div class="body">
       RARE 的核心卖点就是它 <em>显式</em> 建模 CHP (κᵧ) 和 UHP (θ) — 这两条
       "直接 G → Y" 通道是 valid-instrument 假设的最常见破坏方式. 在仿真里
@@ -706,15 +929,141 @@
       混杂 U 通过 ψ_y 进 Y 制造 confounding bias.
       对比一下: MR-CARV 仿真里 Y = β X + ε, 上面这些都没有.
     </div></details>
+
+    <details class="why">
+      <summary>看具体数字 (seed=1, n=4) →</summary>
+      <div class="body">
+        <p>新系数 (一次抽出来的; θ 是 UHP — uncorrelated pleiotropy):</p>
+        <table class="matrix">
+          <thead><tr><th></th><th>c1</th><th>c2</th><th>c3</th><th>r1</th><th>r2</th></tr></thead>
+          <tbody>
+            <tr><td class="rowlbl">κᵧ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.05</td><td class="num">−0.04</td></tr>
+            <tr><td class="rowlbl">θ</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="zero">0.00</td><td class="num">0.03</td><td class="num">−0.02</td></tr>
+          </tbody>
+        </table>
+        <table class="matrix">
+          <thead><tr><th></th><th>u1</th><th>u2</th></tr></thead>
+          <tbody><tr><td class="rowlbl">ψᵧ</td><td class="num">0.4</td><td class="num">0.2</td></tr></tbody>
+        </table>
+        <table class="matrix">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">εᵧ</td><td class="num">0.05</td><td class="num">−0.10</td><td class="num">0.10</td><td class="num">0.00</td></tr></tbody>
+        </table>
+
+        <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12a. β₁·X₁  和  β₂·X₂</h4>
+        <div class="arith">
+<span class="lbl">β₁X₁:</span> 0.01·[0.21, −0.15, 0.19, −0.02] = [<span class="res">0.0021</span>, <span class="res">−0.0015</span>, <span class="res">0.0019</span>, <span class="res">−0.0002</span>]<br>
+<span class="lbl">β₂X₂:</span> 0.20·[−0.05, 0.05, 0.30, −0.10] = [<span class="res">−0.010</span>, <span class="res">0.010</span>, <span class="res">0.060</span>, <span class="res">−0.020</span>]
+        </div>
+        <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12b. G·κᵧ &nbsp;&amp;&nbsp; G·θ</h4>
+        <div class="arith">
+<span class="lbl">G·κᵧ:</span><br>
+&nbsp;&nbsp;s1: 0 &nbsp; s2: 1·(−0.04) = <span class="res">−0.04</span> &nbsp; s3: 1·0.05 = <span class="res">0.05</span> &nbsp; s4: 0<br>
+<span class="lbl">G·θ &nbsp;:</span><br>
+&nbsp;&nbsp;s1: 0 &nbsp; s2: 1·(−0.02) = <span class="res">−0.02</span> &nbsp; s3: 1·0.03 = <span class="res">0.03</span> &nbsp; s4: 0
+        </div>
+        <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">12c. U·ψᵧ</h4>
+        <div class="arith">
+<span class="lbl">s1:</span> 0.4·0.4 + (−0.3)·0.2 = 0.16 − 0.06 = <span class="res">0.10</span><br>
+<span class="lbl">s2:</span> −0.1·0.4 + 0.7·0.2 = −0.04 + 0.14 = <span class="res">0.10</span><br>
+<span class="lbl">s3:</span> 0.2·0.4 + (−0.5)·0.2 = 0.08 − 0.10 = <span class="res">−0.02</span><br>
+<span class="lbl">s4:</span> −0.4·0.4 + 0.1·0.2 = −0.16 + 0.02 = <span class="res">−0.14</span>
+        </div>
+
+        <h4 style="margin-top: 12px; color: var(--fg-muted); font-size: 0.9rem;">12d. 全部加起来 → Y</h4>
+        <div class="arith">
+<span class="lbl">s1:</span>  0.0021 + (−0.010) + 0     + 0     + 0.10  + 0.05  = <span class="res">0.142</span><br>
+<span class="lbl">s2:</span> −0.0015 + 0.010   + (−0.04) + (−0.02) + 0.10  + (−0.10) = <span class="res">−0.052</span><br>
+<span class="lbl">s3:</span>  0.0019 + 0.060   + 0.05  + 0.03  + (−0.02) + 0.10  = <span class="res">0.222</span><br>
+<span class="lbl">s4:</span> −0.0002 + (−0.020) + 0     + 0     + (−0.14) + 0.00  = <span class="res">−0.160</span>
+        </div>
+        <table class="matrix" style="margin-top: 8px;">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.142</td><td class="hi">−0.052</td><td class="hi">0.222</td><td class="hi">−0.160</td></tr></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Step 13 -->
   <div class="step rare">
-    <div class="step-head"><span class="num">Step 13</span><h4>计算 GWAS summary stats (示范 2 个 SNP)</h4></div>
-    <p>对每个 SNP j: $\hat\beta_{x,j} = \dfrac{\mathrm{Cov}(G_{:,j}, X_1)}{\mathrm{Var}(G_{:,j})}$ &nbsp;&nbsp; (population formula, 分母用 n=4)</p>
+    <div class="step-head"><span class="num">Step 13</span><h4>Summary stats — 矩阵形状视角 (对每列 G[:,j] 跑一次)</h4></div>
 
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP c1 (公共, MAF=0.30): G[:,c1] = [1, 0, 2, 1]</h4>
-    <div class="arith">
+    <div class="shape-eq">
+      $$ \hat\beta_{x,j} \;=\; \frac{\mathrm{Cov}(G_{:,j},\, X_1)}{\mathrm{Var}(G_{:,j})}, \quad j = 1, \dots, p \;\;\Longrightarrow\;\; \hat\beta_x \in \mathbb{R}^{p} = \mathbb{R}^{5} $$
+    </div>
+
+    <p>每个 SNP 跑一次单变量回归 ⇒ 把 G 的 p=5 列, 每列 collapse 成 1 个标量 β̂. 输出是一个 (p × 1) 列向量.</p>
+
+    <!-- Shape SVG: column-wise reduction G → β̂_x vector -->
+    <svg class="shape-svg" viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="summary stats shape diagram">
+      <!-- G with column-highlight overlay -->
+      <rect x="20" y="40" width="120" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <!-- column j stripe -->
+      <rect x="68" y="40" width="24" height="96" fill="#f4b860" fill-opacity="0.55" stroke="#f4b860" stroke-width="1.5" stroke-dasharray="3 2"/>
+      <text x="80" y="92" text-anchor="middle" font-size="22" font-weight="700" fill="#0d1117">G</text>
+      <text x="80" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 5]</text>
+      <text x="80" y="174" text-anchor="middle" font-size="10" fill="#f4b860">列 j = G[:,j]</text>
+
+      <!-- arrow / op -->
+      <text x="180" y="80" text-anchor="middle" font-size="13" fill="var(--fg-muted)">Cov(G[:,j], X₁)</text>
+      <text x="180" y="100" text-anchor="middle" font-size="13" fill="var(--fg-muted)">────────</text>
+      <text x="180" y="120" text-anchor="middle" font-size="13" fill="var(--fg-muted)">Var(G[:,j])</text>
+
+      <!-- X1 (input) -->
+      <rect x="260" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.6" rx="4"/>
+      <text x="272" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X₁</text>
+      <text x="272" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <!-- loop arrow indicating j=1..p -->
+      <text x="340" y="98" text-anchor="middle" font-size="20" font-weight="700" fill="var(--fg)">⟶</text>
+      <text x="340" y="120" text-anchor="middle" font-size="11" fill="var(--fg-muted)">每列 j 算一次</text>
+
+      <!-- β̂_x output (length p = 5) -->
+      <rect x="380" y="16" width="24" height="120" fill="#3fb950" fill-opacity="0.95" rx="4"/>
+      <text x="392" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">β̂ₓ</text>
+      <text x="392" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <!-- repeat for Y -->
+      <text x="450" y="80" text-anchor="middle" font-size="13" fill="var(--fg-muted)">同样对 Y</text>
+      <text x="450" y="100" text-anchor="middle" font-size="13" fill="var(--fg-muted)">跑一次</text>
+
+      <rect x="510" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.6" rx="4"/>
+      <text x="522" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">Y</text>
+      <text x="522" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="570" y="98" text-anchor="middle" font-size="20" font-weight="700" fill="var(--fg)">⟶</text>
+
+      <rect x="610" y="16" width="24" height="120" fill="#3fb950" fill-opacity="0.95" rx="4"/>
+      <text x="622" y="82" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">β̂ᵧ</text>
+      <text x="622" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[5 × 1]</text>
+
+      <text x="370" y="220" text-anchor="middle" font-size="11" fill="var(--fg-muted)">column-wise reduction (collapse 样本维度 n)</text>
+    </svg>
+
+    <div class="shape-zoom">
+      放大单列 j 的计算 (G[:,j] ∈ ℝⁿ, X₁ ∈ ℝⁿ, n = 4):<br>
+      &nbsp;&nbsp;Cov(G[:,j], X₁) = (1/n) Σ<sub>i</sub> (G<sub>ij</sub> − Ḡ<sub>·j</sub>)(X<sub>1,i</sub> − X̄<sub>1</sub>) &nbsp; (标量)<br>
+      &nbsp;&nbsp;Var(G[:,j])     = (1/n) Σ<sub>i</sub> (G<sub>ij</sub> − Ḡ<sub>·j</sub>)² &nbsp; (标量)<br>
+      &nbsp;&nbsp;β̂<sub>x,j</sub> = Cov / Var &nbsp; (标量)<br>
+      <br>
+      矩阵视角: 把 G 的列 j 拿出来 (n × 1), 跟 X₁ (n × 1) 做内积 — 都是同一个样本维度 n 上的 reduction.
+    </div>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#58a6ff;"></span>G (列 j 被 highlight)</span>
+      <span><span class="sw" style="background:#3fb950;"></span>X₁ / Y / β̂ 向量</span>
+      <span>外层 loop: j = 1..p (一次 column reduce)</span>
+      <span>内层: Cov/Var 在样本维度 n 上 reduce</span>
+    </div>
+
+    <details class="why">
+      <summary>看具体数字 (示范 SNP c1 和 r1) →</summary>
+      <div class="body">
+        <p>对每个 SNP j: $\hat\beta_{x,j} = \dfrac{\mathrm{Cov}(G_{:,j}, X_1)}{\mathrm{Var}(G_{:,j})}$ &nbsp;&nbsp; (population formula, 分母用 n=4)</p>
+
+        <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP c1 (公共, MAF=0.30): G[:,c1] = [1, 0, 2, 1]</h4>
+        <div class="arith">
 <span class="lbl">mean(G_c1):</span> (1+0+2+1)/4 = <span class="res">1.0</span><br>
 <span class="lbl">centered G_c1:</span> [0, −1, 1, 0]<br>
 <span class="lbl">mean(X₁):</span> (0.21 + (−0.15) + 0.19 + (−0.02))/4 = 0.23/4 = <span class="res">0.0575</span><br>
@@ -723,21 +1072,23 @@
 &nbsp;&nbsp;&nbsp;&nbsp;= (0 + 0.2075 + 0.1325 + 0) / 4 = 0.340/4 = <span class="res">0.085</span><br>
 <span class="lbl">Var:</span> (0² + (−1)² + 1² + 0²)/4 = 2/4 = <span class="res">0.5</span><br>
 <span class="lbl">β̂_x,c1 :</span> 0.085 / 0.5 = <span class="res">0.170</span>
-    </div>
+        </div>
 
-    <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP r1 (稀有, MAF=0.008): G[:,r1] = [0, 0, 1, 0]</h4>
-    <div class="arith">
+        <h4 style="margin-top: 10px; color: var(--fg-muted); font-size: 0.9rem;">SNP r1 (稀有, MAF=0.008): G[:,r1] = [0, 0, 1, 0]</h4>
+        <div class="arith">
 <span class="lbl">mean:</span> 1/4 = <span class="res">0.25</span><br>
 <span class="lbl">centered:</span> [−0.25, −0.25, 0.75, −0.25]<br>
 <span class="lbl">Cov:</span> [(−0.25)·0.1525 + (−0.25)·(−0.2075) + 0.75·0.1325 + (−0.25)·(−0.0775)] / 4<br>
 &nbsp;&nbsp;&nbsp;&nbsp;= (−0.0381 + 0.0519 + 0.0994 + 0.0194) / 4 = 0.1325/4 = <span class="res">0.0331</span><br>
 <span class="lbl">Var:</span> (0.0625·3 + 0.5625)/4 = 0.75/4 = <span class="res">0.1875</span><br>
 <span class="lbl">β̂_x,r1:</span> 0.0331 / 0.1875 = <span class="res">0.177</span>
-    </div>
+        </div>
 
-    <p style="margin-top: 10px; color: var(--fg-muted); font-size: 0.92rem;">
-      (其他 SNP 同理 — 同样的 Cov/Var 套路, 也会同样算 $\hat\beta_{y,j}$. 总共 5 个 SNP × 2 个 outcome = 10 个 summary 数对.)
-    </p>
+        <p style="margin-top: 10px; color: var(--fg-muted); font-size: 0.92rem;">
+          (其他 SNP 同理 — 同样的 Cov/Var 套路, 也会同样算 $\hat\beta_{y,j}$. 总共 5 个 SNP × 2 个 outcome = 10 个 summary 数对.)
+        </p>
+      </div>
+    </details>
   </div>
 
   <!-- Step 14 -->
@@ -1029,10 +1380,97 @@
 
   <!-- Step 6 -->
   <div class="step mrcarv">
-    <div class="step-head"><span class="num">Step 6</span><h4>组装暴露 X = G α + ε &nbsp; (没有 U, 没有 CHP, 没有 UHP)</h4></div>
-    <p>$$ X_i \;=\; \sum_{j \in \text{common}} \alpha_{c,j} G_{ij} \;+\; \sum_{j \in \text{rare}} (\varphi_j \alpha_j) G_{ij} \;+\; \varepsilon_i $$</p>
-    <p>取 ε = [0.05, −0.10, 0.10, −0.05]:</p>
-    <div class="arith">
+    <div class="step-head"><span class="num">Step 6</span><h4>组装 X — 矩阵形状视角 (含 Hadamard 罩 φ)</h4></div>
+
+    <div class="shape-eq">
+      $$ \underbrace{X}_{n \times 1} \;=\; \underbrace{G_c\,\alpha_c}_{(n \times p_c)(p_c \times 1)} \;+\; \underbrace{G_r\,(\varphi \odot \alpha_r)}_{(n \times p_r)(p_r \times 1)} \;+\; \underbrace{\varepsilon}_{n \times 1} $$
+    </div>
+
+    <p>两个 matrix-vector 积 + 噪声; 关键: rare 那一支的系数是 <strong>Hadamard (element-wise) 乘积</strong> $\varphi \odot \alpha_r$ — Bernoulli 罩 $\varphi$ 把 $\alpha_r$ 里 "不 causal" 的位置整列归零.</p>
+
+    <!-- Shape SVG -->
+    <svg class="shape-svg" viewBox="0 0 1080 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MR-CARV X assembly shape diagram">
+      <!-- Gc·αc -->
+      <rect x="20" y="52" width="48" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="44" y="104" text-anchor="middle" font-size="18" font-weight="700" fill="#0d1117">Gc</text>
+      <text x="44" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 2]</text>
+      <text x="84" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="98" y="76" width="24" height="48" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="110" y="106" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">αc</text>
+      <text x="110" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[2 × 1]</text>
+
+      <text x="146" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- Gr·(φ⊙αr): show Hadamard inset on the right side -->
+      <rect x="166" y="52" width="96" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="214" y="104" text-anchor="middle" font-size="18" font-weight="700" fill="#0d1117">Gr</text>
+      <text x="214" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 4]</text>
+      <text x="278" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+
+      <!-- (φ ⊙ αr) sub-group -->
+      <rect x="292" y="40" width="24" height="96" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="304" y="92" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">φ</text>
+      <text x="304" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="332" y="98" text-anchor="middle" font-size="20" font-weight="700" fill="#3fb950">⊙</text>
+
+      <rect x="346" y="40" width="24" height="96" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="358" y="92" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">αr</text>
+      <text x="358" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="392" y="44" text-anchor="middle" font-size="10" fill="var(--fg-muted)">↓ Hadamard</text>
+      <text x="392" y="58" text-anchor="middle" font-size="10" fill="var(--fg-muted)">(逐位乘)</text>
+
+      <rect x="412" y="40" width="36" height="96" fill="#d29922" fill-opacity="0.95" rx="4"/>
+      <text x="430" y="86" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">φ⊙αr</text>
+      <text x="430" y="100" text-anchor="middle" font-size="10" fill="#0d1117">∈ ℝ⁴</text>
+      <text x="430" y="156" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="474" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <!-- ε -->
+      <rect x="494" y="52" width="24" height="96" fill="#8b949e" fill-opacity="0.85" rx="4"/>
+      <text x="506" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">ε</text>
+      <text x="506" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="538" y="98" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">=</text>
+
+      <!-- X -->
+      <rect x="558" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.95" rx="4"/>
+      <text x="570" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X</text>
+      <text x="570" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <!-- annotations under blocks -->
+      <text x="110" y="200" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ Gc αc ∈ ℝ⁴</text>
+      <text x="304" y="216" text-anchor="middle" font-size="11" fill="var(--fg-muted)">causal-罩 φ 跟 αr 在 p_r 维上 element-wise 乘</text>
+    </svg>
+
+    <div class="shape-zoom">
+      Hadamard 含义 (一维向量, 长度 p_r = 4):<br>
+      &nbsp;&nbsp;(φ ⊙ αr)<sub>j</sub> = φ<sub>j</sub> · αr,<sub>j</sub> &nbsp; (j 一一对应, 没有 sum)<br>
+      &nbsp;&nbsp;φ<sub>j</sub> = 0 ⇒ 第 j 个 rare SNP 整条系数被关掉.<br>
+      <br>
+      然后单样本 i:<br>
+      &nbsp;&nbsp;X<sub>i</sub> = (Gc αc)<sub>i</sub> + (Gr(φ⊙αr))<sub>i</sub> + ε<sub>i</sub><br>
+      &nbsp;&nbsp;= Σ<sub>j∈c</sub> Gc<sub>ij</sub> αc<sub>j</sub> + Σ<sub>j∈r</sub> Gr<sub>ij</sub> (φ<sub>j</sub> αr<sub>j</sub>) + ε<sub>i</sub>
+    </div>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#58a6ff;"></span>Gc, Gr</span>
+      <span><span class="sw" style="background:#d29922;"></span>αc, αr, φ</span>
+      <span><span class="sw" style="background:#8b949e;"></span>ε</span>
+      <span><span class="sw" style="background:#3fb950;"></span>X</span>
+      <span><code>·</code> matrix-vector</span>
+      <span><code>⊙</code> Hadamard (element-wise mul)</span>
+      <span><code>+</code> element-wise add</span>
+    </div>
+
+    <details class="why">
+      <summary>看具体数字 (seed=1, n=4) →</summary>
+      <div class="body">
+        <p>$$ X_i \;=\; \sum_{j \in \text{common}} \alpha_{c,j} G_{ij} \;+\; \sum_{j \in \text{rare}} (\varphi_j \alpha_j) G_{ij} \;+\; \varepsilon_i $$</p>
+        <p>取 ε = [0.05, −0.10, 0.10, −0.05]:</p>
+        <div class="arith">
 <span class="lbl">s1:</span> 0.5·1 + 0.5·2 + 1.151·0 + 1.048·0 + 0·0 + 1.261·0 + 0.05<br>
 &nbsp;&nbsp;&nbsp;&nbsp;= 0.5 + 1.0 + 0 + 0 + 0 + 0 + 0.05 = <span class="res">1.55</span><br>
 <span class="lbl">s2:</span> 0.5·0 + 0.5·1 + 1.151·1 + 1.048·0 + 0·0 + 1.261·0 + (−0.10)<br>
@@ -1041,60 +1479,162 @@
 &nbsp;&nbsp;&nbsp;&nbsp;= 1.0 + 0 + 0 + 1.048 + 0 + 0 + 0.10 = <span class="res">2.148</span><br>
 <span class="lbl">s4:</span> 0.5·1 + 0.5·1 + 1.151·0 + 1.048·0 + 0·0 + 1.261·1 + (−0.05)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;= 0.5 + 0.5 + 0 + 0 + 0 + 1.261 + (−0.05) = <span class="res">2.211</span>
-    </div>
-    <table class="matrix" style="margin-top: 8px;">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">X</td><td class="hi">1.550</td><td class="hi">1.551</td><td class="hi">2.148</td><td class="hi">2.211</td></tr></tbody>
-    </table>
+        </div>
+        <table class="matrix" style="margin-top: 8px;">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">X</td><td class="hi">1.550</td><td class="hi">1.551</td><td class="hi">2.148</td><td class="hi">2.211</td></tr></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Step 7 -->
   <div class="step mrcarv">
-    <div class="step-head"><span class="num">Step 7</span><h4>组装 outcome Y = β X + εᵧ</h4></div>
-    <p>取 εᵧ = [0.02, −0.03, 0.04, −0.01], β = 0.04.</p>
-    <div class="arith">
-<span class="lbl">s1:</span> 0.04 · 1.550 + 0.02 = 0.062 + 0.02 = <span class="res">0.082</span><br>
-<span class="lbl">s2:</span> 0.04 · 1.551 + (−0.03) = 0.0620 − 0.03 = <span class="res">0.032</span><br>
-<span class="lbl">s3:</span> 0.04 · 2.148 + 0.04 = 0.0859 + 0.04 = <span class="res">0.126</span><br>
-<span class="lbl">s4:</span> 0.04 · 2.211 + (−0.01) = 0.0884 − 0.01 = <span class="res">0.078</span>
+    <div class="step-head"><span class="num">Step 7</span><h4>组装 Y — 矩阵形状视角 (最简, 2 项)</h4></div>
+
+    <div class="shape-eq">
+      $$ \underbrace{Y}_{n \times 1} \;=\; \underbrace{\beta \, X}_{n \times 1} \;+\; \underbrace{\varepsilon_y}_{n \times 1} $$
     </div>
-    <table class="matrix" style="margin-top: 8px;">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.082</td><td class="hi">0.032</td><td class="hi">0.126</td><td class="hi">0.078</td></tr></tbody>
-    </table>
+
+    <p>β 是标量, X 是 (n × 1). Scalar × vector = vector, 再 element-wise 加噪声. 没有 G→Y 直接通道, 没有 U.</p>
+
+    <!-- Shape SVG: β·X + εy = Y -->
+    <svg class="shape-svg" viewBox="0 0 460 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MR-CARV Y assembly shape diagram">
+      <text x="36"  y="106" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">β</text>
+      <text x="60"  y="106" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">·</text>
+      <rect x="76"  y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.6" rx="4"/>
+      <text x="88"  y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">X</text>
+      <text x="88"  y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="120" y="106" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">+</text>
+
+      <rect x="138" y="52" width="24" height="96" fill="#8b949e" fill-opacity="0.85" rx="4"/>
+      <text x="150" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">εᵧ</text>
+      <text x="150" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="182" y="106" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">=</text>
+
+      <rect x="202" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.95" rx="4"/>
+      <text x="214" y="106" text-anchor="middle" font-size="14" font-weight="700" fill="#0d1117">Y</text>
+      <text x="214" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="320" y="80"  text-anchor="middle" font-size="12" fill="var(--fg-muted)">对比 RARE Step 12 的 Y:</text>
+      <text x="320" y="100" text-anchor="middle" font-size="12" fill="var(--fg-muted)">6 项 vs 这里 2 项</text>
+      <text x="320" y="120" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ MR-CARV 没建 G→Y 旁路</text>
+      <text x="320" y="136" text-anchor="middle" font-size="11" fill="var(--fg-muted)">→ 没建 U 混杂</text>
+    </svg>
+
+    <div class="shape-zoom">
+      放大单样本 i: Y<sub>i</sub> = β · X<sub>i</sub> + (εᵧ)<sub>i</sub> &nbsp; (两个标量)
+    </div>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#3fb950;"></span>X, Y</span>
+      <span><span class="sw" style="background:#8b949e;"></span>εᵧ</span>
+      <span>β: scalar (不画框)</span>
+      <span><code>+</code> element-wise add</span>
+    </div>
+
     <details class="why"><summary>为什么 Y 这么干净?</summary><div class="body">
       MR-CARV 仿真里 <code class="mono">Y = βX + ε</code>, 没有 G→Y 直接通道, 没有 confounding.
       这是它 Type-I 漂亮的根本原因 — pleiotropy 场景<em>从来没生</em>, 自然不会失败.
       参看 Section 3 的对比.
     </div></details>
+
+    <details class="why">
+      <summary>看具体数字 (seed=1, n=4) →</summary>
+      <div class="body">
+        <p>取 εᵧ = [0.02, −0.03, 0.04, −0.01], β = 0.04.</p>
+        <div class="arith">
+<span class="lbl">s1:</span> 0.04 · 1.550 + 0.02 = 0.062 + 0.02 = <span class="res">0.082</span><br>
+<span class="lbl">s2:</span> 0.04 · 1.551 + (−0.03) = 0.0620 − 0.03 = <span class="res">0.032</span><br>
+<span class="lbl">s3:</span> 0.04 · 2.148 + 0.04 = 0.0859 + 0.04 = <span class="res">0.126</span><br>
+<span class="lbl">s4:</span> 0.04 · 2.211 + (−0.01) = 0.0884 − 0.01 = <span class="res">0.078</span>
+        </div>
+        <table class="matrix" style="margin-top: 8px;">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">Y</td><td class="hi">0.082</td><td class="hi">0.032</td><td class="hi">0.126</td><td class="hi">0.078</td></tr></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Step 8 -->
   <div class="step mrcarv">
-    <div class="step-head"><span class="num">Step 8</span><h4>Burden 构建 — 把 4 个 rare 压成 1 个 score</h4></div>
-    <p>权重 $w_j = \mathrm{Beta\text{-}pdf}(\mathrm{MAF}_j; 1, 25) = 25 \cdot (1-\mathrm{MAF}_j)^{24}$ — 越罕权重越大.</p>
-    <div class="arith">
-<span class="lbl">w₁:</span> 25 · (0.995)²⁴ = 25 · 0.8866 = <span class="res">22.16</span><br>
-<span class="lbl">w₂:</span> 25 · (0.992)²⁴ = 25 · 0.8246 = <span class="res">20.62</span><br>
-<span class="lbl">w₃:</span> 25 · (0.990)²⁴ = 25 · 0.7857 = <span class="res">19.64</span><br>
-<span class="lbl">w₄:</span> 25 · (0.997)²⁴ = 25 · 0.9304 = <span class="res">23.26</span>
+    <div class="step-head"><span class="num">Step 8</span><h4>Burden 构建 — 矩阵形状视角 (rare 列被一个 weight 向量 collapse 成单列 B)</h4></div>
+
+    <div class="shape-eq">
+      $$ \underbrace{B}_{n \times 1} \;=\; \underbrace{G_r\, w_r}_{(n \times p_r)(p_r \times 1)} $$
     </div>
-    <p>$$ B_i \;=\; \sum_{j=1}^{4} w_j \, G^{\text{rare}}_{ij} $$</p>
-    <div class="arith">
-<span class="lbl">s1:</span> 22.16·0 + 20.62·0 + 19.64·0 + 23.26·0 = <span class="res">0.00</span><br>
-<span class="lbl">s2:</span> 22.16·1 + 20.62·0 + 19.64·0 + 23.26·0 = <span class="res">22.16</span><br>
-<span class="lbl">s3:</span> 22.16·0 + 20.62·1 + 19.64·0 + 23.26·0 = <span class="res">20.62</span><br>
-<span class="lbl">s4:</span> 22.16·0 + 20.62·0 + 19.64·0 + 23.26·1 = <span class="res">23.26</span>
+
+    <p>关键操作: 把 (n × p_r) 的 rare 基因型矩阵, 通过 right-multiply 一个长度 p_r 的 weight column vector, collapse 成长度 n 的 burden score 向量. 这就是 "burden test" 名字的来源 — 把多个 rare variant 压成 1 个 summary score.</p>
+
+    <!-- Shape SVG: Gr · w = B -->
+    <svg class="shape-svg" viewBox="0 0 580 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="burden construction shape diagram">
+      <rect x="40" y="52" width="96" height="96" fill="#58a6ff" fill-opacity="0.85" rx="6"/>
+      <text x="88" y="104" text-anchor="middle" font-size="22" font-weight="700" fill="#0d1117">Gr</text>
+      <text x="88" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 4]</text>
+
+      <text x="156" y="106" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">·</text>
+
+      <rect x="172" y="52" width="24" height="96" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="184" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">w</text>
+      <text x="184" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+      <text x="184" y="40" text-anchor="middle" font-size="10" fill="var(--fg-muted)">Beta(MAF; 1, 25)</text>
+
+      <text x="220" y="106" text-anchor="middle" font-size="22" font-weight="700" fill="var(--fg)">=</text>
+
+      <rect x="240" y="52" width="24" height="96" fill="#3fb950" fill-opacity="0.95" rx="4"/>
+      <text x="252" y="106" text-anchor="middle" font-size="13" font-weight="700" fill="#0d1117">B</text>
+      <text x="252" y="168" text-anchor="middle" font-size="12" fill="#8b949e">[4 × 1]</text>
+
+      <text x="420" y="80"  text-anchor="middle" font-size="13" fill="var(--fg-muted)">含义: 把 p_r = 4 维</text>
+      <text x="420" y="100" text-anchor="middle" font-size="13" fill="var(--fg-muted)">rare 通道 collapse 成 1 维</text>
+      <text x="420" y="130" text-anchor="middle" font-size="11" fill="var(--fg-muted)">w_j = 25(1 − MAF_j)²⁴</text>
+      <text x="420" y="146" text-anchor="middle" font-size="11" fill="var(--fg-muted)">(MAF 越小 → w_j 越大)</text>
+    </svg>
+
+    <div class="shape-zoom">
+      放大单样本 i: B<sub>i</sub> = Σ<sub>j=1..4</sub> Gr<sub>ij</sub> · w<sub>j</sub><br>
+      &nbsp;&nbsp;= 一行 (n × 1 切片的第 i 行) 跟 weight 向量做内积 → 1 个标量
     </div>
-    <table class="matrix" style="margin-top: 8px;">
-      <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
-      <tbody><tr><td class="rowlbl">B</td><td class="hi">0.00</td><td class="hi">22.16</td><td class="hi">20.62</td><td class="hi">23.26</td></tr></tbody>
-    </table>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#58a6ff;"></span>Gr (rare 基因型)</span>
+      <span><span class="sw" style="background:#d29922;"></span>w (Beta 权重向量)</span>
+      <span><span class="sw" style="background:#3fb950;"></span>B (burden score)</span>
+      <span><code>·</code> matrix-vector (collapse p_r → 1)</span>
+    </div>
+
     <details class="why"><summary>Beta(1,25) 怎么选的?</summary><div class="body">
       这是 STAAR 默认权重. Beta(1,25) 的 pdf 在 MAF=0 附近最大, MAF=0.1 已经几乎 0,
       所以"越罕的等位携带更大权重". MR-CARV 还会同时跑 Beta(1,1) (等权重),
       最后用 Cauchy combination 合并 p-values.
     </div></details>
+
+    <details class="why">
+      <summary>看具体数字 (seed=1, n=4) →</summary>
+      <div class="body">
+        <p>权重 $w_j = \mathrm{Beta\text{-}pdf}(\mathrm{MAF}_j; 1, 25) = 25 \cdot (1-\mathrm{MAF}_j)^{24}$ — 越罕权重越大.</p>
+        <div class="arith">
+<span class="lbl">w₁:</span> 25 · (0.995)²⁴ = 25 · 0.8866 = <span class="res">22.16</span><br>
+<span class="lbl">w₂:</span> 25 · (0.992)²⁴ = 25 · 0.8246 = <span class="res">20.62</span><br>
+<span class="lbl">w₃:</span> 25 · (0.990)²⁴ = 25 · 0.7857 = <span class="res">19.64</span><br>
+<span class="lbl">w₄:</span> 25 · (0.997)²⁴ = 25 · 0.9304 = <span class="res">23.26</span>
+        </div>
+        <p>$$ B_i \;=\; \sum_{j=1}^{4} w_j \, G^{\text{rare}}_{ij} $$</p>
+        <div class="arith">
+<span class="lbl">s1:</span> 22.16·0 + 20.62·0 + 19.64·0 + 23.26·0 = <span class="res">0.00</span><br>
+<span class="lbl">s2:</span> 22.16·1 + 20.62·0 + 19.64·0 + 23.26·0 = <span class="res">22.16</span><br>
+<span class="lbl">s3:</span> 22.16·0 + 20.62·1 + 19.64·0 + 23.26·0 = <span class="res">20.62</span><br>
+<span class="lbl">s4:</span> 22.16·0 + 20.62·0 + 19.64·0 + 23.26·1 = <span class="res">23.26</span>
+        </div>
+        <table class="matrix" style="margin-top: 8px;">
+          <thead><tr><th></th><th>s1</th><th>s2</th><th>s3</th><th>s4</th></tr></thead>
+          <tbody><tr><td class="rowlbl">B</td><td class="hi">0.00</td><td class="hi">22.16</td><td class="hi">20.62</td><td class="hi">23.26</td></tr></tbody>
+        </table>
+      </div>
+    </details>
   </div>
 
   <!-- Step 9 -->
@@ -1152,11 +1692,104 @@ Cov(B, Y) = ((−16.51)·0.0025 + 5.65·(−0.0475) + 4.11·0.0465 + 6.75·(−0
 
   <!-- Step 10 -->
   <div class="step mrcarv">
-    <div class="step-head"><span class="num">Step 10</span><h4>IVW 估计 — 把 3 个 IV 合成 1 个 β̂</h4></div>
-    <p>(主仿真有 4 common + 4 burden = 8 IV; 玩具只有 3, 但 IVW 公式不变.)</p>
-    <p>$$ \hat\beta_{\mathrm{IVW}} \;=\; \frac{\sum_k w_k \,\hat\beta_{x,k}\,\hat\beta_{y,k}}{\sum_k w_k\,\hat\beta_{x,k}^{\,2}} $$</p>
-    <p>玩具没有 SE, 用 unit weights $w_k = 1$:</p>
-    <div class="arith">
+    <div class="step-head"><span class="num">Step 10</span><h4>IVW — 矩阵形状视角 (把 IV 维度 K = p_c + 1 collapse 成标量)</h4></div>
+
+    <div class="shape-eq">
+      $$ \hat\beta_{\mathrm{IVW}} \;=\; \frac{\hat\beta_x^{\top}\, \mathrm{diag}(w)\, \hat\beta_y}{\hat\beta_x^{\top}\, \mathrm{diag}(w)\, \hat\beta_x} $$
+    </div>
+
+    <p>Stack 所有 IV 的 summary stats 成两个向量: $\hat\beta_x = [\hat\beta_x^{c_1}, \hat\beta_x^{c_2}, \hat\beta_x^{B}]^{\top} \in \mathbb{R}^{K}$ 和 $\hat\beta_y \in \mathbb{R}^{K}$ (这里 K = p_c + 1 = 3 = 2 common + 1 burden). 然后两个加权内积 (= 标量) 相除.</p>
+
+    <!-- Shape SVG: stacked beta vectors of length K=3 -->
+    <svg class="shape-svg" viewBox="0 0 920 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="IVW shape diagram">
+      <!-- numerator -->
+      <text x="60" y="34" text-anchor="middle" font-size="12" fill="var(--fg-muted)">分子: weighted inner-product (标量)</text>
+
+      <rect x="40" y="56" width="24" height="72" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="52" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">β̂ₓᵀ</text>
+      <text x="52" y="148" text-anchor="middle" font-size="11" fill="#8b949e">[1 × 3]</text>
+
+      <text x="86" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">·</text>
+
+      <rect x="100" y="56" width="72" height="72" fill="#58a6ff" fill-opacity="0.55" rx="4" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="136" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">diag(w)</text>
+      <text x="136" y="148" text-anchor="middle" font-size="11" fill="#8b949e">[3 × 3]</text>
+
+      <text x="190" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">·</text>
+
+      <rect x="206" y="56" width="24" height="72" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="218" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">β̂ᵧ</text>
+      <text x="218" y="148" text-anchor="middle" font-size="11" fill="#8b949e">[3 × 1]</text>
+
+      <text x="266" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">=</text>
+
+      <rect x="284" y="80" width="22" height="22" fill="#3fb950" fill-opacity="0.95" rx="3"/>
+      <text x="295" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">·</text>
+      <text x="295" y="148" text-anchor="middle" font-size="11" fill="#8b949e">scalar</text>
+
+      <!-- divider -->
+      <line x1="320" y1="98" x2="350" y2="98" stroke="var(--fg-muted)" stroke-width="2"/>
+      <text x="335" y="84" text-anchor="middle" font-size="14" fill="var(--fg-muted)">÷</text>
+
+      <!-- denominator -->
+      <text x="500" y="34" text-anchor="middle" font-size="12" fill="var(--fg-muted)">分母: weighted self-inner-product (标量)</text>
+
+      <rect x="380" y="56" width="24" height="72" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="392" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">β̂ₓᵀ</text>
+      <text x="392" y="148" text-anchor="middle" font-size="11" fill="#8b949e">[1 × 3]</text>
+
+      <text x="426" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">·</text>
+
+      <rect x="440" y="56" width="72" height="72" fill="#58a6ff" fill-opacity="0.55" rx="4" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="476" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">diag(w)</text>
+      <text x="476" y="148" text-anchor="middle" font-size="11" fill="#8b949e">[3 × 3]</text>
+
+      <text x="530" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">·</text>
+
+      <rect x="546" y="56" width="24" height="72" fill="#d29922" fill-opacity="0.85" rx="4"/>
+      <text x="558" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">β̂ₓ</text>
+      <text x="558" y="148" text-anchor="middle" font-size="11" fill="#8b949e">[3 × 1]</text>
+
+      <text x="606" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">=</text>
+
+      <rect x="624" y="80" width="22" height="22" fill="#3fb950" fill-opacity="0.95" rx="3"/>
+      <text x="635" y="98" text-anchor="middle" font-size="11" font-weight="700" fill="#0d1117">·</text>
+      <text x="635" y="148" text-anchor="middle" font-size="11" fill="#8b949e">scalar</text>
+
+      <text x="700" y="98" text-anchor="middle" font-size="18" font-weight="700" fill="var(--fg)">⟶</text>
+
+      <rect x="740" y="80" width="56" height="22" fill="#3fb950" fill-opacity="0.95" rx="3"/>
+      <text x="768" y="98" text-anchor="middle" font-size="12" font-weight="700" fill="#0d1117">β̂_IVW</text>
+      <text x="768" y="148" text-anchor="middle" font-size="11" fill="#8b949e">scalar</text>
+
+      <text x="460" y="200" text-anchor="middle" font-size="11" fill="var(--fg-muted)">K = p_c + 1 = 3 个 IV (玩具版); 真主仿真 K = 4 + 4 = 8</text>
+      <text x="460" y="216" text-anchor="middle" font-size="11" fill="var(--fg-muted)">diag(w) = 把权重向量 w 放对角线 (这里 w_k = 1, 退化成单位阵 I₃)</text>
+    </svg>
+
+    <div class="shape-zoom">
+      Stack 顺序 (玩具版): β̂ₓ = [β̂_x,c1, β̂_x,c2, β̂_x,B]<sup>⊤</sup>, β̂ᵧ = [β̂_y,c1, β̂_y,c2, β̂_y,B]<sup>⊤</sup><br>
+      Burden 跟 common 在同一个向量里 — 一个 IV 占一个 slot, 不区分类型.<br>
+      <br>
+      展开内积 (K = 3): &nbsp; β̂ₓᵀ diag(w) β̂ᵧ = Σ<sub>k=1..K</sub> w<sub>k</sub> β̂<sub>x,k</sub> β̂<sub>y,k</sub>
+    </div>
+
+    <div class="shape-legend">
+      <span><span class="sw" style="background:#d29922;"></span>β̂ₓ, β̂ᵧ (IV 系数向量)</span>
+      <span><span class="sw" style="background:#58a6ff;"></span>diag(w) (权重矩阵)</span>
+      <span><span class="sw" style="background:#3fb950;"></span>β̂_IVW (输出标量)</span>
+      <span><code>·</code> matrix-vector</span>
+      <span><code>diag(·)</code> = 向量上对角化成方阵</span>
+    </div>
+
+    <p>(真值 β = 0.04. 玩具版 n=4 信噪比太低, 估值离真值远是预期; 真实 n=50000 才有 power.)</p>
+
+    <details class="why">
+      <summary>看具体数字 (用 unit weights w_k = 1) →</summary>
+      <div class="body">
+        <p>(主仿真有 4 common + 4 burden = 8 IV; 玩具只有 3, 但 IVW 公式不变.)</p>
+        <p>$$ \hat\beta_{\mathrm{IVW}} \;=\; \frac{\sum_k w_k \,\hat\beta_{x,k}\,\hat\beta_{y,k}}{\sum_k w_k\,\hat\beta_{x,k}^{\,2}} $$</p>
+        <p>玩具没有 SE, 用 unit weights $w_k = 1$:</p>
+        <div class="arith">
 <span class="lbl">分子:</span> 0.299·0.047 + (−0.299)·(−0.022) + 0.0189·(−0.000351)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;= 0.01405 + 0.00658 + (−0.0000066)<br>
 &nbsp;&nbsp;&nbsp;&nbsp;= <span class="res">0.02062</span><br>
@@ -1164,8 +1797,9 @@ Cov(B, Y) = ((−16.51)·0.0025 + 5.65·(−0.0475) + 4.11·0.0465 + 6.75·(−0
 &nbsp;&nbsp;&nbsp;&nbsp;= 0.0894 + 0.0894 + 0.000357<br>
 &nbsp;&nbsp;&nbsp;&nbsp;= <span class="res">0.1792</span><br>
 <span class="lbl">β̂_IVW</span> = 0.02062 / 0.1792 = <span class="res">0.115</span>
-    </div>
-    <p>(真值 β = 0.04. 玩具版 n=4 信噪比太低, 估值离真值远是预期; 真实 n=50000 才有 power.)</p>
+        </div>
+      </div>
+    </details>
   </div>
 
   <!-- Step 11 -->
