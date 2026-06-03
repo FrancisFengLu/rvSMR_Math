@@ -314,6 +314,105 @@
     .svg-wrap { overflow-x: auto; }
     .svg-wrap svg { min-width: 760px; }
   }
+
+  /* ---------- Data-generation recipe (图 3) ---------- */
+  table.recipe {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 0.9rem;
+    margin: 6px 0 4px;
+    border: 2px solid var(--border-strong);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  table.recipe thead th {
+    background: var(--bg-elev-2);
+    color: var(--fg);
+    font-weight: 600;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 2px solid var(--border-strong);
+    font-size: 0.85rem;
+  }
+  table.recipe tbody td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  table.recipe tbody tr:last-child td { border-bottom: none; }
+  table.recipe td.sym {
+    font-family: var(--font-mono);
+    color: var(--c-data);
+    white-space: nowrap;
+    width: 18%;
+  }
+  table.recipe td.desc { color: var(--fg); width: 36%; }
+  table.recipe td.val  { color: var(--fg-muted); }
+  table.recipe td.val code { color: var(--fg); }
+
+  ol.recipe-steps {
+    margin: 6px 0 4px;
+    padding-left: 24px;
+    line-height: 1.75;
+  }
+  ol.recipe-steps li { margin: 6px 0; }
+  ol.recipe-steps code,
+  ol.recipe-steps pre {
+    font-family: var(--font-mono);
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 0.88em;
+  }
+  ol.recipe-steps pre {
+    display: block;
+    padding: 8px 12px;
+    margin: 4px 0;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  .worked-example {
+    display: grid;
+    grid-template-columns: 230px 1fr;
+    gap: 14px 20px;
+    margin: 6px 0 4px;
+    padding: 14px 16px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.92rem;
+  }
+  .worked-example .premise {
+    color: var(--fg-muted);
+    font-family: var(--font-serif);
+    line-height: 1.6;
+    border-right: 1px dashed var(--border-strong);
+    padding-right: 16px;
+  }
+  .worked-example .premise strong { color: var(--fg); display:block; margin-bottom: 4px; }
+  .worked-example .values { line-height: 1.85; }
+  .worked-example .values .row { margin: 3px 0; }
+  .worked-example .values .note {
+    color: var(--fg-dim);
+    font-size: 0.82em;
+    margin-left: 6px;
+    font-style: italic;
+  }
+  .worked-example .values .final {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border-strong);
+    color: var(--c-out);
+    font-weight: 600;
+  }
+  @media (max-width: 700px) {
+    .worked-example { grid-template-columns: 1fr; }
+    .worked-example .premise { border-right: none; border-bottom: 1px dashed var(--border-strong); padding-right: 0; padding-bottom: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -523,6 +622,120 @@
       </div>
     </div>
 
+    <h3>图 3 · 数据生成菜谱 Data-generation recipe</h3>
+
+    <p style="color: var(--fg-muted); font-size: 0.92rem; margin: 4px 0 14px;">
+      下面的数值全部来自 RARE 仓库 <code>simulation/simulationl.R</code> (237 行;
+      <a href="https://raw.githubusercontent.com/Hide-in-lab/RARE/main/simulation/simulationl.R" target="_blank" rel="noopener">raw 链接</a>)
+      verbatim 解析得到. R script 是 gold source — 论文里只写到结构方程, 具体怎么抽参数是 code 里才有的.
+    </p>
+
+    <h4 style="color: var(--fg-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 0 6px;">3a · 参数定义表</h4>
+    <div class="table-wrap" style="border-radius: 10px;">
+      <table class="recipe">
+        <thead>
+          <tr>
+            <th>符号 Symbol</th>
+            <th>含义</th>
+            <th>取值或分布</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="sym">$n$ (= ns + ni)</td><td class="desc">总样本数 = summary panel + calculation panel</td><td class="val"><code>ns = 50,000</code> + <code>ni = 50,000</code> = <strong>100,000</strong></td></tr>
+          <tr><td class="sym">$n_c$ (nc)</td><td class="desc">公共 SNP 数</td><td class="val"><strong>1,000</strong></td></tr>
+          <tr><td class="sym">$n_r$ (nr)</td><td class="desc">稀有 SNP 数</td><td class="val"><strong>20</strong></td></tr>
+          <tr><td class="sym">$n_{\text{snp}}$</td><td class="desc">SNP 总数 (G 矩阵列数)</td><td class="val">nc + nr = <strong>1,020</strong></td></tr>
+          <tr><td class="sym">$n_{\text{conf}}$ (nconf)</td><td class="desc">潜在混杂维度</td><td class="val"><strong>20</strong></td></tr>
+          <tr><td class="sym">MAF (common)</td><td class="desc">公共 SNP 等位频率</td><td class="val">Uniform$(0.05,\,0.5)$ <span class="note" style="color:var(--fg-dim);">— 每个 SNP 独立抽</span></td></tr>
+          <tr><td class="sym">MAF (rare)</td><td class="desc">稀有 SNP 等位频率</td><td class="val">Uniform$(0.005,\,0.01)$</td></tr>
+          <tr><td class="sym">$r_{LD}$ (common)</td><td class="desc">公共 SNP LD 衰减底数</td><td class="val"><strong>0.2</strong> &nbsp;(协方差 $r^{|i-j|}$)</td></tr>
+          <tr><td class="sym">$r_{LD}$ (rare)</td><td class="desc">稀有 SNP LD 衰减底数</td><td class="val"><strong>0.5</strong></td></tr>
+          <tr><td class="sym">$\beta_1$</td><td class="desc">主要因果效应 (识别目标)</td><td class="val"><strong>0</strong> (当 $h^2_\delta=0$, null cell) 或 <strong>0.01</strong> (signal cell). 见 <code>beta1_true &lt;- ifelse(h2_delta==0, 0, 0.01)</code></td></tr>
+          <tr><td class="sym">$\beta_2$</td><td class="desc">次要曝光的因果效应</td><td class="val"><strong>0.2</strong> (固定)</td></tr>
+          <tr><td class="sym">$h^2_{\gamma_1}$</td><td class="desc">主曝露 IV 总解释方差 (sweep 主轴)</td><td class="val">$\{0,\,10^{-2},\,10^{-1}\}$ — 3 个 cell</td></tr>
+          <tr><td class="sym">$h^2_\delta$</td><td class="desc">IV $\to$ X₁ 信号解释方差</td><td class="val">$\tfrac{4}{5}\,h^2_{\gamma_1}$</td></tr>
+          <tr><td class="sym">$h^2_{\kappa_x}$</td><td class="desc">CHP 在 X 端的解释方差</td><td class="val">$\tfrac{1}{5}\,h^2_{\gamma_1}$</td></tr>
+          <tr><td class="sym">$h^2_{\gamma_2}$</td><td class="desc">次曝露 IV 解释方差</td><td class="val"><strong>0.02</strong> (固定)</td></tr>
+          <tr><td class="sym">$h^2_{\kappa_y}$</td><td class="desc">CHP 在 Y 端的解释方差</td><td class="val"><strong>0.02</strong> (固定)</td></tr>
+          <tr><td class="sym">$h^2_\theta$</td><td class="desc">UHP 解释方差</td><td class="val"><strong>0.02</strong> (固定)</td></tr>
+          <tr><td class="sym">$\rho_\kappa$ (r_kappa)</td><td class="desc">CHP-X 与 CHP-Y 之间的相关</td><td class="val"><strong>0.2</strong> (默认; 论文文本提 0.2–0.5 sweep)</td></tr>
+          <tr><td class="sym">$\rho_\psi$ (fai 协方差)</td><td class="desc">$\psi_x, \psi_y$ 协方差</td><td class="val">对角阵 $I_2$ &nbsp;(独立, 见 <code>matrix(c(1,0,0,1),2)</code>)</td></tr>
+          <tr><td class="sym">$U \to X / Y$ 解释比例</td><td class="desc">混杂项归一化到固定 fraction</td><td class="val"><strong>0.8</strong> &nbsp;(<code>U_faix / sqrt(var/0.8)</code>)</td></tr>
+          <tr><td class="sym">$\varepsilon_Y$ 噪声</td><td class="desc">Y 端误差 (异方差)</td><td class="val">$\mathcal{N}(0,\,\sigma^2_i)$, $\sigma_i = (\mathrm{PRS}_i - \mathrm{PRS}_{\min})/(\mathrm{PRS}_{\max} - \mathrm{PRS}_{\min}) + 0.05$</td></tr>
+          <tr><td class="sym">$k_{\text{scale}}$</td><td class="desc">总方差归一化因子</td><td class="val">$\dfrac{\beta_1^2+\beta_2^2+1}{1-(h^2_\delta+h^2_{\kappa_x}+h^2_{\gamma_2}+h^2_{\kappa_y}+h^2_\theta)}$</td></tr>
+          <tr><td class="sym"># reps</td><td class="desc">Monte Carlo 复制次数 / cell</td><td class="val"><strong>300</strong> &nbsp;(<code>n_parallel &lt;- 300</code>, 30 cores)</td></tr>
+          <tr><td class="sym">Gibbs iter</td><td class="desc">每次 fit 的 MCMC 迭代</td><td class="val"><strong>1,000</strong> &nbsp;(burn-in = 前半)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="color: var(--fg-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 22px 0 6px;">3b · 逐步抽样配方 Step-by-step</h4>
+    <div class="eq-block">
+      <ol class="recipe-steps">
+        <li><strong>抽 SNP 效应 (未缩放)</strong>: <code>delta ~ N(0, 1)</code>, <code>gamma2 ~ N(0, 1)</code>, <code>theta ~ N(0, 1)</code>, 每项 1,020 维.</li>
+        <li><strong>抽 CHP 相关对 $(\kappa_x, \kappa_y)$</strong>: $\binom{\kappa_{x,j}}{\kappa_{y,j}} \sim \mathcal{N}_2\!\left(\mathbf{0},\, \begin{pmatrix}1&amp;\rho_\kappa\\\rho_\kappa&amp;1\end{pmatrix}\right)$, $j = 1,\dots,1020$.</li>
+        <li><strong>抽混杂载荷 $(\psi_x, \psi_y)$</strong>: $\binom{\psi_{x,k}}{\psi_{y,k}} \sim \mathcal{N}_2(\mathbf{0},\,I_2)$, $k = 1,\dots,20$.</li>
+        <li><strong>抽公共基因型 $G_c$</strong>: 先抽连续 multivariate-normal 矩阵 $\tilde G_c \sim \mathcal{N}_n(\mathbf{0}, \Sigma_c)$, 协方差 $\Sigma_{c,ij} = 0.2^{|i-j|}$ (指数衰减 LD). 然后按每 SNP 独抽的 $\mathrm{MAF}_j \sim \mathrm{Unif}(0.05, 0.5)$ 切分位:
+            <pre>0 if rank &lt; MAF², 1 if rank &lt; MAF·(2-MAF), 2 otherwise</pre>
+            (即 Hardy-Weinberg AA/Aa/aa 比例的"分位映射"近似 Binomial$(2, \mathrm{MAF})$).</li>
+        <li><strong>抽稀有基因型 $G_r$</strong>: 同上但 $\Sigma_{r,ij} = 0.5^{|i-j|}$ 且 $\mathrm{MAF}_j \sim \mathrm{Unif}(0.005, 0.01)$.</li>
+        <li><strong>拼接 $G = [G_c \mid G_r]$</strong>, 维度 $n \times 1020$.</li>
+        <li><strong>抽潜在混杂 $U$</strong>: $U_{ik} \sim \mathcal{N}(0,1)$ i.i.d., 形状 $n \times 20$.</li>
+        <li><strong>计算总方差归一化因子</strong> $k_{\text{scale}} = (\beta_1^2 + \beta_2^2 + 1) / (1 - \sum h^2)$.</li>
+        <li><strong>缩放各 SNP 效应</strong> 使得每项在 $X_1$ 的解释方差正好等于目标 $h^2$:
+            <pre>delta  &lt;- delta  · sqrt( h²_δ  · k_scale / (β₁² · var(G·delta)) )
+kappax &lt;- kappax · sqrt( h²_κx · k_scale / (β₁² · var(G·kappax)) )
+gamma2 &lt;- gamma2 · sqrt( h²_γ2 · k_scale / (β₂² · var(G·gamma2)) )
+kappay &lt;- kappay · sqrt( h²_κy · k_scale /       var(G·kappay)   )
+theta  &lt;- theta  · sqrt( h²_θ  · k_scale /       var(G·theta )   )</pre>
+            (当对应 $h^2 = 0$ 时该 column 全置零, 见 <code>if (h2_kappay == 0) G_kappay &lt;- G %*% rep(0, nsnp)</code>.)</li>
+        <li><strong>缩放混杂贡献 $U\psi$</strong> 到固定 0.8 的方差: <code>U_faix &lt;- (U %*% faix) / sqrt(var(...)/0.8)</code>, 同理 $U\psi_y$.</li>
+        <li><strong>组装 $X_1$</strong>: $$X_1 = G\delta + G\kappa_x + U\psi_x + \varepsilon_1,\quad \varepsilon_1 \sim \mathcal{N}\!\left(0,\,1 - \mathrm{Var}(U\psi_x)\right).$$</li>
+        <li><strong>组装 $X_2$</strong>: $X_2 = G\gamma_2 + \varepsilon_2$, $\varepsilon_2 \sim \mathcal{N}(0,1)$.</li>
+        <li><strong>构造稀有 PRS</strong>: 先在 summary panel 上跑单变量回归 $\hat{c}_j = \mathrm{fastSigLm}(X_1, G_j)$; 取后 20 个 (rare) 系数构成 <code>PRS = Gr · coef_r</code>, 再标准化到方差 1.</li>
+        <li><strong>抽异方差 Y 噪声</strong>: $\varepsilon_{Y,i} \sim \mathcal{N}(0, \sigma_i^2)$, $\sigma_i = \dfrac{\mathrm{PRS}_i - \mathrm{PRS}_{\min}}{\mathrm{PRS}_{\max} - \mathrm{PRS}_{\min}} + 0.05$.</li>
+        <li><strong>组装 $Y$</strong>: $$Y = \beta_1 X_1 + \beta_2 X_2 + G\kappa_y + G\theta + U\psi_y + \varepsilon_Y\,\sqrt{1 - \mathrm{Var}(U\psi_y)}.$$</li>
+        <li><strong>计算 summary stats (calculation panel)</strong>: 对每个 SNP $j$ 单独 OLS 回归:
+            $\hat\beta_{x_1,j} = \mathrm{fastSigLm}(X_1, G_j)$, 同理 $\hat\beta_{x_2,j}, \hat\beta_{\text{PRS},j}, \hat\beta_{y,j}$, 每个带 SE.</li>
+        <li><strong>构造 MV-MR 输入</strong>: $\hat B_x = [\hat\beta_{x_1}, \hat\beta_{x_2}, \hat\beta_{\text{PRS}}]$ (1020 $\times$ 3); $\hat\beta_y$ (1020 $\times$ 1). 喂给 <code>adapt(...)</code> Gibbs sampler (1000 iter, burn-in = 500). naive 版本仅用 $[\hat\beta_{x_2}, \hat\beta_{\text{PRS}}]$ 两列.</li>
+        <li><strong>记录 Type-I / bias</strong>: 95% credible interval 是否覆盖 0; $\hat\beta_1 - \beta_1^{\text{true}}$. 跨 300 reps 平均.</li>
+      </ol>
+    </div>
+
+    <h4 style="color: var(--fg-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 22px 0 6px;">3c · 一次仿真的数值示例 Worked example</h4>
+    <div class="worked-example">
+      <div class="premise">
+        <strong>假设</strong>
+        <span style="font-family:var(--font-mono);">seed = 1</span>, 取 signal cell:
+        $h^2_{\gamma_1} = 0.1$ &rArr; $h^2_\delta = 0.08$, $h^2_{\kappa_x} = 0.02$.
+        $\rho_\kappa = 0.2$, $\beta_1 = 0.01$, $\beta_2 = 0.2$.
+        看第 1 个样本 $i = 1$, 第 1 个公共 SNP $j = 1$, 第 1 个稀有 SNP $j = 1001$, 第 1 个混杂 $k = 1$.
+        <br/><br/>
+        <span style="font-size:0.82em; color:var(--fg-dim);">数值为合理示例 (consistent with the distributions), 不是真实 seed=1 output — 用作教学.</span>
+      </div>
+      <div class="values">
+        <div class="row">$\mathrm{MAF}_1 = 0.32$ <span class="note">(Unif(0.05, 0.5) 抽到)</span></div>
+        <div class="row">$G_{1,1} = 1$ <span class="note">(分位映射 ≈ Binomial(2, 0.32) 抽到)</span></div>
+        <div class="row">$\mathrm{MAF}_{1001} = 0.008$ <span class="note">(Unif(0.005, 0.01) 抽到)</span></div>
+        <div class="row">$G_{1,1001} = 0$ <span class="note">(稀有 → 大概率 0)</span></div>
+        <div class="row">$U_{1,1} = -0.42$ <span class="note">($\mathcal{N}(0,1)$ 抽到)</span></div>
+        <div class="row">$\delta_1^{\text{raw}} = 0.54$ <span class="note">($\mathcal{N}(0,1)$, 未缩放)</span></div>
+        <div class="row">缩放因子 $\approx \sqrt{0.08 \cdot k_{\text{scale}} / (0.01^2 \cdot \mathrm{Var}(G\delta))} \approx 0.071$</div>
+        <div class="row">$\delta_1^{\text{scaled}} \approx 0.038$ <span class="note">(乘 0.071 后)</span></div>
+        <div class="row">$\kappa_{x,1} \sim \mathcal{N}(0,1)$, then scaled to $h^2_{\kappa_x}=0.02$ &rArr; $\kappa_{x,1}^{\text{scaled}} \approx 0.018$</div>
+        <div class="row">$\psi_{x,1} = 0.61$ <span class="note">($\mathcal{N}(0,1)$); $U\psi_x$ 整列再缩到 Var = 0.8</span></div>
+        <div class="row">$(G\delta)_1 = \sum_j \delta_j G_{1,j} \approx 0.083$</div>
+        <div class="row">$(G\kappa_x)_1 \approx 0.014$</div>
+        <div class="row">$(U\psi_x)_1 \approx -0.066$</div>
+        <div class="row">$\varepsilon_{1,1} \approx 0.21$ <span class="note">($\mathcal{N}(0, 1-0.8) = \mathcal{N}(0, 0.2)$)</span></div>
+        <div class="row final">$X_{1,1} \approx 0.083 + 0.014 - 0.066 + 0.21 = 0.241$</div>
+        <div class="row">$X_{2,1} \approx 0.55$ <span class="note">($G\gamma_2 + \mathcal{N}(0,1)$)</span></div>
+        <div class="row">$(G\kappa_y)_1 \approx 0.012$, $(G\theta)_1 \approx -0.008$, $(U\psi_y)_1 \approx 0.034$</div>
+        <div class="row">$\varepsilon_{Y,1} \approx 0.18$ <span class="note">(异方差; PRS 排名靠后 &rArr; $\sigma_1$ 小)</span></div>
+        <div class="row final">$Y_1 \approx 0.01 \cdot 0.241 + 0.2 \cdot 0.55 + 0.012 - 0.008 + 0.034 + 0.18 \approx 0.331$</div>
+      </div>
+    </div>
+
     <div class="callout">
       <strong>RARE 一句话总评:</strong> Bayesian + MVMR + CHP/UHP 分解;
       强项是先验对弱 IV 的隐式正则化 (Normal prior 把估计往 0 拉, 弱 IV 时 bias 比 IVW 小);
@@ -690,6 +903,102 @@
         <strong>注意</strong>: MR-CARV 的核心动作就是 "把 burden 当 IV 拼进 IVW", 没有 Anderson–Rubin (AR), 没有 cell-type 分层,
         也没有 over-identification 测试. IVW 假设强 IV (concentration parameter → ∞), burden 信号弱时它会 bias 向 0;
         作者用 dIVW / MR-RAPS 来部分缓解, 但都是 "many weak instruments" 框架, 不是 weak-IV-robust.
+      </div>
+    </div>
+
+    <h3>图 3 · 数据生成菜谱 Data-generation recipe</h3>
+
+    <p style="color: var(--fg-muted); font-size: 0.92rem; margin: 4px 0 14px;">
+      MR-CARV 的仿真代码 <strong>未公开</strong> (GitHub repo <code>yu-zhang-oYo/mr.carv</code> 只有 R 包源, 没有 <code>simulation/</code>).
+      下表来自 medRxiv preprint v1 的 Methods 段
+      (<a href="https://www.medrxiv.org/content/10.1101/2025.08.20.25334100v1.full" target="_blank" rel="noopener">v1 链接</a>;
+      v2 与 OUP landing page 因 paywall / 403 拿不到).
+      没核到的 cell 标 <em>"(待核实)"</em>.
+    </p>
+
+    <h4 style="color: var(--fg-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 18px 0 6px;">3a · 参数定义表</h4>
+    <div class="table-wrap" style="border-radius: 10px;">
+      <table class="recipe">
+        <thead>
+          <tr>
+            <th>符号 Symbol</th>
+            <th>含义</th>
+            <th>取值或分布</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="sym">$N_X = N_Y$</td><td class="desc">两个 panel 的个体数</td><td class="val"><strong>10,000</strong> (主); 1,000 / 2,000 (sensitivity)</td></tr>
+          <tr><td class="sym">基因型来源</td><td class="desc">单倍型样本</td><td class="val">1000 Genomes; R 包 <code>sim1000G</code> 抽样 (superpopulation: 待核实, 推测 EUR)</td></tr>
+          <tr><td class="sym">SNP 窗口</td><td class="desc">每条染色体取 SNP 的物理区间</td><td class="val">chr 上 30,000,000 – 30,010,000 bp 的 10 kb 区段</td></tr>
+          <tr><td class="sym">公共 IV 数</td><td class="desc">每条染色体 1 个 SNP</td><td class="val"><strong>4</strong> (chr 15, 16, 17, 18), MAF $&gt; 0.1$</td></tr>
+          <tr><td class="sym">稀有 burden 数</td><td class="desc">每条染色体 1 个 set</td><td class="val"><strong>4</strong> (chr 19, 20, 21, 22), 每 set <strong>50</strong> 个 SNP, MAF $\in (0.001, 0.05)$</td></tr>
+          <tr><td class="sym">$\alpha_i$ (common)</td><td class="desc">公共 SNP 对 $X$ 的 per-allele 效应</td><td class="val"><strong>0.5</strong> (固定; 作用于曝露端)</td></tr>
+          <tr><td class="sym">$\alpha_{j\ell}$ (rare)</td><td class="desc">稀有变体 $\ell$ 在 burden $j$ 上对 $X$ 的效应</td><td class="val">$c_0 \cdot \lvert\log_{10}\mathrm{MAF}_{j\ell}\rvert$, $c_0 = 0.5$ &rArr; 范围约 0.65–1.5 (因为稀者 MAF→0.001)</td></tr>
+          <tr><td class="sym">$\varphi_{j\ell}$</td><td class="desc">稀有变体是否为因果 (Bernoulli 指示)</td><td class="val">$P(\varphi=1) = \mathrm{expit}(b_0 + \sum_i b_i A_i)$, $A_i$ 从 10 个 i.i.d. $\mathcal{N}(0,1)$ 中随机抽 5 个; $b_i = \log 5$. $b_0$ 调到平均比例 $\approx 15\%$ 或 $\approx 35\%$</td></tr>
+          <tr><td class="sym">MAF 加权</td><td class="desc">burden 内部权重</td><td class="val">Beta$(1, 25)$ (STAAR 默认, upweight 稀者) 与 Beta$(1, 1)$ (等权, sanity)</td></tr>
+          <tr><td class="sym">$\beta$ (因果效应)</td><td class="desc">4 种 exposure/outcome 类型对</td><td class="val">cont/cont: <strong>0.04</strong> · cont/bin: <strong>0.06</strong> · bin/cont: <strong>0.2</strong> · bin/bin: <strong>0.4</strong></td></tr>
+          <tr><td class="sym">正效应比例</td><td class="desc">burden 内 sign(+) 变体的占比</td><td class="val">$\{100\%, 80\%, 50\%\}$ (sweep)</td></tr>
+          <tr><td class="sym">因果变体比例</td><td class="desc">$\varphi_{j\ell} = 1$ 的平均比例</td><td class="val">$\{\approx 15\%,\,\approx 35\%\}$</td></tr>
+          <tr><td class="sym">混杂 $U$</td><td class="desc">是否显式生成 confounder</td><td class="val"><strong>无</strong>: 论文仿真不显式生成 U; $Y$ 仅 $\beta X + \varepsilon$, 即假设无 unmeasured confounding (vs. RARE 显式建)</td></tr>
+          <tr><td class="sym">$\varepsilon_X, \varepsilon_Y$</td><td class="desc">噪声</td><td class="val">连续: $\mathcal{N}(0, 1)$; 二元: logit / expit 链接</td></tr>
+          <tr><td class="sym">LD between IVs</td><td class="desc">公共 IV 间 / burden 间</td><td class="val">取自不同染色体 &rArr; 近似独立 (zero LD); 真实 LD 仅在 Supp. S5 探</td></tr>
+          <tr><td class="sym"># reps (Type-I)</td><td class="desc">$\beta = 0$ cell 的复制次数</td><td class="val"><strong>10,000</strong></td></tr>
+          <tr><td class="sym"># reps (power)</td><td class="desc">$\beta \neq 0$ cell 的复制次数</td><td class="val"><strong>1,000</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 style="color: var(--fg-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 22px 0 6px;">3b · 逐步抽样配方 Step-by-step (一个仿真样本 $i$)</h4>
+    <div class="eq-block">
+      <ol class="recipe-steps">
+        <li><strong>抽 8 条 SNP 序列</strong>: 用 <code>sim1000G</code> 从 1000 Genomes 真实单倍型重抽 $N = 10{,}000$ 个个体在 chr 15–22 上各 10 kb 区段的基因型. chr 15–18 每条只保留 1 个 MAF $&gt; 0.1$ 的 SNP $\Rightarrow$ 公共 IVs $G_1, \dots, G_4$. chr 19–22 每条保留所有 MAF $\in (0.001, 0.05)$ 的 SNP, 取 50 个 $\Rightarrow$ rare-set $G_{j,1}, \dots, G_{j,50}$ 对 $j = 1, \dots, 4$.</li>
+        <li><strong>抽功能注释 $A$</strong>: 生成 10 个独立 $\mathcal{N}(0,1)$ 列, 随机选 5 列作为"真正相关"的注释 $A_1, \dots, A_5$. (待核实: 这一步在 v1 method 文本里描述, 数值具体维度可能略有不同.)</li>
+        <li><strong>抽因果指示 $\varphi_{j\ell}$</strong>: 对 burden $j$ 内每个稀有变体 $\ell$, 取 Bernoulli$\left(\mathrm{expit}\!\left(b_0 + \log 5 \cdot \sum_i A_{j\ell,i}\right)\right)$. $b_0$ 网格搜索, 使整 set 内平均 $\varphi = 1$ 比例 $\approx 15\%$ 或 $\approx 35\%$.</li>
+        <li><strong>抽方向</strong>: 给被选中的 $\varphi_{j\ell} = 1$ 变体里, 按正效应比例 $\pi^+ \in \{1, 0.8, 0.5\}$ 决定 $\mathrm{sign}(\alpha_{j\ell}) = +1$ 的比例.</li>
+        <li><strong>计算 per-variant 效应</strong>: 公共 $\alpha_i = 0.5$ (固定). 稀有 $\alpha_{j\ell} = \mathrm{sign} \cdot 0.5 \cdot \lvert\log_{10}\mathrm{MAF}_{j\ell}\rvert$.</li>
+        <li><strong>组装曝露 $X_i$</strong> (sample $i$):
+            $$X_i = \sum_{k=1}^4 \alpha_k G_{i,k} \;+\; \sum_{j=1}^4 \sum_{\ell=1}^{50} \varphi_{j\ell}\, \alpha_{j\ell}\, G_{i, j\ell} \;+\; \varepsilon_{X,i}$$
+            连续 $X$: $\varepsilon_{X,i} \sim \mathcal{N}(0, 1)$. 二元 $X$: $P(X_i = 1) = \mathrm{expit}(\sum \alpha G)$, 即把上式截至噪声前喂 logit.</li>
+        <li><strong>组装结果 $Y_i$</strong>:
+            连续 $Y$: $Y_i = \beta X_i + \varepsilon_{Y,i}$, $\varepsilon_{Y,i} \sim \mathcal{N}(0,1)$.
+            二元 $Y$: $P(Y_i = 1) = \mathrm{expit}(\beta X_i)$.
+            注意: <strong>没有 $U$, 没有 $G \to Y$ 直接路径</strong> (即仿真不引入 horizontal pleiotropy, 不同于 RARE).</li>
+        <li><strong>跑 GWAS summary stats</strong>: 对每个 $G_k$ 单 SNP 回归 $X$ $\to$ $(\hat\beta_{x, k}, \mathrm{SE})$, 同理 $Y$. 4 个公共 SNP 各 1 行.</li>
+        <li><strong>跑 burden test (per mask × per MAF weight)</strong>: 对每个 burden $j$, STAARpipeline 输出 $(\hat\beta_{\text{burden}, j}, \mathrm{SE})$, 用 Beta$(1,25)$ 或 Beta$(1,1)$ 作为 SNP 内权重. 共 $4 \times 2 = 8$ 个 burden 估计.</li>
+        <li><strong>拼成 8 维 IV 向量</strong>: $\hat\beta_x = [\hat\beta_{x,1..4} \mid \hat\beta_{\text{burden},1..4}]$, $\hat\beta_y$ 同理. 喂 IVW / dIVW / MR-RAPS.</li>
+        <li><strong>用 CCT 合并</strong>: 对每个 (mask, weight) 组合各跑一次, 把 p-values 用 Cauchy combination test 聚合为单一报告 p.</li>
+        <li><strong>Type-I / power 累积</strong>: $\beta = 0$ 时跑 10,000 reps, $\beta \neq 0$ 时跑 1,000 reps.</li>
+      </ol>
+    </div>
+
+    <h4 style="color: var(--fg-muted); font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; margin: 22px 0 6px;">3c · 一次仿真的数值示例 Worked example</h4>
+    <div class="worked-example">
+      <div class="premise">
+        <strong>假设</strong>
+        cont/cont 设定, $\beta = 0.04$, 因果变体比例 $\approx 35\%$, 正效应比例 $\pi^+ = 80\%$, burden 内权重 Beta$(1, 25)$.
+        看第 $i = 1$ 个样本.
+        <br/><br/>
+        <span style="font-size:0.82em; color:var(--fg-dim);">数值为合理示例 (consistent with the recipe), 不是真实 seed=1 output.</span>
+      </div>
+      <div class="values">
+        <div class="row">公共 SNP 1 (chr 15): $\mathrm{MAF}_1 = 0.27$ <span class="note">(real 1000G 序列)</span></div>
+        <div class="row">$G_{1,1} = 1$ <span class="note">(heterozygous)</span></div>
+        <div class="row">$\alpha_1 = 0.5$ <span class="note">(固定)</span></div>
+        <div class="row">$\Rightarrow \alpha_1 G_{1,1} = 0.5$</div>
+        <div class="row">公共 SNP 2,3,4 类似 &rArr; $\sum_{k=1}^4 \alpha_k G_{1,k} \approx 1.0$</div>
+        <div class="row">Rare burden 1 (chr 19): $\mathrm{MAF}_{1,1} = 0.003$ &rArr; $\alpha_{1,1} = 0.5 \cdot 2.52 = 1.26$ (取 + 号, 因 $\pi^+ = 80\%$)</div>
+        <div class="row">$\varphi_{1,1} = 1$ <span class="note">(Bernoulli; 35% 因果)</span></div>
+        <div class="row">$G_{1, 1{:}1} = 0$ <span class="note">(稀有 &rArr; 极大概率 0)</span></div>
+        <div class="row">$\Rightarrow \varphi_{1,1} \alpha_{1,1} G_{1,1{:}1} = 0$</div>
+        <div class="row">假设 burden 1 内仅 SNP 17 携带 1 个 minor allele: $\mathrm{MAF}_{1,17} = 0.012$ &rArr; $\alpha_{1,17} \approx 0.96$; $\varphi_{1,17} = 1$; $G_{1, 1{:}17} = 1$ &rArr; 贡献 $\approx 0.96$</div>
+        <div class="row">全部 4 个 burden 在样本 1 上 &rArr; $\sum_j \sum_\ell \varphi \alpha G \approx 1.1$</div>
+        <div class="row">$\varepsilon_{X,1} \sim \mathcal{N}(0,1) \approx -0.3$</div>
+        <div class="row final">$X_1 \approx 1.0 + 1.1 - 0.3 = 1.8$</div>
+        <div class="row">$\varepsilon_{Y,1} \sim \mathcal{N}(0,1) \approx 0.2$</div>
+        <div class="row final">$Y_1 = 0.04 \cdot 1.8 + 0.2 \approx 0.272$</div>
+        <div class="row" style="margin-top: 8px; color: var(--fg-dim); font-size: 0.85em;">
+          注: 多数个体的 burden 求和接近 0 (rare-by-design); 信号在尾部少数携带者上集中 — 这正是 burden test 比单 SNP test 有优势的原因.
+        </div>
       </div>
     </div>
 
