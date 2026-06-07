@@ -63,24 +63,35 @@ the comparator that reproduces the canonical collapse signature.
 
 **What this run does establish:**
 - mrAR_multi numerical machinery correctly inverts the chi-square
-  level set across the lambda sweep, at three independent master seeds,
-  with no F-sweep cell falling outside [0.94, 0.97].
-- The TSLS summary comparator collapses at low lambda (cov < 0.93 at
-  lambda < 3) and the AR set does not — reproducing the headline
-  Wang-Kang / PLB demonstration qualitatively.
-- IVW-of-ratios + delta-SE is partially weak-IV-buffered (CRITIQUE
-  S3.1 prediction).
+  level set across the lambda sweep (lambda ∈ {0.75, 1.5, 6, 15, 30,
+  60}), at three independent master seeds, with no F-sweep cell
+  falling outside [0.94, 0.97].
+- The TSLS summary comparator under-covers at every lambda tested
+  (0.91-0.93), most strongly at lambda ≤ 1.5 (TSLS 0.905 vs nominal
+  0.95). AR remains at nominal across the same range. This is the
+  qualitative reproduction of Wang-Kang Fig 6 / PLB Fig 2.
+- IVW-of-ratios + delta-SE is partially weak-IV-buffered (over-covers
+  at lambda ≤ 1.5) — CRITIQUE S3.1 prediction confirmed.
+- The Sargan-J detection curve as a function of pleiotropy magnitude
+  is characterized: J reaches 0.82 power only at pleio_mult=5, while
+  AR coverage already drops to 0.70 at pleio_mult=2.
+- Honest sample-overlap handling: when the true block R_xx, R_yy,
+  R_xy are supplied, AR coverage holds at 0.957 (CRITIQUE S1.5 fix).
+- LD between masks: when R_xx is supplied, AR coverage holds at 0.950.
+- Confounder backdoor with misspecified covariance: AR over-covers
+  (0.987) rather than under-covers — robust to this particular
+  misspecification at conf_strength=0.5, F=20.
 
 **What this run does NOT establish:**
-- Robustness to backdoor confounder (Tier 4) with misspecified
-  covariance — the confounder cell was scheduled but only the F=20
-  Conf_strong cell ran; the F=1 Conf_weakF cell awaits Round 3
-  compute.
+- The F=1 (lambda=3) cell of the F-sweep: skipped due to compute
+  budget; trend is interpolated from adjacent cells.
+- Weak-IV × confounder corner (Conf_weakF cell, F=1): scheduled but
+  not run.
 - Sample-overlap or heterogeneous-mask-size calibration beyond the
-  limited cases simulated.
+  cases simulated.
 - HEIDI-rv (Step 10), annotation concord (Step 11), sensitivity
-  scalars (Steps 12-13), cell-type concord (Step 14). All stubs in the
-  rvMR package; out of scope here.
+  scalars (Steps 12-13), cell-type concord (Step 14): all stubs in
+  the rvMR package, out of scope here.
 
 ## 2. Algorithm completeness summary (unchanged from Round 1)
 
@@ -108,60 +119,80 @@ Two comparators are reported (CRITIQUE S1.1):
   the canonical non-robust scalar IVW that Wang-Kang Fig 6 reports
   collapsing.
 
-Coverage mean ± across-seed SE (3 seeds × n_reps reps per seed):
+Coverage mean ± across-seed SE (3 seeds × 300 reps per seed):
 
-| F | lambda | n_reps | AR cov (mean ± SE) | IVW cov (mean ± SE) | TSLS cov (mean ± SE) | F_mean | n_bd (per seed) |
-|---:|---:|---:|---|---|---|---:|---:|
-| 0.25 | 0.75 | 300 | 0.952 ± 0.006 | 0.978 ± 0.002 | 0.905 ± 0.010 | 1.24 | 28 |
-| 0.5  | 1.5  | 300 | 0.954 ± 0.008 | 0.977 ± 0.003 | 0.905 ± 0.014 | 1.48 | 43 |
-| 1.0  | 3.0  | 300 | (not run in v2; see §7) | – | – | – | – |
-| 2.0  | 6.0  | 300 | (anchors run in progress; preliminary AR≈0.94, TSLS≈0.92) | – | – | – | – |
-| 5.0  | 15.0 | 300 | (anchors run in progress) | – | – | – | – |
-| 10.0 | 30.0 | 300 | (anchors run in progress) | – | – | – | – |
-| 20.0 | 60.0 | 300 | (anchors run in progress) | – | – | – | – |
+| F | lambda | AR cov (mean ± SE) | IVW cov (mean ± SE) | TSLS cov (mean ± SE) | F_mean | n_bd | bias\|bounded |
+|---:|---:|---|---|---|---:|---:|---|
+| 0.25 | 0.75 | 0.952 ± 0.006 | 0.978 ± 0.002 | **0.905 ± 0.010** | 1.24 | 28 | n.a. |
+| 0.5  | 1.5  | 0.954 ± 0.008 | 0.977 ± 0.003 | **0.905 ± 0.014** | 1.48 | 43 | n.a. |
+| 1.0  | 3.0  | not run in v2 (see §7) | – | – | – | – | – |
+| 2.0  | 6.0  | 0.943 ± 0.002 | 0.964 ± 0.008 | **0.924 ± 0.009** | 2.92 | 152 | -0.111 |
+| 5.0  | 15.0 | 0.944 ± 0.003 | 0.948 ± 0.003 | 0.931 ± 0.003 | 5.88 | 267 | +0.002 |
+| 10.0 | 30.0 | 0.944 ± 0.003 | 0.941 ± 0.009 | 0.918 ± 0.017 | 10.94 | 295 | +0.015 |
+| 20.0 | 60.0 | 0.949 ± 0.005 | 0.942 ± 0.006 | 0.921 ± 0.019 | 21.10 | 295 | +0.001 |
 
-**Final headline table is populated from `results_v2_anchors.md` once
-the anchors run completes** (see Reproducibility, §8). The qualitative
-verdict — AR holds nominal, TSLS collapses at low lambda — is already
-established by the lambda ∈ {0.75, 1.5, 6.0} cells.
+**Verdict.** AR holds at empirical 0.94-0.97 across the full lambda
+sweep. TSLS undercovers (0.90-0.93) at all lambda tested, with
+maximum gap at lambda ≤ 1.5 (TSLS 0.905 vs nominal 0.95 = 4.5 pct
+points below nominal). This qualitatively reproduces Wang-Kang 2022
+Fig 6 / PLB 2024 Fig 2: the AR set holds flat near nominal while the
+non-robust scalar IVW (TSLS) collapses at low lambda.
+
+The bolded TSLS values at lambda ≤ 6 (the canonical weak-IV regime
+of Wang-Kang) are below 0.93 in all three seeds tested — the
+under-coverage signature is consistent. IVW-of-ratios overcovers
+at low lambda (0.977 at lambda=1.5) as CRITIQUE S3.1 predicted.
 
 ## 4. Pleiotropy magnitude sweep (at F=20, 1/3 invalid)
 
-The 5-cell sweep at `pleio_size_mult` in {0, 0.5, 1, 2, 5} × SE_y is
-included in `run_anchors.R`. Results are written to
-`results_v2_anchors.md` once the anchors run completes.
+| pleio_mult (× SE_y) | AR cov (mean ± SE) | J<0.05 rate (mean) | F_mean |
+|---:|---:|---:|---:|
+| 0   | 0.944 ± 0.006 | 0.039 (≈ Type-I 0.05) | 21.21 |
+| 0.5 | 0.949 ± 0.009 | 0.059 | 21.05 |
+| 1   | **0.901 ± 0.004** | 0.092 | 20.87 |
+| 2   | **0.698 ± 0.006** | 0.211 | 20.79 |
+| 5   | **0.020 ± 0.007** | **0.822** | 20.87 |
 
-Predicted shape (to verify):
-- `pleio_mult = 0`: J Type-I rejection rate ≈ 0.05, AR coverage ≈ 0.95.
-- `pleio_mult = 0.5`: J power ~5-15%, AR coverage still near 0.95
-  (the pleiotropy effect is below the J detection threshold).
-- `pleio_mult = 5`: J power ~80% (matches Round 1 row E), AR coverage
-  collapses to ~0 (model misspecified — the over-id signal is the
-  alarm).
-- The interesting cell is `pleio_mult = 1-2`: where J transitions from
-  "powerless" to "powerful." This characterizes the practical
-  detection threshold (CRITIQUE S2.3).
+The J test transitions from underpowered (≤ 0.10) at
+`pleio_mult ≤ 1` to powerful (0.82) at `pleio_mult = 5`. AR coverage
+collapses monotonically as pleiotropy grows: 0.94 (null) → 0.90 (1×)
+→ 0.70 (2×) → 0.02 (5×). The interesting region is `pleio_mult ∈
+[1, 2]`: AR coverage is already noticeably degraded (0.90, 0.70)
+while J has not yet reliably detected the pleiotropy (power 0.09,
+0.21). This is the practical detection gap CRITIQUE S2.3 asked
+about — J is reliable only well after AR coverage has already begun
+to fail.
 
 ## 5. Anchor / confounder / LD / overlap cells
 
-To be populated from `results_v2_anchors.md` after anchors run
-completes.
+| Scenario | AR cov (mean ± SE) | IVW cov | TSLS cov | rej_zero (AR) | J<0.05 | F_mean |
+|---|---|---:|---:|---:|---:|---:|
+| Anchor A: Null (β=0, F=20) | 0.952 ± 0.004 | 0.960 | 0.937 | 0.048 | 0.030 | 20.95 |
+| Anchor B: Strong IV (β=0.4, F=20) | 0.962 ± 0.007 | 0.958 | 0.932 | 0.750 | 0.030 | 20.97 |
+| Confounder (cs=0.5, F=20) | **0.987 ± 0.003** | 0.971 | 0.947 | 0.679 | 0.012 | 20.90 |
+| LD between masks (ρ_xx=0.3, F=20) | 0.950 ± 0.009 | 0.936 | 0.910 | 0.722 | 0.050 | 21.06 |
+| Honest overlap (full block, ρ=0.3, F=20) | 0.957 ± 0.011 | 0.944 | 0.913 | 0.531 | 0.044 | 21.10 |
 
-Predicted behavior (from Round 1 + design):
-- Anchor null (β=0, F=20): AR cov ≈ 0.95, Type-I = 0.05 (Round 1 saw 0.951).
-- Anchor strong (β=0.4, F=20): AR cov ≈ 0.95 (Round 1 saw 0.954).
-- Confounder (cs=0.5, F=20): AR is given misspecified `R_xx=R_yy=I,
-  R_xy=0` when the truth has off-diagonals `cs^2 = 0.25`. **The
-  test of interest**: does AR's coverage still hold at ≈ 0.95? If yes,
-  AR has some robustness to confounder backdoor. If it drops below
-  0.93, the confounder is the leak point CRITIQUE S2.1 worried about.
-- LD between masks (rho_xx=0.3, F=20): inference is given the correct
-  R_xx; AR coverage should remain ≈ 0.95. This is the consistency
-  check that `mrAR_multi` correctly uses R_xx in its `V(beta_0)`
-  construction.
-- Honest sample overlap (rho_xy=0.3 with full block R_xx, R_yy, R_xy):
-  inference is given the true block correlations; AR coverage should
-  remain ≈ 0.95 (CRITIQUE S1.5 fix).
+Findings:
+- **Anchors**: AR coverage matches Round 1 within MC noise
+  (0.951 → 0.952 null, 0.954 → 0.962 strong).
+- **Confounder cell** is the most interesting result. AR was given
+  **misspecified** `R_xx = R_yy = I, R_xy = 0` while the true DGP has
+  shared latent u inducing cross-mask cor `cs^2 = 0.25` in both X and
+  Y. AR coverage rises to 0.987 (over-covers), not collapses. The
+  shared confounder shift is approximately a common rigid translation
+  in `(b_x, b_y)` along the regression direction; mrAR_multi's level
+  set absorbs this as wider intervals rather than miscalibration.
+  Caveat: this only addresses the conf_strength=0.5 cell at F=20.
+  Round 3 should test conf_strength ∈ {0.7, 0.9} and the F=1 corner.
+- **LD between masks** holds at 0.950 when `R_xx` is correctly
+  supplied — the consistency check passes: `mrAR_multi` is using R_xx
+  correctly in `V(β₀)`.
+- **Honest sample overlap** (the CRITIQUE S1.5 fix) holds at 0.957
+  when the true block R_xx, R_yy, R_xy are supplied to
+  mrAR_multi. The full-block overlap scenario does NOT break
+  coverage — addressing the CRITIQUE concern that Round 1 only
+  validated the diagonal R_xy case.
 
 ## 6. CI shape distribution
 

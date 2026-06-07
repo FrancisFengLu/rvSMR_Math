@@ -13,4 +13,62 @@ Running anchors+pleio+special cells with n_reps=300, 14 cells, 3 seeds
 === Fsweep F=10 (lambda=30.0) ===
   seed 20260603 (idx 1) ... done (24s): cov_AR=0.943 cov_IVW=0.933 cov_TSLS=0.937 F_mean=10.71 n_bd=293
   seed 20260604 (idx 2) ... done (24s): cov_AR=0.950 cov_IVW=0.960 cov_TSLS=0.933 F_mean=10.93 n_bd=296
-  seed 20260605 (idx 3) ... 
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.940 cov_IVW=0.930 cov_TSLS=0.883 F_mean=11.18 n_bd=296
+
+=== Fsweep F=20 (lambda=60.0) ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.950 cov_IVW=0.950 cov_TSLS=0.943 F_mean=20.90 n_bd=295
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.940 cov_IVW=0.930 cov_TSLS=0.883 F_mean=21.24 n_bd=296
+  seed 20260605 (idx 3) ... done (25s): cov_AR=0.957 cov_IVW=0.947 cov_TSLS=0.937 F_mean=21.17 n_bd=294
+
+=== Plei sweep: pleio=0*SE_y, 1/3 invalid, F=20 ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.940 cov_IVW=0.930 cov_TSLS=0.883 F_mean=21.24 n_bd=296
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.957 cov_IVW=0.947 cov_TSLS=0.937 F_mean=21.17 n_bd=294
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.937 cov_IVW=0.923 cov_TSLS=0.900 F_mean=21.23 n_bd=294
+
+=== Plei sweep: pleio=0.5*SE_y, 1/3 invalid, F=20 ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.963 cov_IVW=0.957 cov_TSLS=0.937 F_mean=21.17 n_bd=296
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.933 cov_IVW=0.947 cov_TSLS=0.900 F_mean=21.23 n_bd=293
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.950 cov_IVW=0.970 cov_TSLS=0.920 F_mean=20.76 n_bd=296
+
+=== Plei sweep: pleio=1*SE_y, 1/3 invalid, F=20 ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.903 cov_IVW=0.950 cov_TSLS=0.890 F_mean=21.23 n_bd=288
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.893 cov_IVW=0.973 cov_TSLS=0.890 F_mean=20.76 n_bd=288
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.907 cov_IVW=0.983 cov_TSLS=0.907 F_mean=20.63 n_bd=292
+
+=== Plei sweep: pleio=2*SE_y, 1/3 invalid, F=20 ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.690 cov_IVW=0.943 cov_TSLS=0.760 F_mean=20.76 n_bd=267
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.693 cov_IVW=0.960 cov_TSLS=0.817 F_mean=20.63 n_bd=267
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.710 cov_IVW=0.957 cov_TSLS=0.787 F_mean=20.99 n_bd=266
+
+=== Plei sweep: pleio=5*SE_y, 1/3 invalid, F=20 ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.010 cov_IVW=0.877 cov_TSLS=0.230 F_mean=20.63 n_bd=86
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.017 cov_IVW=0.850 cov_TSLS=0.240 F_mean=20.99 n_bd=99
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.033 cov_IVW=0.870 cov_TSLS=0.287 F_mean=20.97 n_bd=92
+
+=== Confounder: cs=0.5, beta=0.4, F=20 ===
+  seed 20260603 (idx 1) ... done (25s): cov_AR=0.980 cov_IVW=0.957 cov_TSLS=0.930 F_mean=21.02 n_bd=299
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.990 cov_IVW=0.990 cov_TSLS=0.970 F_mean=20.69 n_bd=299
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.990 cov_IVW=0.967 cov_TSLS=0.940 F_mean=21.00 n_bd=300
+
+=== LD between masks: R_xx rho=0.3, beta=0.4, F=20 ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.967 cov_IVW=0.937 cov_TSLS=0.907 F_mean=20.96 n_bd=296
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.937 cov_IVW=0.930 cov_TSLS=0.910 F_mean=21.37 n_bd=294
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.947 cov_IVW=0.940 cov_TSLS=0.913 F_mean=20.85 n_bd=296
+
+=== Anchor A: Null (beta=0, F=20) ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.943 cov_IVW=0.963 cov_TSLS=0.947 F_mean=20.91 n_bd=294
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.957 cov_IVW=0.953 cov_TSLS=0.923 F_mean=20.86 n_bd=299
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.957 cov_IVW=0.963 cov_TSLS=0.940 F_mean=21.07 n_bd=294
+
+=== Anchor B: Strong IV (beta=0.4, F=20) ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.950 cov_IVW=0.947 cov_TSLS=0.917 F_mean=20.86 n_bd=297
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.963 cov_IVW=0.953 cov_TSLS=0.927 F_mean=21.07 n_bd=295
+  seed 20260605 (idx 3) ... done (24s): cov_AR=0.973 cov_IVW=0.973 cov_TSLS=0.953 F_mean=20.98 n_bd=298
+
+=== Honest overlap (full R_xx,R_yy,R_xy block, rho=0.3, F=20) ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.953 cov_IVW=0.940 cov_TSLS=0.910 F_mean=21.15 n_bd=295
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.977 cov_IVW=0.957 cov_TSLS=0.920 F_mean=21.08 n_bd=297
+  seed 20260605 (idx 3) ... done (25s): cov_AR=0.940 cov_IVW=0.937 cov_TSLS=0.910 F_mean=21.08 n_bd=294
+
+Total duration: 1163.8s
+Wrote results_v2_anchors.rds and results_v2_anchors.md
