@@ -1,0 +1,16 @@
+Running anchors+pleio+special cells with n_reps=300, 14 cells, 3 seeds
+
+=== Fsweep F=2 (lambda=6.0) ===
+  seed 20260603 (idx 1) ... done (63s): cov_AR=0.947 cov_IVW=0.980 cov_TSLS=0.940 F_mean=2.92 n_bd=153
+  seed 20260604 (idx 2) ... done (64s): cov_AR=0.940 cov_IVW=0.957 cov_TSLS=0.910 F_mean=2.96 n_bd=148
+  seed 20260605 (idx 3) ... done (63s): cov_AR=0.943 cov_IVW=0.957 cov_TSLS=0.923 F_mean=2.87 n_bd=155
+
+=== Fsweep F=5 (lambda=15.0) ===
+  seed 20260603 (idx 1) ... done (33s): cov_AR=0.940 cov_IVW=0.947 cov_TSLS=0.927 F_mean=5.89 n_bd=268
+  seed 20260604 (idx 2) ... done (35s): cov_AR=0.943 cov_IVW=0.943 cov_TSLS=0.930 F_mean=5.80 n_bd=261
+  seed 20260605 (idx 3) ... done (33s): cov_AR=0.950 cov_IVW=0.953 cov_TSLS=0.937 F_mean=5.96 n_bd=272
+
+=== Fsweep F=10 (lambda=30.0) ===
+  seed 20260603 (idx 1) ... done (24s): cov_AR=0.943 cov_IVW=0.933 cov_TSLS=0.937 F_mean=10.71 n_bd=293
+  seed 20260604 (idx 2) ... done (24s): cov_AR=0.950 cov_IVW=0.960 cov_TSLS=0.933 F_mean=10.93 n_bd=296
+  seed 20260605 (idx 3) ... 

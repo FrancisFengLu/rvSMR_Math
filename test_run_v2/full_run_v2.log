@@ -1,0 +1,14 @@
+Running run_all_v2() with n_reps=300, seeds=20260603,20260604,20260605 ...
+
+=== Fsweep F=0.25 (lambda=0.8) ===
+  seed 20260603 (idx 1) ... done (92s): cov_AR=0.950 cov_IVW=0.980 cov_TSLS=0.920 F_mean=1.12 n_bd=23
+  seed 20260604 (idx 2) ... done (91s): cov_AR=0.963 cov_IVW=0.980 cov_TSLS=0.907 F_mean=1.22 n_bd=26
+  seed 20260605 (idx 3) ... done (89s): cov_AR=0.943 cov_IVW=0.973 cov_TSLS=0.887 F_mean=1.31 n_bd=33
+
+=== Fsweep F=0.5 (lambda=1.5) ===
+  seed 20260603 (idx 1) ... done (86s): cov_AR=0.970 cov_IVW=0.980 cov_TSLS=0.907 F_mean=1.48 n_bd=44
+  seed 20260604 (idx 2) ... done (86s): cov_AR=0.943 cov_IVW=0.970 cov_TSLS=0.880 F_mean=1.55 n_bd=46
+  seed 20260605 (idx 3) ... done (88s): cov_AR=0.950 cov_IVW=0.980 cov_TSLS=0.927 F_mean=1.42 n_bd=39
+
+=== Fsweep F=1 (lambda=3.0) ===
+  seed 20260603 (idx 1) ... 
