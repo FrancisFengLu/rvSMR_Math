@@ -1,0 +1,1142 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Anderson–Rubin CI · 从零开始的视觉讲解 · rvSMR</title>
+<script>
+  // Apply theme before paint to avoid flash
+  (function () {
+    try {
+      var saved = localStorage.getItem('rvsmr-theme');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  })();
+</script>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev-2: #1c2128;
+    --bg-zebra: rgba(255,255,255,0.025);
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --fg-dim: #6e7681;
+    --accent: #58a6ff;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+
+    --c-data:    #58a6ff;   /* blue: data */
+    --c-parab:   #a78bfa;   /* purple: parabola */
+    --c-zero:    #8b949e;   /* gray: y=0 line */
+    --c-good:    #3fb950;   /* green: CI */
+    --c-bad:     #f85149;   /* red: rejected */
+    --c-thresh:  #d29922;   /* amber: 3.84 line */
+    --c-callout: #2dd4bf;
+
+    --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-serif: Georgia, Charter, "Songti SC", "SimSun", serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg: #fafbfc;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f1f4f8;
+    --bg-zebra: rgba(0,0,0,0.025);
+    --fg: #1f2328;
+    --fg-muted: #57606a;
+    --fg-dim: #8c959f;
+    --accent: #0969da;
+    --border: rgba(0, 0, 0, 0.12);
+    --border-strong: rgba(0, 0, 0, 0.22);
+
+    --c-data:    #0969da;
+    --c-parab:   #7c3aed;
+    --c-zero:    #57606a;
+    --c-good:    #1a7f37;
+    --c-bad:     #cf222e;
+    --c-thresh:  #9a6700;
+    --c-callout: #0d9488;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 15.5px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+  h1, h2, h3, h4 { color: var(--fg); margin: 0; font-weight: 600; }
+  h1 { font-size: 1.85rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.35rem; margin-bottom: 0.4rem; }
+  h3 { font-size: 0.82rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 18px; margin-bottom: 8px; }
+  h4 { font-size: 1.02rem; margin-bottom: 4px; }
+  p { margin: 0.6em 0; }
+
+  .container { max-width: 1180px; margin: 0 auto; padding: 0 22px; }
+
+  header.site-header {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+  .header-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 14px 0;
+  }
+  .subtitle { color: var(--fg-muted); font-size: 0.95rem; margin-top: 2px; }
+  .theme-toggle {
+    background: var(--bg-elev);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .theme-toggle:hover { border-color: var(--border-strong); }
+
+  section { margin: 48px 0; padding-top: 12px; border-top: 1px solid var(--border); }
+  section:first-of-type { border-top: none; }
+
+  .lead {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--fg-muted);
+    max-width: 920px;
+    line-height: 1.8;
+    margin-top: 10px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 16px;
+  }
+  .col-12 { grid-column: span 12; }
+  .col-6  { grid-column: span 6; }
+  .col-4  { grid-column: span 4; }
+  @media (max-width: 760px) {
+    .col-6, .col-4 { grid-column: span 12; }
+  }
+
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px 18px;
+  }
+  .card.tight { padding: 12px 14px; }
+
+  .figure-wrap {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin: 12px 0;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .figure-wrap svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+  .fig-caption {
+    font-size: 0.88rem;
+    color: var(--fg-muted);
+    margin-top: 8px;
+    text-align: center;
+    font-family: var(--font-serif);
+  }
+
+  .callout {
+    border-left: 3px solid var(--c-callout);
+    background: rgba(45, 212, 191, 0.06);
+    padding: 10px 14px;
+    border-radius: 0 8px 8px 0;
+    margin: 14px 0;
+    font-size: 0.96rem;
+  }
+  .callout.good { border-left-color: var(--c-good); background: rgba(63, 185, 80, 0.07); }
+  .callout.warn { border-left-color: var(--c-thresh); background: rgba(210, 153, 34, 0.08); }
+  .callout.key  { border-left-color: var(--c-parab); background: rgba(167, 139, 250, 0.08); }
+  .callout .label { font-weight: 600; color: var(--c-callout); font-size: 0.84rem; text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 4px; }
+  .callout.good .label { color: var(--c-good); }
+  .callout.warn .label { color: var(--c-thresh); }
+  .callout.key  .label { color: var(--c-parab); }
+
+  .step-num {
+    display: inline-block;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-right: 8px;
+  }
+
+  table.flat {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 12px 0;
+    font-size: 0.95rem;
+  }
+  table.flat th, table.flat td {
+    border: 1px solid var(--border);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  table.flat th {
+    background: var(--bg-elev-2);
+    color: var(--fg);
+    font-weight: 600;
+  }
+  table.flat tr:nth-child(even) td { background: var(--bg-zebra); }
+
+  .case-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px 16px;
+    margin: 16px 0;
+  }
+  .case-title {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+  }
+  .case-title .tag {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: var(--bg-elev-2);
+    color: var(--c-parab);
+    border: 1px solid var(--border);
+  }
+
+  /* SVG text helper class */
+  .svgtxt { font-family: var(--font-sans); fill: var(--fg); font-size: 13px; }
+  .svgtxt-mut { font-family: var(--font-sans); fill: var(--fg-muted); font-size: 12px; }
+  .svgtxt-sm { font-family: var(--font-sans); fill: var(--fg-muted); font-size: 11px; }
+  .svgtxt-lab { font-family: var(--font-serif); fill: var(--fg); font-size: 13px; font-style: italic; }
+
+  /* 2x2 mini table grid */
+  .mini-grid {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr;
+    gap: 8px;
+    margin: 18px 0;
+  }
+  .mini-cell {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    text-align: center;
+  }
+  .mini-cell .lbl { font-size: 0.82rem; color: var(--fg-muted); margin-top: 6px; }
+  .mini-head {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    text-align: center;
+    padding: 8px 4px;
+    font-size: 0.88rem;
+    font-weight: 600;
+  }
+  .mini-rowhead {
+    background: transparent;
+    border: none;
+    color: var(--fg-muted);
+    text-align: right;
+    padding: 8px 4px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    align-self: center;
+  }
+
+  ul.tight { margin: 6px 0 6px 1.2em; padding: 0; }
+  ul.tight li { margin: 3px 0; }
+
+  .math-step {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin: 10px 0;
+    font-size: 0.98rem;
+  }
+  .math-step .lbl {
+    color: var(--fg-muted);
+    font-size: 0.82rem;
+    margin-bottom: 4px;
+    font-family: var(--font-mono);
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 60px;
+    padding: 24px 0;
+    color: var(--fg-muted);
+    font-size: 0.88rem;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-row">
+    <div>
+      <h1>Anderson–Rubin 置信区间 · 从零开始</h1>
+      <div class="subtitle">为什么 AR CI 有 4 种形状 — 一步一步看图</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme">切换主题</button>
+  </div>
+</header>
+
+<main class="container">
+
+<!-- =================================================================== -->
+<!-- SECTION 1 -->
+<!-- =================================================================== -->
+<section id="sec1">
+  <h2>1 · 我们想识别什么</h2>
+  <p class="lead">
+    在 Mendelian Randomization (MR) 里，我们手上只有 summary statistics —
+    两组回归系数和它们的标准误。我们想用这些数字反推一个 <em>看不见</em> 的因果效应 $\beta$。
+    在画任何曲线之前，先把要识别的对象画出来。
+  </p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 900 260" width="900" height="260" role="img" aria-label="causal chain G to X to Y">
+      <!-- Nodes -->
+      <circle cx="120" cy="130" r="46" fill="none" stroke="var(--c-data)" stroke-width="2.5"/>
+      <text x="120" y="138" text-anchor="middle" class="svgtxt" font-size="22" font-weight="600" fill="var(--c-data)">G</text>
+      <text x="120" y="200" text-anchor="middle" class="svgtxt-mut">genotype / SNP</text>
+
+      <circle cx="450" cy="130" r="46" fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+      <text x="450" y="138" text-anchor="middle" class="svgtxt" font-size="22" font-weight="600" fill="var(--c-parab)">X</text>
+      <text x="450" y="200" text-anchor="middle" class="svgtxt-mut">exposure (e.g. gene expression)</text>
+
+      <circle cx="780" cy="130" r="46" fill="none" stroke="var(--c-thresh)" stroke-width="2.5"/>
+      <text x="780" y="138" text-anchor="middle" class="svgtxt" font-size="22" font-weight="600" fill="var(--c-thresh)">Y</text>
+      <text x="780" y="200" text-anchor="middle" class="svgtxt-mut">outcome (disease)</text>
+
+      <!-- Arrows -->
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="var(--fg-muted)"/>
+        </marker>
+        <marker id="arrowAccent" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="var(--c-good)"/>
+        </marker>
+      </defs>
+
+      <line x1="170" y1="130" x2="400" y2="130" stroke="var(--fg-muted)" stroke-width="2" marker-end="url(#arrow)"/>
+      <text x="285" y="118" text-anchor="middle" class="svgtxt-lab">$\hat b_x \pm \hat{SE}_x$ (已知)</text>
+
+      <line x1="500" y1="130" x2="730" y2="130" stroke="var(--c-good)" stroke-width="3" marker-end="url(#arrowAccent)"/>
+      <text x="615" y="118" text-anchor="middle" class="svgtxt" font-size="16" font-weight="600" fill="var(--c-good)">β  ← 我们要识别它</text>
+
+      <!-- Bottom arc: marginal G->Y -->
+      <path d="M 120 176 Q 450 250 780 176" fill="none" stroke="var(--fg-muted)" stroke-width="2" stroke-dasharray="5,4" marker-end="url(#arrow)"/>
+      <text x="450" y="248" text-anchor="middle" class="svgtxt-lab">$\hat b_y \pm \hat{SE}_y$ (已知)</text>
+
+      <text x="450" y="30" text-anchor="middle" class="svgtxt" font-size="14" fill="var(--fg-muted)">causal chain</text>
+    </svg>
+    <div class="fig-caption">G → X → Y。我们直接看不到 β；只能用四个数字 $(\hat b_x, \hat{SE}_x, \hat b_y, \hat{SE}_y)$ 来推断。</div>
+  </div>
+
+  <div class="callout">
+    <span class="label">关键</span>
+    $\hat b_x$ 是 G 对 X 的回归系数估计 (有标准误 $\hat{SE}_x$)；$\hat b_y$ 是 G 对 Y 的回归系数估计 (有标准误 $\hat{SE}_y$)。
+    在最简单的单 SNP MR 里，<strong>整条因果链可以由这四个数字总结</strong>。AR CI 就是只靠这四个数字（加 χ² 阈值）构造的置信区间。
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 2 -->
+<!-- =================================================================== -->
+<section id="sec2">
+  <h2>2 · 候选 β₀ + AR(β₀) 给它打分</h2>
+  <p class="lead">
+    AR 的逻辑很朴素：我们不直接 <em>求解</em> β，而是
+    <strong>对每个候选值 $\beta_0$ 都问一个问题</strong> —
+    "如果真因果效应真的是 $\beta_0$，那么我们看到的数据 $(\hat b_x, \hat b_y)$ 合理吗？"。
+    合理的留下，不合理的扔掉。剩下的所有 $\beta_0$ 拼起来就是 AR CI。
+  </p>
+
+  <div class="callout key">
+    <span class="label">期望关系</span>
+    在 $H_0: \beta = \beta_0$ 之下，两个 reduced-form 系数应该满足
+    $$ \hat b_y \;\approx\; \beta_0 \,\hat b_x. $$
+    定义残差 $r(\beta_0) = \hat b_y - \beta_0 \hat b_x$。若 $\beta_0$ 是真值, $r$ 应该接近 0; 若 $\beta_0$ 远离真值, $r$ 应该很大。
+  </div>
+
+  <p>
+    AR 统计量就是把这个残差标准化:
+    $$ \mathrm{AR}(\beta_0) \;=\; \frac{r(\beta_0)^2}{\mathrm{Var}\bigl(r(\beta_0)\bigr)}
+       \;=\; \frac{(\hat b_y - \beta_0 \hat b_x)^2}{\hat{SE}_y^{\,2} + \beta_0^2 \,\hat{SE}_x^{\,2} - 2\beta_0 \rho \,\hat{SE}_x \hat{SE}_y}. $$
+    （这里 $\rho$ 是 $\hat b_x, \hat b_y$ 之间的相关；two-sample MR 中常假设 $\rho = 0$。）
+  </p>
+
+  <p>用数据 $b_x = 0.18, b_y = -0.11$ 作图。下图把残差 $r = \hat b_y - \beta_0 \hat b_x$ 画成竖条:</p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 880 320" width="880" height="320" role="img" aria-label="three candidate beta values vs residuals">
+      <!-- Three sub-panels -->
+      <!-- Panel 1: beta0 = 0.4 -->
+      <g transform="translate(40,40)">
+        <text x="120" y="0" text-anchor="middle" class="svgtxt" font-weight="600">候选 $\beta_0 = 0.4$</text>
+        <!-- baseline -->
+        <line x1="0" y1="180" x2="240" y2="180" stroke="var(--fg-muted)" stroke-width="1"/>
+        <!-- observed b_y (blue dot/bar) -->
+        <line x1="80" y1="180" x2="80" y2="159" stroke="var(--c-data)" stroke-width="3"/>
+        <circle cx="80" cy="159" r="5" fill="var(--c-data)"/>
+        <text x="80" y="200" text-anchor="middle" class="svgtxt-sm">$\hat b_y = -0.11$</text>
+        <!-- predicted beta0*b_x (purple dot) -->
+        <line x1="170" y1="180" x2="170" y2="166" stroke="var(--c-parab)" stroke-width="3" stroke-dasharray="3,3"/>
+        <circle cx="170" cy="166" r="5" fill="var(--c-parab)"/>
+        <text x="170" y="200" text-anchor="middle" class="svgtxt-sm">$\beta_0 \hat b_x = 0.072$</text>
+        <!-- residual bar (small) -->
+        <rect x="115" y="159" width="20" height="7" fill="var(--c-good)" fill-opacity="0.45" stroke="var(--c-good)"/>
+        <text x="125" y="138" text-anchor="middle" class="svgtxt-sm" fill="var(--c-good)">小残差 r</text>
+        <text x="125" y="232" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">AR ≈ 33  ✗</text>
+        <text x="125" y="252" text-anchor="middle" class="svgtxt-sm">(远，被排除)</text>
+      </g>
+
+      <!-- divider -->
+      <line x1="320" y1="40" x2="320" y2="290" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+
+      <!-- Panel 2: beta0 = -0.61 (Wald) -->
+      <g transform="translate(340,40)">
+        <text x="120" y="0" text-anchor="middle" class="svgtxt" font-weight="600">候选 $\beta_0 = -0.61$  (Wald)</text>
+        <line x1="0" y1="180" x2="240" y2="180" stroke="var(--fg-muted)" stroke-width="1"/>
+        <!-- b_y dot -->
+        <line x1="80" y1="180" x2="80" y2="159" stroke="var(--c-data)" stroke-width="3"/>
+        <circle cx="80" cy="159" r="5" fill="var(--c-data)"/>
+        <text x="80" y="200" text-anchor="middle" class="svgtxt-sm">$\hat b_y = -0.11$</text>
+        <!-- prediction nearly equal -->
+        <line x1="170" y1="180" x2="170" y2="159" stroke="var(--c-parab)" stroke-width="3" stroke-dasharray="3,3"/>
+        <circle cx="170" cy="159" r="5" fill="var(--c-parab)"/>
+        <text x="170" y="200" text-anchor="middle" class="svgtxt-sm">$\beta_0 \hat b_x \approx -0.110$</text>
+        <text x="125" y="138" text-anchor="middle" class="svgtxt-sm" fill="var(--c-good)">残差 ≈ 0</text>
+        <text x="125" y="232" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">AR ≈ 0  ✓</text>
+        <text x="125" y="252" text-anchor="middle" class="svgtxt-sm">(最佳匹配)</text>
+      </g>
+
+      <line x1="620" y1="40" x2="620" y2="290" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+
+      <!-- Panel 3: beta0 = -2 -->
+      <g transform="translate(640,40)">
+        <text x="120" y="0" text-anchor="middle" class="svgtxt" font-weight="600">候选 $\beta_0 = -2$</text>
+        <line x1="0" y1="180" x2="240" y2="180" stroke="var(--fg-muted)" stroke-width="1"/>
+        <line x1="80" y1="180" x2="80" y2="159" stroke="var(--c-data)" stroke-width="3"/>
+        <circle cx="80" cy="159" r="5" fill="var(--c-data)"/>
+        <text x="80" y="200" text-anchor="middle" class="svgtxt-sm">$\hat b_y = -0.11$</text>
+        <!-- prediction far below baseline -->
+        <line x1="170" y1="180" x2="170" y2="248" stroke="var(--c-parab)" stroke-width="3" stroke-dasharray="3,3"/>
+        <circle cx="170" cy="248" r="5" fill="var(--c-parab)"/>
+        <text x="170" y="266" text-anchor="middle" class="svgtxt-sm">$\beta_0 \hat b_x = -0.36$</text>
+        <!-- big residual bar -->
+        <rect x="115" y="159" width="20" height="89" fill="var(--c-bad)" fill-opacity="0.4" stroke="var(--c-bad)"/>
+        <text x="125" y="138" text-anchor="middle" class="svgtxt-sm" fill="var(--c-bad)">巨大残差 r</text>
+        <text x="125" y="232" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-bad)">AR ≈ 60  ✗</text>
+        <text x="125" y="252" text-anchor="middle" class="svgtxt-sm">(被排除)</text>
+      </g>
+    </svg>
+    <div class="fig-caption">同一组 $(\hat b_x, \hat b_y)$，三个候选 $\beta_0$：合适的 β₀ 让残差 $r$ 接近 0 (AR 小)，离谱的 β₀ 让残差爆大 (AR 大)。</div>
+  </div>
+
+  <div class="callout good">
+    <span class="label">直觉</span>
+    AR(β₀) = "如果真因果就是 β₀, 数据有多 surprise?"。小 = 不 surprise = 接受。大 = 很 surprise = 排除。
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 3 -->
+<!-- =================================================================== -->
+<section id="sec3">
+  <h2>3 · 多大算"太大"？阈值 3.84 从哪来</h2>
+  <p class="lead">
+    "AR 小就接受, AR 大就排除" — 那分界线在哪？答案是 chi-square 分布给的。
+  </p>
+
+  <p>
+    在 $H_0: \beta = \beta_0$ 之下 (即候选确实是真值), 残差 $r$ 是均值 0 的高斯，
+    标准化平方 AR(β₀) 就是 $\chi^2_1$ 分布的一个抽样。
+    我们用 95% 分位数 $\chi^2_{1,\,0.95} = 3.84$ 做接受/拒绝分界:
+    $$ 95\% \ \text{CI} \;=\; \{\,\beta_0 : \mathrm{AR}(\beta_0) \le 3.84\,\}. $$
+  </p>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 720 300" width="720" height="300" role="img" aria-label="chi-square df=1 density with 3.84 cutoff">
+      <!-- axes -->
+      <line x1="60" y1="260" x2="690" y2="260" stroke="var(--fg-muted)" stroke-width="1.5"/>
+      <line x1="60" y1="30" x2="60" y2="260" stroke="var(--fg-muted)" stroke-width="1.5"/>
+
+      <!-- x-axis ticks -->
+      <g class="svgtxt-sm">
+        <line x1="60.0" y1="260" x2="60.0" y2="264" stroke="var(--fg-muted)"/><text x="60" y="278" text-anchor="middle">0</text>
+        <line x1="184.0" y1="260" x2="184.0" y2="264" stroke="var(--fg-muted)"/><text x="184" y="278" text-anchor="middle">2</text>
+        <line x1="308.0" y1="260" x2="308.0" y2="264" stroke="var(--fg-muted)"/><text x="308" y="278" text-anchor="middle">4</text>
+        <line x1="432.0" y1="260" x2="432.0" y2="264" stroke="var(--fg-muted)"/><text x="432" y="278" text-anchor="middle">6</text>
+        <line x1="556.0" y1="260" x2="556.0" y2="264" stroke="var(--fg-muted)"/><text x="556" y="278" text-anchor="middle">8</text>
+        <line x1="680.0" y1="260" x2="680.0" y2="264" stroke="var(--fg-muted)"/><text x="680" y="278" text-anchor="middle">10</text>
+      </g>
+      <text x="375" y="294" text-anchor="middle" class="svgtxt">AR 统计量值 (= χ² 抽样)</text>
+      <text x="20" y="145" text-anchor="middle" class="svgtxt" transform="rotate(-90,20,145)">密度</text>
+
+      <!-- Shaded 95% region under curve up to 3.84 -->
+      <path d="M 63.1,260.0 L 66.2,30.0 L 69.3,30.0 L 72.4,30.0 L 75.4,30.0 L 78.5,30.0 L 81.6,42.4 L 84.7,61.4 L 87.8,77.4 L 90.9,91.0 L 93.9,102.8 L 97.0,113.2 L 100.1,122.4 L 103.2,130.7 L 106.3,138.1 L 109.4,144.9 L 112.5,151.1 L 115.5,156.8 L 118.6,162.0 L 121.7,166.8 L 124.8,171.3 L 127.9,175.5 L 131.0,179.3 L 134.0,183.0 L 137.1,186.4 L 140.2,189.6 L 143.3,192.6 L 146.4,195.4 L 149.5,198.1 L 152.6,200.7 L 155.6,203.1 L 158.7,205.3 L 161.8,207.5 L 164.9,209.5 L 168.0,211.5 L 171.1,213.3 L 174.1,215.1 L 177.2,216.8 L 180.3,218.4 L 183.4,219.9 L 186.5,221.4 L 189.6,222.8 L 192.6,224.1 L 195.7,225.4 L 198.8,226.6 L 201.9,227.8 L 205.0,228.9 L 208.1,230.0 L 211.2,231.1 L 214.2,232.1 L 217.3,233.0 L 220.4,233.9 L 223.5,234.8 L 226.6,235.7 L 229.7,236.5 L 232.7,237.3 L 235.8,238.0 L 238.9,238.7 L 242.0,239.4 L 245.1,240.1 L 248.2,240.8 L 251.3,241.4 L 254.3,242.0 L 257.4,242.6 L 260.5,243.1 L 263.6,243.7 L 266.7,244.2 L 269.8,244.7 L 272.8,245.2 L 275.9,245.6 L 279.0,246.1 L 282.1,246.5 L 285.2,246.9 L 288.3,247.4 L 291.4,247.7 L 294.4,248.1 L 297.5,248.5 L 298.1,260.0 Z"
+            fill="var(--c-good)" fill-opacity="0.25" stroke="none"/>
+
+      <!-- Curve -->
+      <path d="M 66.2,30.0 L 69.3,30.0 L 72.4,30.0 L 75.4,30.0 L 78.5,30.0 L 81.6,42.4 L 84.7,61.4 L 87.8,77.4 L 90.9,91.0 L 93.9,102.8 L 97.0,113.2 L 100.1,122.4 L 103.2,130.7 L 106.3,138.1 L 109.4,144.9 L 112.5,151.1 L 115.5,156.8 L 118.6,162.0 L 121.7,166.8 L 124.8,171.3 L 127.9,175.5 L 131.0,179.3 L 134.0,183.0 L 137.1,186.4 L 140.2,189.6 L 143.3,192.6 L 146.4,195.4 L 149.5,198.1 L 152.6,200.7 L 155.6,203.1 L 158.7,205.3 L 161.8,207.5 L 164.9,209.5 L 168.0,211.5 L 171.1,213.3 L 174.1,215.1 L 177.2,216.8 L 180.3,218.4 L 183.4,219.9 L 186.5,221.4 L 189.6,222.8 L 192.6,224.1 L 195.7,225.4 L 198.8,226.6 L 201.9,227.8 L 205.0,228.9 L 208.1,230.0 L 211.2,231.1 L 214.2,232.1 L 217.3,233.0 L 220.4,233.9 L 223.5,234.8 L 226.6,235.7 L 229.7,236.5 L 232.7,237.3 L 235.8,238.0 L 238.9,238.7 L 242.0,239.4 L 245.1,240.1 L 248.2,240.8 L 251.3,241.4 L 254.3,242.0 L 257.4,242.6 L 260.5,243.1 L 263.6,243.7 L 266.7,244.2 L 269.8,244.7 L 272.8,245.2 L 275.9,245.6 L 279.0,246.1 L 282.1,246.5 L 285.2,246.9 L 288.3,247.4 L 291.4,247.7 L 294.4,248.1 L 297.5,248.5 L 300.6,248.8 L 303.7,249.2 L 306.8,249.5 L 309.9,249.8 L 312.9,250.2 L 316.0,250.5 L 319.1,250.7 L 322.2,251.0 L 325.3,251.3 L 328.4,251.6 L 331.5,251.8 L 334.5,252.1 L 337.6,252.3 L 340.7,252.5 L 343.8,252.8 L 346.9,253.0 L 350.0,253.2 L 353.0,253.4 L 356.1,253.6 L 359.2,253.8 L 362.3,254.0 L 365.4,254.1 L 368.5,254.3 L 371.5,254.5 L 374.6,254.6 L 377.7,254.8 L 380.8,254.9 L 383.9,255.1 L 387.0,255.2 L 390.1,255.4 L 393.1,255.5 L 396.2,255.6 L 399.3,255.8 L 402.4,255.9 L 405.5,256.0 L 408.6,256.1 L 411.6,256.2 L 414.7,256.3 L 417.8,256.4 L 420.9,256.5 L 424.0,256.6 L 427.1,256.7 L 430.2,256.8 L 433.2,256.9 L 436.3,257.0 L 439.4,257.1 L 442.5,257.2 L 445.6,257.3 L 448.7,257.3 L 451.7,257.4 L 454.8,257.5 L 457.9,257.6 L 461.0,257.6 L 464.1,257.7 L 467.2,257.8 L 470.3,257.8 L 473.3,257.9 L 476.4,257.9 L 479.5,258.0 L 482.6,258.1 L 485.7,258.1 L 488.8,258.2 L 491.8,258.2 L 494.9,258.3 L 498.0,258.3 L 501.1,258.4 L 504.2,258.4 L 507.3,258.5 L 510.4,258.5 L 513.4,258.5 L 516.5,258.6 L 519.6,258.6 L 522.7,258.7 L 525.8,258.7 L 528.9,258.7 L 531.9,258.8 L 535.0,258.8 L 538.1,258.8 L 541.2,258.9 L 544.3,258.9 L 547.4,258.9 L 550.5,259.0 L 553.5,259.0 L 556.6,259.0 L 559.7,259.0 L 562.8,259.1 L 565.9,259.1 L 569.0,259.1 L 572.0,259.1 L 575.1,259.2 L 578.2,259.2 L 581.3,259.2 L 584.4,259.2 L 587.5,259.3 L 590.5,259.3 L 593.6,259.3 L 596.7,259.3 L 599.8,259.3 L 602.9,259.4 L 606.0,259.4 L 609.1,259.4 L 612.1,259.4 L 615.2,259.4 L 618.3,259.4 L 621.4,259.5 L 624.5,259.5 L 627.6,259.5 L 630.6,259.5 L 633.7,259.5 L 636.8,259.5 L 639.9,259.5 L 643.0,259.5 L 646.1,259.6 L 649.2,259.6 L 652.2,259.6 L 655.3,259.6 L 658.4,259.6 L 661.5,259.6 L 664.6,259.6 L 667.7,259.6 L 670.7,259.6 L 673.8,259.7 L 676.9,259.7 L 680.0,259.7"
+            fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+
+      <!-- Threshold line at 3.84 -->
+      <line x1="298.1" y1="30" x2="298.1" y2="260" stroke="var(--c-thresh)" stroke-width="2" stroke-dasharray="6,4"/>
+      <text x="298.1" y="22" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-thresh)">3.84</text>
+
+      <!-- Labels -->
+      <text x="170" y="160" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">接受 (95%)</text>
+      <text x="170" y="180" text-anchor="middle" class="svgtxt-sm">AR ≤ 3.84  →  β₀ 在 CI 里</text>
+
+      <text x="480" y="160" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-bad)">拒绝 (5%)</text>
+      <text x="480" y="180" text-anchor="middle" class="svgtxt-sm">AR &gt; 3.84  →  β₀ 不在 CI 里</text>
+    </svg>
+    <div class="fig-caption">χ²₁ 密度。绿色阴影 = 95% 概率, 紫色曲线下面积; 3.84 是 95% 分位数。</div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 4 -->
+<!-- =================================================================== -->
+<section id="sec4">
+  <h2>4 · 画 AR(β₀) vs β₀ — 这条曲线就是 CI 的"模具"</h2>
+  <p class="lead">
+    现在把 β₀ 当成一个 <em>滑动的</em> 横坐标, AR(β₀) 当成对应的纵坐标。
+    我们用一组具体数字, 一步一步把这条曲线画出来。
+  </p>
+
+  <h3>具体数据</h3>
+  <table class="flat">
+    <tr><th>参数</th><th>值</th><th>含义</th></tr>
+    <tr><td>$\hat b_x$</td><td>0.18</td><td>G → X 的回归系数</td></tr>
+    <tr><td>$\hat{SE}_x$</td><td>0.04</td><td>$\hat b_x$ 的标准误 ⇒ F = (0.18/0.04)² = 20.25 (强 IV)</td></tr>
+    <tr><td>$\hat b_y$</td><td>−0.11</td><td>G → Y 的回归系数</td></tr>
+    <tr><td>$\hat{SE}_y$</td><td>0.025</td><td>$\hat b_y$ 的标准误</td></tr>
+    <tr><td>$\rho$</td><td>0</td><td>(two-sample MR 的常规假设)</td></tr>
+    <tr><td>Wald 比</td><td>$\hat b_y/\hat b_x = -0.611$</td><td>"最佳猜测", AR 最小处</td></tr>
+  </table>
+
+  <h3>步骤 4a · 对每个 β₀ 算一个 AR 值</h3>
+  <p>
+    比如取 β₀ = -0.611 (Wald 比), 残差 $r = -0.11 - (-0.611)(0.18) = -0.11 + 0.110 = 0.000$, 分子 = 0, AR ≈ 0。<br>
+    比如取 β₀ = 0, 残差 $r = -0.11 - 0 = -0.11$, 分母 = 0.025² = 6.25×10⁻⁴, AR = 0.0121/0.000625 ≈ 19.4。<br>
+    取 50+ 个 β₀ 值 (-3 到 3), 都算一次, 串成一条曲线。
+  </p>
+
+  <h3>步骤 4b · 叠上 AR = 3.84 的水平线</h3>
+  <h3>步骤 4c · 把 "AR ≤ 3.84" 的 β₀ 段染绿 — 那就是 CI</h3>
+
+  <div class="figure-wrap">
+    <svg viewBox="0 0 820 420" width="820" height="420" role="img" aria-label="AR(beta0) curve with threshold and CI shading">
+      <!-- background grid -->
+      <g stroke="var(--border)" stroke-width="1">
+        <line x1="60" y1="30" x2="760" y2="30"/>
+        <line x1="60" y1="96" x2="760" y2="96"/>
+        <line x1="60" y1="162" x2="760" y2="162"/>
+        <line x1="60" y1="228" x2="760" y2="228"/>
+        <line x1="60" y1="294" x2="760" y2="294"/>
+        <line x1="60" y1="360" x2="760" y2="360"/>
+      </g>
+
+      <!-- CI shading: from x=269.94 to x=374.10, bottom (360) up to threshold (334.66) -->
+      <rect x="269.94" y="334.66" width="104.16" height="25.34" fill="var(--c-good)" fill-opacity="0.28"/>
+      <!-- extend the CI shading band visually downward to baseline -->
+      <line x1="269.94" y1="360" x2="269.94" y2="375" stroke="var(--c-good)" stroke-width="2"/>
+      <line x1="374.10" y1="360" x2="374.10" y2="375" stroke="var(--c-good)" stroke-width="2"/>
+      <line x1="269.94" y1="375" x2="374.10" y2="375" stroke="var(--c-good)" stroke-width="3"/>
+      <text x="322" y="392" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">CI ≈ [−1.20, −0.31]</text>
+
+      <!-- Rejected region shading (above threshold line) light red -->
+      <rect x="60" y="30" width="700" height="304.66" fill="var(--c-bad)" fill-opacity="0.04"/>
+
+      <!-- y-axis -->
+      <line x1="60" y1="30" x2="60" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+      <!-- x-axis -->
+      <line x1="60" y1="360" x2="760" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+
+      <!-- y ticks -->
+      <g class="svgtxt-sm">
+        <line x1="56" y1="360" x2="60" y2="360" stroke="var(--fg-muted)"/><text x="52" y="364" text-anchor="end">0</text>
+        <line x1="56" y1="294" x2="60" y2="294" stroke="var(--fg-muted)"/><text x="52" y="298" text-anchor="end">10</text>
+        <line x1="56" y1="228" x2="60" y2="228" stroke="var(--fg-muted)"/><text x="52" y="232" text-anchor="end">20</text>
+        <line x1="56" y1="162" x2="60" y2="162" stroke="var(--fg-muted)"/><text x="52" y="166" text-anchor="end">30</text>
+        <line x1="56" y1="96"  x2="60" y2="96"  stroke="var(--fg-muted)"/><text x="52" y="100" text-anchor="end">40</text>
+        <line x1="56" y1="30"  x2="60" y2="30"  stroke="var(--fg-muted)"/><text x="52" y="34" text-anchor="end">50</text>
+      </g>
+      <text x="22" y="200" text-anchor="middle" class="svgtxt" transform="rotate(-90,22,200)">AR(β₀) 统计量</text>
+
+      <!-- x ticks -->
+      <g class="svgtxt-sm">
+        <line x1="60.0"  y1="360" x2="60.0"  y2="364" stroke="var(--fg-muted)"/><text x="60"  y="378" text-anchor="middle">−3</text>
+        <line x1="176.7" y1="360" x2="176.7" y2="364" stroke="var(--fg-muted)"/><text x="176.7" y="378" text-anchor="middle">−2</text>
+        <line x1="293.3" y1="360" x2="293.3" y2="364" stroke="var(--fg-muted)"/><text x="293.3" y="378" text-anchor="middle">−1</text>
+        <line x1="410.0" y1="360" x2="410.0" y2="364" stroke="var(--fg-muted)"/><text x="410" y="378" text-anchor="middle">0</text>
+        <line x1="526.7" y1="360" x2="526.7" y2="364" stroke="var(--fg-muted)"/><text x="526.7" y="378" text-anchor="middle">1</text>
+        <line x1="643.3" y1="360" x2="643.3" y2="364" stroke="var(--fg-muted)"/><text x="643.3" y="378" text-anchor="middle">2</text>
+        <line x1="760.0" y1="360" x2="760.0" y2="364" stroke="var(--fg-muted)"/><text x="760" y="378" text-anchor="middle">3</text>
+      </g>
+      <text x="410" y="410" text-anchor="middle" class="svgtxt">候选因果效应 β₀</text>
+
+      <!-- 3.84 threshold line -->
+      <line x1="60" y1="334.66" x2="760" y2="334.66" stroke="var(--c-thresh)" stroke-width="2" stroke-dasharray="7,5"/>
+      <text x="752" y="328" text-anchor="end" class="svgtxt" font-weight="600" fill="var(--c-thresh)">AR = 3.84  (χ²₁,₀.₉₅)</text>
+
+      <!-- AR curve -->
+      <path d="M 60.0,278.8 L 68.8,280.0 L 77.5,281.3 L 86.2,282.7 L 95.0,284.1 L 103.8,285.6 L 112.5,287.1 L 121.2,288.7 L 130.0,290.5 L 138.8,292.3 L 147.5,294.2 L 156.3,296.2 L 165.0,298.3 L 173.8,300.5 L 182.5,302.9 L 191.2,305.3 L 200.0,308.0 L 208.8,310.7 L 217.5,313.7 L 226.2,316.8 L 235.0,320.0 L 243.8,323.4 L 252.5,327.0 L 261.2,330.8 L 270.0,334.7 L 278.8,338.7 L 287.5,342.8 L 296.2,346.8 L 305.0,350.7 L 313.8,354.3 L 322.5,357.3 L 331.2,359.4 L 340.0,360.0 L 348.8,358.5 L 357.5,354.2 L 366.2,346.0 L 375.0,333.1 L 383.8,314.8 L 392.5,291.2 L 401.2,263.1 L 410.0,232.2 L 418.8,201.2 L 427.5,172.6 L 436.2,148.3 L 445.0,129.2 L 453.8,115.4 L 462.5,106.3 L 471.2,101.1 L 480.0,98.8 L 488.7,98.8 L 497.5,100.2 L 506.3,102.7 L 515.0,105.8 L 523.8,109.3 L 532.5,113.0 L 541.2,116.8 L 550.0,120.5 L 558.8,124.2 L 567.5,127.7 L 576.2,131.2 L 585.0,134.4 L 593.8,137.5 L 602.5,140.5 L 611.2,143.3 L 620.0,146.0 L 628.8,148.5 L 637.5,150.9 L 646.2,153.2 L 655.0,155.4 L 663.8,157.4 L 672.5,159.4 L 681.2,161.2 L 690.0,163.0 L 698.8,164.7 L 707.5,166.3 L 716.2,167.8 L 725.0,169.2 L 733.8,170.6 L 742.5,171.9 L 751.2,173.2 L 760.0,174.4"
+            fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+
+      <!-- Wald ratio dot (beta = -0.611, AR ≈ 0) -->
+      <circle cx="338.7" cy="360" r="6" fill="var(--c-data)" stroke="var(--bg-elev-2)" stroke-width="2"/>
+      <line x1="338.7" y1="354" x2="338.7" y2="180" stroke="var(--c-data)" stroke-width="1.5" stroke-dasharray="3,3"/>
+      <text x="338.7" y="170" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-data)">Wald 比</text>
+      <text x="338.7" y="155" text-anchor="middle" class="svgtxt-sm" fill="var(--c-data)">β₀ = −0.611, AR ≈ 0</text>
+    </svg>
+    <div class="fig-caption">
+      横轴 = 候选 β₀; 纵轴 = AR 统计量。紫曲线 = AR(β₀); 琥珀虚线 = 3.84 阈值。
+      <strong>绿色阴影 = 曲线落在 3.84 下方的那段 β₀ — 这就是 95% AR CI</strong>。
+    </div>
+  </div>
+
+  <div class="callout key">
+    <span class="label">几何 ↔ 统计</span>
+    曲线的 <strong>最低点</strong> 在 Wald 比 $\hat b_y / \hat b_x = -0.611$ — 因为那里残差正好等于 0。
+    阈值 3.84 把曲线 "切一刀", 截出的 β₀ 区间就是 CI。
+    <em>本节先纯粹把它当成一条曲线; 下一节我们会发现这条曲线其实可以代数化为一条抛物线。</em>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 5 -->
+<!-- =================================================================== -->
+<section id="sec5">
+  <h2>5 · 从 AR(β₀) ≤ 3.84 到二次不等式</h2>
+  <p class="lead">
+    Section 4 把 CI 描述成 "曲线落在 3.84 以下的那段 β₀"。
+    这一节我们做一次代数, 把这件事重写成一个关于 β₀ 的 <strong>二次多项式</strong> 不等式。
+    重写之后, 第 6 节的 4 种几何形状就是抛物线的 4 种基本几何。
+  </p>
+
+  <div class="math-step">
+    <div class="lbl">起点</div>
+    $$ \frac{(\hat b_y - \beta_0 \hat b_x)^2}{\hat{SE}_y^{\,2} + \beta_0^2 \hat{SE}_x^{\,2} - 2\beta_0 \rho \hat{SE}_x \hat{SE}_y} \;\le\; 3.84 $$
+  </div>
+
+  <div class="math-step">
+    <div class="lbl">分母恒正 (二次型, 正定), 两边同乘</div>
+    $$ (\hat b_y - \beta_0 \hat b_x)^2 \;\le\; 3.84\bigl(\hat{SE}_y^{\,2} + \beta_0^2 \hat{SE}_x^{\,2} - 2\beta_0 \rho \hat{SE}_x \hat{SE}_y\bigr) $$
+  </div>
+
+  <div class="math-step">
+    <div class="lbl">展开左边平方</div>
+    $$ \hat b_y^{\,2} - 2\beta_0 \hat b_x \hat b_y + \beta_0^2 \hat b_x^{\,2}
+       \;\le\; 3.84\,\hat{SE}_y^{\,2} + 3.84\,\beta_0^2 \hat{SE}_x^{\,2} - 7.68\,\beta_0 \rho \hat{SE}_x \hat{SE}_y $$
+  </div>
+
+  <div class="math-step">
+    <div class="lbl">移项, 按 β₀ 的幂次收集</div>
+    $$ \underbrace{(\hat b_x^{\,2} - 3.84\,\hat{SE}_x^{\,2})}_{A}\,\beta_0^2
+       \;+\; \underbrace{-2(\hat b_x \hat b_y - 3.84\,\rho \hat{SE}_x \hat{SE}_y)}_{B}\,\beta_0
+       \;+\; \underbrace{(\hat b_y^{\,2} - 3.84\,\hat{SE}_y^{\,2})}_{C}
+       \;\le\; 0 $$
+  </div>
+
+  <div class="math-step">
+    <div class="lbl">结论 (二次不等式)</div>
+    $$ \boxed{\; A\,\beta_0^2 + B\,\beta_0 + C \;\le\; 0 \;} $$
+    其中
+    $$ A = \hat b_x^{\,2} - 3.84\,\hat{SE}_x^{\,2}, \qquad
+       B = -2\bigl(\hat b_x \hat b_y - 3.84\,\rho \hat{SE}_x \hat{SE}_y\bigr), \qquad
+       C = \hat b_y^{\,2} - 3.84\,\hat{SE}_y^{\,2}. $$
+  </div>
+
+  <div class="callout key">
+    <span class="label">关键认识 ★</span>
+    第 4 节那条 U 形 AR 曲线 (除以一个正分母后) 与 这条抛物线 $A\beta_0^2 + B\beta_0 + C$ 在 "落在 0 下方"
+    这件事上完全等价。<br>
+    <strong>CI = {β₀ : 抛物线 $\le 0$} = "抛物线在 x 轴下方那段 β₀"</strong>。<br>
+    所以 — CI 的所有几何形状, 由这条 <em>新</em> 抛物线决定, 而抛物线由两件事完全决定:
+    <ul class="tight">
+      <li>$A$ 的符号 → 抛物线开口方向 (向上还是向下)</li>
+      <li>$\Delta = B^2 - 4AC$ 的符号 → 抛物线碰不碰横轴 (穿轴 0 / 2 次)</li>
+    </ul>
+    2 × 2 = 4 种几何 → 4 种 CI 形状。
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 6 -->
+<!-- =================================================================== -->
+<section id="sec6">
+  <h2>6 · 4 种抛物线几何 = 4 种 CI 形状</h2>
+  <p class="lead">
+    下面把 4 种几何依次画出来。每张图里:
+    紫色 = 抛物线 $A\beta_0^2 + B\beta_0 + C$;
+    灰色横线 = $y = 0$ (临界水平);
+    绿色阴影 = CI (抛物线落在 0 下方的 β₀);
+    红色阴影 = 被拒绝的 β₀ 区域。
+  </p>
+
+  <!-- ---------------- CASE 1 ---------------- -->
+  <div class="case-card">
+    <div class="case-title">
+      <h4>Case 1 · $A > 0$ (开口朝上) + $\Delta > 0$ (穿轴 2 次)</h4>
+      <span class="tag">F &gt; 3.84,  $b_x^2$ 大</span>
+    </div>
+
+    <div class="figure-wrap">
+      <svg viewBox="0 0 740 420" width="740" height="420" role="img" aria-label="Case 1 parabola opens up crossing x-axis twice">
+        <!-- y=0 grid -->
+        <line x1="50" y1="195" x2="680" y2="195" stroke="var(--c-zero)" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+        <!-- Rejected (outside CI) shading: parabola > 0 -->
+        <rect x="50" y="30" width="157.5" height="165" fill="var(--c-bad)" fill-opacity="0.12"/>
+        <rect x="522.5" y="30" width="157.5" height="165" fill="var(--c-bad)" fill-opacity="0.12"/>
+
+        <!-- CI shading: between roots (-1, +1), below y=0 -->
+        <rect x="260" y="195" width="210" height="165" fill="var(--c-good)" fill-opacity="0.28"/>
+
+        <!-- axes -->
+        <line x1="50" y1="360" x2="680" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+        <line x1="50" y1="30" x2="50" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+
+        <!-- x ticks -->
+        <g class="svgtxt-sm">
+          <line x1="50" y1="360" x2="50" y2="364" stroke="var(--fg-muted)"/><text x="50" y="378" text-anchor="middle">−3</text>
+          <line x1="155" y1="360" x2="155" y2="364" stroke="var(--fg-muted)"/><text x="155" y="378" text-anchor="middle">−2</text>
+          <line x1="260" y1="360" x2="260" y2="364" stroke="var(--fg-muted)"/><text x="260" y="378" text-anchor="middle">−1</text>
+          <line x1="365" y1="360" x2="365" y2="364" stroke="var(--fg-muted)"/><text x="365" y="378" text-anchor="middle">0</text>
+          <line x1="470" y1="360" x2="470" y2="364" stroke="var(--fg-muted)"/><text x="470" y="378" text-anchor="middle">1</text>
+          <line x1="575" y1="360" x2="575" y2="364" stroke="var(--fg-muted)"/><text x="575" y="378" text-anchor="middle">2</text>
+          <line x1="680" y1="360" x2="680" y2="364" stroke="var(--fg-muted)"/><text x="680" y="378" text-anchor="middle">3</text>
+        </g>
+        <text x="365" y="402" text-anchor="middle" class="svgtxt">β₀</text>
+
+        <!-- y ticks -->
+        <g class="svgtxt-sm">
+          <line x1="46" y1="195" x2="50" y2="195" stroke="var(--fg-muted)"/><text x="42" y="199" text-anchor="end">0</text>
+          <line x1="46" y1="112.5" x2="50" y2="112.5" stroke="var(--fg-muted)"/><text x="42" y="116" text-anchor="end">+3</text>
+          <line x1="46" y1="30" x2="50" y2="30" stroke="var(--fg-muted)"/><text x="42" y="34" text-anchor="end">+6</text>
+          <line x1="46" y1="277.5" x2="50" y2="277.5" stroke="var(--fg-muted)"/><text x="42" y="281" text-anchor="end">−3</text>
+          <line x1="46" y1="360" x2="50" y2="360" stroke="var(--fg-muted)"/><text x="42" y="364" text-anchor="end">−6</text>
+        </g>
+        <text x="18" y="200" text-anchor="middle" class="svgtxt" transform="rotate(-90,18,200)">A β₀² + B β₀ + C</text>
+
+        <!-- y=0 label -->
+        <text x="678" y="190" text-anchor="end" class="svgtxt-sm" fill="var(--c-zero)">y = 0</text>
+
+        <!-- Parabola -->
+        <path d="M 50.0,30.0 L 56.3,30.0 L 62.6,30.0 L 68.9,30.0 L 75.2,30.0 L 81.5,30.0 L 87.8,30.8 L 94.1,39.4 L 100.4,47.9 L 106.7,56.1 L 113.0,64.1 L 119.3,71.9 L 125.6,79.5 L 131.9,87.0 L 138.2,94.2 L 144.5,101.2 L 150.8,108.1 L 157.1,114.7 L 163.4,121.1 L 169.7,127.4 L 176.0,133.4 L 182.3,139.2 L 188.6,144.9 L 194.9,150.3 L 201.2,155.6 L 207.5,160.6 L 213.8,165.5 L 220.1,170.1 L 226.4,174.6 L 232.7,178.8 L 239.0,182.9 L 245.3,186.8 L 251.6,190.4 L 257.9,193.9 L 264.2,197.2 L 270.5,200.2 L 276.8,203.1 L 283.1,205.8 L 289.4,208.2 L 295.7,210.5 L 302.0,212.6 L 308.3,214.5 L 314.6,216.2 L 320.9,217.6 L 327.2,218.9 L 333.5,220.0 L 339.8,220.9 L 346.1,221.6 L 352.4,222.1 L 358.7,222.4 L 365.0,222.5 L 371.3,222.4 L 377.6,222.1 L 383.9,221.6 L 390.2,220.9 L 396.5,220.0 L 402.8,218.9 L 409.1,217.6 L 415.4,216.2 L 421.7,214.5 L 428.0,212.6 L 434.3,210.5 L 440.6,208.2 L 446.9,205.8 L 453.2,203.1 L 459.5,200.2 L 465.8,197.2 L 472.1,193.9 L 478.4,190.4 L 484.7,186.8 L 491.0,182.9 L 497.3,178.8 L 503.6,174.6 L 509.9,170.1 L 516.2,165.5 L 522.5,160.6 L 528.8,155.6 L 535.1,150.3 L 541.4,144.9 L 547.7,139.2 L 554.0,133.4 L 560.3,127.4 L 566.6,121.1 L 572.9,114.7 L 579.2,108.1 L 585.5,101.2 L 591.8,94.2 L 598.1,87.0 L 604.4,79.5 L 610.7,71.9 L 617.0,64.1 L 623.3,56.1 L 629.6,47.9 L 635.9,39.4 L 642.2,30.8 L 648.5,30.0 L 654.8,30.0 L 661.1,30.0 L 667.4,30.0 L 673.7,30.0 L 680.0,30.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+
+        <!-- Roots dots -->
+        <circle cx="260" cy="195" r="6" fill="var(--c-good)" stroke="var(--bg-elev-2)" stroke-width="2"/>
+        <circle cx="470" cy="195" r="6" fill="var(--c-good)" stroke="var(--bg-elev-2)" stroke-width="2"/>
+        <text x="260" y="216" text-anchor="middle" class="svgtxt-sm" font-weight="600" fill="var(--c-good)">r₁</text>
+        <text x="470" y="216" text-anchor="middle" class="svgtxt-sm" font-weight="600" fill="var(--c-good)">r₂</text>
+
+        <!-- CI label -->
+        <text x="365" y="332" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">CI = [r₁, r₂]</text>
+      </svg>
+      <div class="fig-caption">抛物线开口向上, 在两根之间下沉到 0 以下 → CI 是一个 <em>有界</em> 区间。</div>
+    </div>
+
+    <div class="callout good">
+      <span class="label">含义</span>
+      <strong>强 IV + 数据有信号</strong>。CI 像常规的 Wald CI, 形如 $[r_1, r_2]$。<br>
+      这是我们 "希望" 看到的情形, 也是 Section 4 那张图的形状。
+    </div>
+  </div>
+
+  <!-- ---------------- CASE 2 ---------------- -->
+  <div class="case-card">
+    <div class="case-title">
+      <h4>Case 2 · $A > 0$ (开口朝上) + $\Delta < 0$ (不碰轴)</h4>
+      <span class="tag">F &gt; 3.84, 残差异常大</span>
+    </div>
+
+    <div class="figure-wrap">
+      <svg viewBox="0 0 740 420" width="740" height="420" role="img" aria-label="Case 2 parabola opens up entirely above x-axis">
+        <line x1="50" y1="195" x2="680" y2="195" stroke="var(--c-zero)" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+        <!-- Rejected: everywhere above 0 -->
+        <rect x="50" y="30" width="630" height="165" fill="var(--c-bad)" fill-opacity="0.12"/>
+
+        <line x1="50" y1="360" x2="680" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+        <line x1="50" y1="30" x2="50" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+
+        <g class="svgtxt-sm">
+          <line x1="50" y1="360" x2="50" y2="364" stroke="var(--fg-muted)"/><text x="50" y="378" text-anchor="middle">−3</text>
+          <line x1="155" y1="360" x2="155" y2="364" stroke="var(--fg-muted)"/><text x="155" y="378" text-anchor="middle">−2</text>
+          <line x1="260" y1="360" x2="260" y2="364" stroke="var(--fg-muted)"/><text x="260" y="378" text-anchor="middle">−1</text>
+          <line x1="365" y1="360" x2="365" y2="364" stroke="var(--fg-muted)"/><text x="365" y="378" text-anchor="middle">0</text>
+          <line x1="470" y1="360" x2="470" y2="364" stroke="var(--fg-muted)"/><text x="470" y="378" text-anchor="middle">1</text>
+          <line x1="575" y1="360" x2="575" y2="364" stroke="var(--fg-muted)"/><text x="575" y="378" text-anchor="middle">2</text>
+          <line x1="680" y1="360" x2="680" y2="364" stroke="var(--fg-muted)"/><text x="680" y="378" text-anchor="middle">3</text>
+        </g>
+        <text x="365" y="402" text-anchor="middle" class="svgtxt">β₀</text>
+
+        <g class="svgtxt-sm">
+          <line x1="46" y1="195" x2="50" y2="195" stroke="var(--fg-muted)"/><text x="42" y="199" text-anchor="end">0</text>
+          <line x1="46" y1="112.5" x2="50" y2="112.5" stroke="var(--fg-muted)"/><text x="42" y="116" text-anchor="end">+3</text>
+          <line x1="46" y1="30" x2="50" y2="30" stroke="var(--fg-muted)"/><text x="42" y="34" text-anchor="end">+6</text>
+          <line x1="46" y1="277.5" x2="50" y2="277.5" stroke="var(--fg-muted)"/><text x="42" y="281" text-anchor="end">−3</text>
+          <line x1="46" y1="360" x2="50" y2="360" stroke="var(--fg-muted)"/><text x="42" y="364" text-anchor="end">−6</text>
+        </g>
+        <text x="18" y="200" text-anchor="middle" class="svgtxt" transform="rotate(-90,18,200)">A β₀² + B β₀ + C</text>
+        <text x="678" y="190" text-anchor="end" class="svgtxt-sm" fill="var(--c-zero)">y = 0</text>
+
+        <!-- Parabola: A=1, B=0, C=2  (entirely above 0) -->
+        <path d="M 50.0,30.0 L 56.3,30.0 L 62.6,30.0 L 68.9,30.0 L 75.2,30.0 L 81.5,30.0 L 87.8,30.0 L 94.1,30.0 L 100.4,30.0 L 106.7,30.0 L 113.0,30.0 L 119.3,30.0 L 125.6,30.0 L 131.9,30.0 L 138.2,30.0 L 144.5,30.0 L 150.8,30.0 L 157.1,32.2 L 163.4,38.6 L 169.7,44.9 L 176.0,50.9 L 182.3,56.7 L 188.6,62.4 L 194.9,67.8 L 201.2,73.1 L 207.5,78.1 L 213.8,83.0 L 220.1,87.6 L 226.4,92.1 L 232.7,96.3 L 239.0,100.4 L 245.3,104.3 L 251.6,107.9 L 257.9,111.4 L 264.2,114.7 L 270.5,117.7 L 276.8,120.6 L 283.1,123.3 L 289.4,125.7 L 295.7,128.0 L 302.0,130.1 L 308.3,132.0 L 314.6,133.7 L 320.9,135.1 L 327.2,136.4 L 333.5,137.5 L 339.8,138.4 L 346.1,139.1 L 352.4,139.6 L 358.7,139.9 L 365.0,140.0 L 371.3,139.9 L 377.6,139.6 L 383.9,139.1 L 390.2,138.4 L 396.5,137.5 L 402.8,136.4 L 409.1,135.1 L 415.4,133.7 L 421.7,132.0 L 428.0,130.1 L 434.3,128.0 L 440.6,125.7 L 446.9,123.3 L 453.2,120.6 L 459.5,117.7 L 465.8,114.7 L 472.1,111.4 L 478.4,107.9 L 484.7,104.3 L 491.0,100.4 L 497.3,96.3 L 503.6,92.1 L 509.9,87.6 L 516.2,83.0 L 522.5,78.1 L 528.8,73.1 L 535.1,67.8 L 541.4,62.4 L 547.7,56.7 L 554.0,50.9 L 560.3,44.9 L 566.6,38.6 L 572.9,32.2 L 579.2,30.0 L 585.5,30.0 L 591.8,30.0 L 598.1,30.0 L 604.4,30.0 L 610.7,30.0 L 617.0,30.0 L 623.3,30.0 L 629.6,30.0 L 635.9,30.0 L 642.2,30.0 L 648.5,30.0 L 654.8,30.0 L 661.1,30.0 L 667.4,30.0 L 673.7,30.0 L 680.0,30.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+
+        <!-- CI label -->
+        <text x="365" y="332" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-bad)">CI = ∅ (空集)</text>
+      </svg>
+      <div class="fig-caption">抛物线整条在 0 以上 → 没有任何 β₀ 满足 ≤ 0 → CI 为空。</div>
+    </div>
+
+    <div class="callout warn">
+      <span class="label">含义</span>
+      <strong>强 IV 但残差出奇地大</strong>。在真因果模型下, 这种事发生的概率 ≤ α = 5%, 属于数值边界情形 / 模型误设的信号。
+      实际数据里非常罕见; 出现了通常说明 IV 与 outcome 之间还有 pleiotropy 或 model violation。
+    </div>
+  </div>
+
+  <!-- ---------------- CASE 3 ---------------- -->
+  <div class="case-card">
+    <div class="case-title">
+      <h4>Case 3 · $A < 0$ (开口朝下) + $\Delta > 0$ (穿轴 2 次)</h4>
+      <span class="tag">F &lt; 3.84, 弱 IV</span>
+    </div>
+
+    <div class="figure-wrap">
+      <svg viewBox="0 0 740 420" width="740" height="420" role="img" aria-label="Case 3 parabola opens down crossing x-axis twice; CI is two rays">
+        <line x1="50" y1="195" x2="680" y2="195" stroke="var(--c-zero)" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+        <!-- CI shading: two rays (-inf, r1] and [r2, +inf), below y=0 -->
+        <rect x="50" y="195" width="210" height="165" fill="var(--c-good)" fill-opacity="0.28"/>
+        <rect x="470" y="195" width="210" height="165" fill="var(--c-good)" fill-opacity="0.28"/>
+        <!-- arrows extending to infinity -->
+        <polygon points="50,270 38,265 38,275" fill="var(--c-good)"/>
+        <polygon points="680,270 692,265 692,275" fill="var(--c-good)"/>
+
+        <!-- Rejected middle -->
+        <rect x="260" y="30" width="210" height="165" fill="var(--c-bad)" fill-opacity="0.12"/>
+
+        <line x1="50" y1="360" x2="680" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+        <line x1="50" y1="30" x2="50" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+
+        <g class="svgtxt-sm">
+          <line x1="50" y1="360" x2="50" y2="364" stroke="var(--fg-muted)"/><text x="50" y="378" text-anchor="middle">−3</text>
+          <line x1="155" y1="360" x2="155" y2="364" stroke="var(--fg-muted)"/><text x="155" y="378" text-anchor="middle">−2</text>
+          <line x1="260" y1="360" x2="260" y2="364" stroke="var(--fg-muted)"/><text x="260" y="378" text-anchor="middle">−1</text>
+          <line x1="365" y1="360" x2="365" y2="364" stroke="var(--fg-muted)"/><text x="365" y="378" text-anchor="middle">0</text>
+          <line x1="470" y1="360" x2="470" y2="364" stroke="var(--fg-muted)"/><text x="470" y="378" text-anchor="middle">1</text>
+          <line x1="575" y1="360" x2="575" y2="364" stroke="var(--fg-muted)"/><text x="575" y="378" text-anchor="middle">2</text>
+          <line x1="680" y1="360" x2="680" y2="364" stroke="var(--fg-muted)"/><text x="680" y="378" text-anchor="middle">3</text>
+        </g>
+        <text x="365" y="402" text-anchor="middle" class="svgtxt">β₀</text>
+
+        <g class="svgtxt-sm">
+          <line x1="46" y1="195" x2="50" y2="195" stroke="var(--fg-muted)"/><text x="42" y="199" text-anchor="end">0</text>
+          <line x1="46" y1="112.5" x2="50" y2="112.5" stroke="var(--fg-muted)"/><text x="42" y="116" text-anchor="end">+3</text>
+          <line x1="46" y1="30" x2="50" y2="30" stroke="var(--fg-muted)"/><text x="42" y="34" text-anchor="end">+6</text>
+          <line x1="46" y1="277.5" x2="50" y2="277.5" stroke="var(--fg-muted)"/><text x="42" y="281" text-anchor="end">−3</text>
+          <line x1="46" y1="360" x2="50" y2="360" stroke="var(--fg-muted)"/><text x="42" y="364" text-anchor="end">−6</text>
+        </g>
+        <text x="18" y="200" text-anchor="middle" class="svgtxt" transform="rotate(-90,18,200)">A β₀² + B β₀ + C</text>
+        <text x="678" y="190" text-anchor="end" class="svgtxt-sm" fill="var(--c-zero)">y = 0</text>
+
+        <!-- Parabola: A=-1, B=0, C=1 (peak at +1, roots ±1) -->
+        <path d="M 50.0,360.0 L 56.3,360.0 L 62.6,360.0 L 68.9,360.0 L 75.2,360.0 L 81.5,360.0 L 87.8,359.2 L 94.1,350.6 L 100.4,342.1 L 106.7,333.9 L 113.0,325.9 L 119.3,318.1 L 125.6,310.5 L 131.9,303.0 L 138.2,295.8 L 144.5,288.8 L 150.8,281.9 L 157.1,275.3 L 163.4,268.9 L 169.7,262.6 L 176.0,256.6 L 182.3,250.8 L 188.6,245.1 L 194.9,239.7 L 201.2,234.4 L 207.5,229.4 L 213.8,224.5 L 220.1,219.9 L 226.4,215.4 L 232.7,211.2 L 239.0,207.1 L 245.3,203.2 L 251.6,199.6 L 257.9,196.1 L 264.2,192.8 L 270.5,189.8 L 276.8,186.9 L 283.1,184.2 L 289.4,181.8 L 295.7,179.5 L 302.0,177.4 L 308.3,175.5 L 314.6,173.8 L 320.9,172.4 L 327.2,171.1 L 333.5,170.0 L 339.8,169.1 L 346.1,168.4 L 352.4,167.9 L 358.7,167.6 L 365.0,167.5 L 371.3,167.6 L 377.6,167.9 L 383.9,168.4 L 390.2,169.1 L 396.5,170.0 L 402.8,171.1 L 409.1,172.4 L 415.4,173.8 L 421.7,175.5 L 428.0,177.4 L 434.3,179.5 L 440.6,181.8 L 446.9,184.2 L 453.2,186.9 L 459.5,189.8 L 465.8,192.8 L 472.1,196.1 L 478.4,199.6 L 484.7,203.2 L 491.0,207.1 L 497.3,211.2 L 503.6,215.4 L 509.9,219.9 L 516.2,224.5 L 522.5,229.4 L 528.8,234.4 L 535.1,239.7 L 541.4,245.1 L 547.7,250.8 L 554.0,256.6 L 560.3,262.6 L 566.6,268.9 L 572.9,275.3 L 579.2,281.9 L 585.5,288.8 L 591.8,295.8 L 598.1,303.0 L 604.4,310.5 L 610.7,318.1 L 617.0,325.9 L 623.3,333.9 L 629.6,342.1 L 635.9,350.6 L 642.2,359.2 L 648.5,360.0 L 654.8,360.0 L 661.1,360.0 L 667.4,360.0 L 673.7,360.0 L 680.0,360.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+
+        <!-- Roots dots -->
+        <circle cx="260" cy="195" r="6" fill="var(--c-good)" stroke="var(--bg-elev-2)" stroke-width="2"/>
+        <circle cx="470" cy="195" r="6" fill="var(--c-good)" stroke="var(--bg-elev-2)" stroke-width="2"/>
+        <text x="260" y="216" text-anchor="middle" class="svgtxt-sm" font-weight="600" fill="var(--c-good)">r₁</text>
+        <text x="470" y="216" text-anchor="middle" class="svgtxt-sm" font-weight="600" fill="var(--c-good)">r₂</text>
+
+        <!-- CI label -->
+        <text x="155" y="332" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">(−∞, r₁]</text>
+        <text x="575" y="332" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">[r₂, +∞)</text>
+        <text x="365" y="64" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-bad)">中间一段 β₀ 被排除</text>
+      </svg>
+      <div class="fig-caption">抛物线开口向下, 在两根之外 (绿色射线) 落到 0 以下 → CI 是两条射线的并集。</div>
+    </div>
+
+    <div class="callout warn">
+      <span class="label">含义</span>
+      <strong>弱 IV (F &lt; 3.84) 但数据仍排除中间一段 β₀</strong>。
+      这是 "数据只提供了部分信息" 的诚实表达 — 不能把 β 钉到一个有界区间, 但也不至于完全不知道。<br>
+      在经典 Wald CI 里看不到这种形状, 这是 AR CI 独有的诚实回答。
+    </div>
+  </div>
+
+  <!-- ---------------- CASE 4 ---------------- -->
+  <div class="case-card">
+    <div class="case-title">
+      <h4>Case 4 · $A < 0$ (开口朝下) + $\Delta < 0$ (整条在 0 下方)</h4>
+      <span class="tag">F &lt; 3.84, 数据几乎零信息</span>
+    </div>
+
+    <div class="figure-wrap">
+      <svg viewBox="0 0 740 420" width="740" height="420" role="img" aria-label="Case 4 parabola opens down entirely below x-axis; CI is the whole real line">
+        <line x1="50" y1="195" x2="680" y2="195" stroke="var(--c-zero)" stroke-width="1.5" stroke-dasharray="6,4"/>
+
+        <!-- CI shading: entire region below y=0 -->
+        <rect x="50" y="195" width="630" height="165" fill="var(--c-good)" fill-opacity="0.28"/>
+        <polygon points="50,270 38,265 38,275" fill="var(--c-good)"/>
+        <polygon points="680,270 692,265 692,275" fill="var(--c-good)"/>
+
+        <line x1="50" y1="360" x2="680" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+        <line x1="50" y1="30" x2="50" y2="360" stroke="var(--fg-muted)" stroke-width="1.5"/>
+
+        <g class="svgtxt-sm">
+          <line x1="50" y1="360" x2="50" y2="364" stroke="var(--fg-muted)"/><text x="50" y="378" text-anchor="middle">−3</text>
+          <line x1="155" y1="360" x2="155" y2="364" stroke="var(--fg-muted)"/><text x="155" y="378" text-anchor="middle">−2</text>
+          <line x1="260" y1="360" x2="260" y2="364" stroke="var(--fg-muted)"/><text x="260" y="378" text-anchor="middle">−1</text>
+          <line x1="365" y1="360" x2="365" y2="364" stroke="var(--fg-muted)"/><text x="365" y="378" text-anchor="middle">0</text>
+          <line x1="470" y1="360" x2="470" y2="364" stroke="var(--fg-muted)"/><text x="470" y="378" text-anchor="middle">1</text>
+          <line x1="575" y1="360" x2="575" y2="364" stroke="var(--fg-muted)"/><text x="575" y="378" text-anchor="middle">2</text>
+          <line x1="680" y1="360" x2="680" y2="364" stroke="var(--fg-muted)"/><text x="680" y="378" text-anchor="middle">3</text>
+        </g>
+        <text x="365" y="402" text-anchor="middle" class="svgtxt">β₀</text>
+
+        <g class="svgtxt-sm">
+          <line x1="46" y1="195" x2="50" y2="195" stroke="var(--fg-muted)"/><text x="42" y="199" text-anchor="end">0</text>
+          <line x1="46" y1="112.5" x2="50" y2="112.5" stroke="var(--fg-muted)"/><text x="42" y="116" text-anchor="end">+3</text>
+          <line x1="46" y1="30" x2="50" y2="30" stroke="var(--fg-muted)"/><text x="42" y="34" text-anchor="end">+6</text>
+          <line x1="46" y1="277.5" x2="50" y2="277.5" stroke="var(--fg-muted)"/><text x="42" y="281" text-anchor="end">−3</text>
+          <line x1="46" y1="360" x2="50" y2="360" stroke="var(--fg-muted)"/><text x="42" y="364" text-anchor="end">−6</text>
+        </g>
+        <text x="18" y="200" text-anchor="middle" class="svgtxt" transform="rotate(-90,18,200)">A β₀² + B β₀ + C</text>
+        <text x="678" y="190" text-anchor="end" class="svgtxt-sm" fill="var(--c-zero)">y = 0</text>
+
+        <!-- Parabola: A=-1, B=0, C=-1 (peak at -1, entirely below 0) -->
+        <path d="M 50.0,360.0 L 56.3,360.0 L 62.6,360.0 L 68.9,360.0 L 75.2,360.0 L 81.5,360.0 L 87.8,360.0 L 94.1,360.0 L 100.4,360.0 L 106.7,360.0 L 113.0,360.0 L 119.3,360.0 L 125.6,360.0 L 131.9,358.0 L 138.2,350.8 L 144.5,343.8 L 150.8,336.9 L 157.1,330.3 L 163.4,323.9 L 169.7,317.6 L 176.0,311.6 L 182.3,305.8 L 188.6,300.1 L 194.9,294.7 L 201.2,289.4 L 207.5,284.4 L 213.8,279.5 L 220.1,274.9 L 226.4,270.4 L 232.7,266.2 L 239.0,262.1 L 245.3,258.2 L 251.6,254.6 L 257.9,251.1 L 264.2,247.8 L 270.5,244.8 L 276.8,241.9 L 283.1,239.2 L 289.4,236.8 L 295.7,234.5 L 302.0,232.4 L 308.3,230.5 L 314.6,228.8 L 320.9,227.4 L 327.2,226.1 L 333.5,225.0 L 339.8,224.1 L 346.1,223.4 L 352.4,222.9 L 358.7,222.6 L 365.0,222.5 L 371.3,222.6 L 377.6,222.9 L 383.9,223.4 L 390.2,224.1 L 396.5,225.0 L 402.8,226.1 L 409.1,227.4 L 415.4,228.8 L 421.7,230.5 L 428.0,232.4 L 434.3,234.5 L 440.6,236.8 L 446.9,239.2 L 453.2,241.9 L 459.5,244.8 L 465.8,247.8 L 472.1,251.1 L 478.4,254.6 L 484.7,258.2 L 491.0,262.1 L 497.3,266.2 L 503.6,270.4 L 509.9,274.9 L 516.2,279.5 L 522.5,284.4 L 528.8,289.4 L 535.1,294.7 L 541.4,300.1 L 547.7,305.8 L 554.0,311.6 L 560.3,317.6 L 566.6,323.9 L 572.9,330.3 L 579.2,336.9 L 585.5,343.8 L 591.8,350.8 L 598.1,358.0 L 604.4,360.0 L 610.7,360.0 L 617.0,360.0 L 623.3,360.0 L 629.6,360.0 L 635.9,360.0 L 642.2,360.0 L 648.5,360.0 L 654.8,360.0 L 661.1,360.0 L 667.4,360.0 L 673.7,360.0 L 680.0,360.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="2.5"/>
+
+        <!-- CI label -->
+        <text x="365" y="332" text-anchor="middle" class="svgtxt" font-weight="600" fill="var(--c-good)">CI = (−∞, +∞) = 整条实数轴</text>
+      </svg>
+      <div class="fig-caption">抛物线整条在 0 下方 → 任何 β₀ 都满足 ≤ 0 → CI 包含所有实数。</div>
+    </div>
+
+    <div class="callout warn">
+      <span class="label">含义</span>
+      <strong>弱 IV + 数据零信息</strong>。AR 老老实实告诉你: "我对 β 一无所知"。
+      这是诚实的 (而不是骗你说 CI 很窄)。Wald CI 在这种情形下会给出一个虚假的窄 CI, 误导性更强。
+    </div>
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 7 -->
+<!-- =================================================================== -->
+<section id="sec7">
+  <h2>7 · 数据信号 ↔ 几何 (2×2 表)</h2>
+  <p class="lead">
+    谁决定 $A$ 的符号？谁决定 $\Delta$ 的符号？答案非常直接, 一看就懂。
+  </p>
+
+  <ul class="tight">
+    <li><strong>$A = \hat b_x^2 - 3.84\,\hat{SE}_x^2$</strong>: $A > 0 \Leftrightarrow (\hat b_x/\hat{SE}_x)^2 > 3.84 \Leftrightarrow F > 3.84$. <em>F 是 IV 强度统计量</em>。</li>
+    <li><strong>$C = \hat b_y^2 - 3.84\,\hat{SE}_y^2$</strong>: 类似地 $C > 0 \Leftrightarrow T \equiv (\hat b_y/\hat{SE}_y)^2 > 3.84$ ($T$ 是 G→Y 的 marginal Z²)。</li>
+    <li>当 $\rho = 0$: $\Delta = B^2 - 4AC = 4\hat b_x^2 \hat b_y^2 - 4(F-3.84)(T-3.84)\hat{SE}_x^2 \hat{SE}_y^2 \cdot 3.84$, 符号大致由 $F$ 和 $T$ 决定。</li>
+  </ul>
+
+  <p>核心结论 — 4 种几何 ↔ 4 种 CI 形状:</p>
+
+  <div class="mini-grid">
+    <div></div>
+    <div class="mini-head">Δ &gt; 0 (穿轴)</div>
+    <div class="mini-head">Δ &lt; 0 (不碰)</div>
+
+    <div class="mini-rowhead">F &gt; 3.84<br>(强 IV)</div>
+
+    <!-- mini Case 1: A>0, Δ>0 -->
+    <div class="mini-cell">
+      <svg viewBox="0 0 200 130" width="200" height="130" aria-label="mini case 1">
+        <line x1="20" y1="60" x2="180" y2="60" stroke="var(--c-zero)" stroke-width="1" stroke-dasharray="3,3"/>
+        <rect x="73.3" y="60" width="53.4" height="50" fill="var(--c-good)" fill-opacity="0.28"/>
+        <path d="M 20.0,10.0 L 22.7,10.0 L 25.3,10.0 L 28.0,10.0 L 30.7,12.0 L 33.3,16.2 L 36.0,20.3 L 38.7,24.2 L 41.3,28.0 L 44.0,31.6 L 46.7,35.0 L 49.3,38.3 L 52.0,41.3 L 54.7,44.2 L 57.3,47.0 L 60.0,49.6 L 62.7,52.0 L 65.3,54.2 L 68.0,56.3 L 70.7,58.3 L 73.3,60.0 L 76.0,61.6 L 78.7,63.0 L 81.3,64.2 L 84.0,65.3 L 86.7,66.2 L 89.3,67.0 L 92.0,67.6 L 94.7,68.0 L 97.3,68.2 L 100.0,68.3 L 102.7,68.2 L 105.3,68.0 L 108.0,67.6 L 110.7,67.0 L 113.3,66.2 L 116.0,65.3 L 118.7,64.2 L 121.3,63.0 L 124.0,61.6 L 126.7,60.0 L 129.3,58.3 L 132.0,56.3 L 134.7,54.2 L 137.3,52.0 L 140.0,49.6 L 142.7,47.0 L 145.3,44.2 L 148.0,41.3 L 150.7,38.2 L 153.3,35.0 L 156.0,31.6 L 158.7,28.0 L 161.3,24.2 L 164.0,20.3 L 166.7,16.2 L 169.3,12.0 L 172.0,10.0 L 174.7,10.0 L 177.3,10.0 L 180.0,10.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="1.8"/>
+        <circle cx="73.3" cy="60" r="3" fill="var(--c-good)"/>
+        <circle cx="126.7" cy="60" r="3" fill="var(--c-good)"/>
+      </svg>
+      <div class="lbl"><strong>有界区间</strong><br>[r₁, r₂]</div>
+    </div>
+
+    <!-- mini Case 2: A>0, Δ<0 -->
+    <div class="mini-cell">
+      <svg viewBox="0 0 200 130" width="200" height="130" aria-label="mini case 2">
+        <line x1="20" y1="60" x2="180" y2="60" stroke="var(--c-zero)" stroke-width="1" stroke-dasharray="3,3"/>
+        <path d="M 20.0,10.0 L 22.7,10.0 L 25.3,10.0 L 28.0,10.0 L 30.7,10.0 L 33.3,10.0 L 36.0,10.0 L 38.7,10.0 L 41.3,10.0 L 44.0,10.0 L 46.7,10.0 L 49.3,13.3 L 52.0,16.3 L 54.7,19.2 L 57.3,22.0 L 60.0,24.6 L 62.7,27.0 L 65.3,29.2 L 68.0,31.3 L 70.7,33.2 L 73.3,35.0 L 76.0,36.6 L 78.7,38.0 L 81.3,39.2 L 84.0,40.3 L 86.7,41.2 L 89.3,42.0 L 92.0,42.6 L 94.7,43.0 L 97.3,43.2 L 100.0,43.3 L 102.7,43.2 L 105.3,43.0 L 108.0,42.6 L 110.7,42.0 L 113.3,41.2 L 116.0,40.3 L 118.7,39.2 L 121.3,38.0 L 124.0,36.6 L 126.7,35.0 L 129.3,33.2 L 132.0,31.3 L 134.7,29.2 L 137.3,27.0 L 140.0,24.6 L 142.7,22.0 L 145.3,19.2 L 148.0,16.3 L 150.7,13.2 L 153.3,10.0 L 156.0,10.0 L 158.7,10.0 L 161.3,10.0 L 164.0,10.0 L 166.7,10.0 L 169.3,10.0 L 172.0,10.0 L 174.7,10.0 L 177.3,10.0 L 180.0,10.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="1.8"/>
+      </svg>
+      <div class="lbl"><strong>空集</strong><br>∅</div>
+    </div>
+
+    <div class="mini-rowhead">F &lt; 3.84<br>(弱 IV)</div>
+
+    <!-- mini Case 3: A<0, Δ>0 -->
+    <div class="mini-cell">
+      <svg viewBox="0 0 200 130" width="200" height="130" aria-label="mini case 3">
+        <line x1="20" y1="60" x2="180" y2="60" stroke="var(--c-zero)" stroke-width="1" stroke-dasharray="3,3"/>
+        <rect x="20" y="60" width="53.3" height="50" fill="var(--c-good)" fill-opacity="0.28"/>
+        <rect x="126.7" y="60" width="53.3" height="50" fill="var(--c-good)" fill-opacity="0.28"/>
+        <path d="M 20.0,110.0 L 22.7,110.0 L 25.3,110.0 L 28.0,110.0 L 30.7,108.0 L 33.3,103.8 L 36.0,99.7 L 38.7,95.8 L 41.3,92.0 L 44.0,88.4 L 46.7,85.0 L 49.3,81.8 L 52.0,78.7 L 54.7,75.8 L 57.3,73.0 L 60.0,70.4 L 62.7,68.0 L 65.3,65.8 L 68.0,63.7 L 70.7,61.8 L 73.3,60.0 L 76.0,58.4 L 78.7,57.0 L 81.3,55.8 L 84.0,54.7 L 86.7,53.8 L 89.3,53.0 L 92.0,52.4 L 94.7,52.0 L 97.3,51.8 L 100.0,51.7 L 102.7,51.8 L 105.3,52.0 L 108.0,52.4 L 110.7,53.0 L 113.3,53.8 L 116.0,54.7 L 118.7,55.8 L 121.3,57.0 L 124.0,58.4 L 126.7,60.0 L 129.3,61.7 L 132.0,63.7 L 134.7,65.8 L 137.3,68.0 L 140.0,70.4 L 142.7,73.0 L 145.3,75.8 L 148.0,78.7 L 150.7,81.8 L 153.3,85.0 L 156.0,88.4 L 158.7,92.0 L 161.3,95.8 L 164.0,99.7 L 166.7,103.8 L 169.3,108.0 L 172.0,110.0 L 174.7,110.0 L 177.3,110.0 L 180.0,110.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="1.8"/>
+        <circle cx="73.3" cy="60" r="3" fill="var(--c-good)"/>
+        <circle cx="126.7" cy="60" r="3" fill="var(--c-good)"/>
+      </svg>
+      <div class="lbl"><strong>两条射线</strong><br>(−∞, r₁] ∪ [r₂, +∞)</div>
+    </div>
+
+    <!-- mini Case 4: A<0, Δ<0 -->
+    <div class="mini-cell">
+      <svg viewBox="0 0 200 130" width="200" height="130" aria-label="mini case 4">
+        <line x1="20" y1="60" x2="180" y2="60" stroke="var(--c-zero)" stroke-width="1" stroke-dasharray="3,3"/>
+        <rect x="20" y="60" width="160" height="50" fill="var(--c-good)" fill-opacity="0.28"/>
+        <path d="M 20.0,110.0 L 22.7,110.0 L 25.3,110.0 L 28.0,110.0 L 30.7,110.0 L 33.3,110.0 L 36.0,110.0 L 38.7,110.0 L 41.3,108.7 L 44.0,105.1 L 46.7,101.7 L 49.3,98.4 L 52.0,95.3 L 54.7,92.4 L 57.3,89.7 L 60.0,87.1 L 62.7,84.7 L 65.3,82.4 L 68.0,80.3 L 70.7,78.4 L 73.3,76.7 L 76.0,75.1 L 78.7,73.7 L 81.3,72.4 L 84.0,71.3 L 86.7,70.4 L 89.3,69.7 L 92.0,69.1 L 94.7,68.7 L 97.3,68.4 L 100.0,68.3 L 102.7,68.4 L 105.3,68.7 L 108.0,69.1 L 110.7,69.7 L 113.3,70.4 L 116.0,71.3 L 118.7,72.4 L 121.3,73.7 L 124.0,75.1 L 126.7,76.7 L 129.3,78.4 L 132.0,80.3 L 134.7,82.4 L 137.3,84.7 L 140.0,87.1 L 142.7,89.7 L 145.3,92.4 L 148.0,95.3 L 150.7,98.4 L 153.3,101.7 L 156.0,105.1 L 158.7,108.7 L 161.3,110.0 L 164.0,110.0 L 166.7,110.0 L 169.3,110.0 L 172.0,110.0 L 174.7,110.0 L 177.3,110.0 L 180.0,110.0"
+              fill="none" stroke="var(--c-parab)" stroke-width="1.8"/>
+      </svg>
+      <div class="lbl"><strong>整条实数轴</strong><br>(−∞, +∞)</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="label">读表方法</span>
+    F 是 IV 强度 ($F = (\hat b_x/\hat{SE}_x)^2$, 对应 A 的符号 / 开口方向);
+    T 是 outcome 关联强度 ($T = (\hat b_y/\hat{SE}_y)^2$);
+    F 和 T 一起决定 Δ 的符号 (抛物线碰不碰横轴)。
+    你看到 AR CI 返回 "两条射线" 不要慌 — 它在说 IV 太弱了。
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 8 -->
+<!-- =================================================================== -->
+<section id="sec8">
+  <h2>8 · 为什么这么设计 — 对比经典 Wald</h2>
+
+  <div class="grid">
+    <div class="col-6">
+      <div class="card">
+        <h4>Wald CI</h4>
+        $$ \hat\beta_{\text{Wald}} = \frac{\hat b_y}{\hat b_x}, \quad
+           \text{CI}_{\text{Wald}} = \hat\beta_{\text{Wald}} \pm 1.96\,\widehat{SE}(\hat\beta_{\text{Wald}}) $$
+        <p>用 delta method 算 SE: $\widehat{SE}^2 \approx \dfrac{\hat{SE}_y^2}{\hat b_x^2} + \dfrac{\hat b_y^2 \hat{SE}_x^2}{\hat b_x^4}$</p>
+        <p style="color: var(--c-bad);"><strong>分母里有 $\hat b_x$</strong>。当 IV 很弱 ($\hat b_x \to 0$), 这条公式 <strong>爆炸</strong>。给出来的 CI 又窄又错。</p>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card">
+        <h4>AR CI</h4>
+        $$ \text{CI}_{\text{AR}} = \{\beta_0 : A\beta_0^2 + B\beta_0 + C \le 0\} $$
+        <p>定义中 <strong>从未除以</strong> $\hat b_x$。任意 F 下都 well-defined。</p>
+        <p style="color: var(--c-good);"><strong>4 种 CI 形状是 AR 的<em>特性</em>, 不是 bug</strong>。弱 IV 时给出射线 / 实数轴, 是数据的诚实表达 — "我能排除哪些 β₀, 我就告诉你; 排除不了就说排除不了"。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout good">
+    <span class="label">为什么 AR 在弱 IV 设置里得到偏好</span>
+    AR CI 的 coverage 在任何 IV 强度下都精确 95% (前提是模型正确); Wald CI 在弱 IV 下 coverage 会严重低于 95%。
+    付出的代价是 — 形状不再总是有界区间。这是值得的代价。
+  </div>
+</section>
+
+<!-- =================================================================== -->
+<!-- SECTION 9 -->
+<!-- =================================================================== -->
+<section id="sec9">
+  <h2>9 · 一句话总结</h2>
+
+  <div class="callout key">
+    <span class="label">总览</span>
+    <p style="margin: 4px 0; font-size: 1.05rem;">
+      <strong>AR CI</strong> = 给每个候选 $\beta_0$ 打分 (AR(β₀) = 残差²/方差), 留下分数 ≤ 3.84 的;
+      这个 "打分" 恰好可以写成 $\beta_0$ 的<strong>二次多项式</strong>,
+      所以 CI 的几何由抛物线 $A\beta_0^2 + B\beta_0 + C$ 的 4 种基本形态完全决定:
+      有界区间, 空集, 两条射线, 整条实数轴。
+    </p>
+  </div>
+
+  <h3>看到任何 AR CI 形状, 你的解读流程</h3>
+  <ol>
+    <li>看 <strong>形状</strong>: 是不是 [a,b]？两条射线？空？整条？</li>
+    <li>对应到 Section 7 的 2×2 表 → 反推 F (IV 强度) 和 Δ。</li>
+    <li>给出叙事: "这条 CI 表示 — 数据/IV 强度是 X 级别, 它能 / 不能把 β 钉到一个有界区间。"</li>
+  </ol>
+
+  <p style="margin-top: 24px; color: var(--fg-muted); font-style: italic;">
+    完。下次见到 cisMR / RARE / MR-CARV 论文里的 "AR-based CI", 你应该能直接读出几何。
+  </p>
+</section>
+
+</main>
+
+<footer>
+  rvSMR · AR CI 视觉讲解 · 2026
+</footer>
+
+<script>
+  // Theme toggle (shared rvsmr-theme key)
+  (function() {
+    var btn = document.getElementById('themeToggle');
+    function apply(theme) {
+      if (theme === 'light') {
+        document.documentElement.setAttribute('data-theme', 'light');
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+      }
+    }
+    btn.addEventListener('click', function() {
+      var current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      var next = current === 'light' ? 'dark' : 'light';
+      apply(next);
+      try { localStorage.setItem('rvsmr-theme', next); } catch (e) {}
+    });
+  })();
+</script>
+
+</body>
+</html>
