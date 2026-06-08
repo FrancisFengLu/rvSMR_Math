@@ -32,11 +32,9 @@ But `V` enters as `V_yy + β₀² V_xx - 2 β₀ V_xy`, so the only piece of V_x
 Now compare the two conventions:
 
 - **Package convention** (spec-consistent): `V_xy^pkg = D_y R_xy D_x`. Symmetric part = `(D_y R_xy D_x + D_x R_xy^T D_y)/2`.
-- **Generator convention** (joint-cov layout): if a user passes the same matrix to `mrAR_multi` thinking it means `cor(b_x_i, b_y_j)`, then `V_xy^user_intent = D_x R_xy D_y`. Symmetric part = `(D_x R_xy D_y + D_y R_xy^T D_x)/2` — **same matrix** as the package convention.
+- **Generator convention** (joint-cov layout): if a user passes the same matrix to `mrAR_multi` thinking it means `cor(b_x_i, b_y_j)`, then `V_xy^user_intent = D_x R_xy D_y`. Symmetric part = `(D_x R_xy D_y + D_y R_xy^T D_x)/2`.
 
-(Both expressions equal `(D_y R_xy D_x + D_x R_xy^T D_y)/2`, just with the addends in opposite order.)
-
-So **the two conventions produce identical AR / J-test results in the K≥2 case**. The "silent bug" is more than silent: it is mathematically null at the AR layer.
+The two symmetric parts coincide **only when `D_x = D_y` (or one is a scalar multiple of the other, e.g. all SE_x equal and all SE_y equal), or when R_xy is already symmetric**. In the general case with unequal D_x, D_y and asymmetric R_xy, the two assemblies give different symmetric parts and hence different AR values — the supervisor independently measured AR = 48.71 vs 47.44 (~2.7% delta) on a hand-crafted K=3 case with `se_x=c(0.05,0.10,0.20)`, `se_y=c(0.10,0.15,0.30)` and an off-diagonal asymmetric R_xy. So **the two conventions produce identical AR / J-test results only under the conditions above**; otherwise the convention matters, which is why the roxygen now pins it explicitly.
 
 Where it WOULD matter:
 - If `R_xy` were used to construct a joint distribution (e.g. for sampling, or for a different non-quadratic statistic), orientation would matter.
@@ -49,7 +47,7 @@ I went with the task's stated preference: **package documentation + roxygen clar
 #### 1.3.1 Package documentation (rvMR/R/mrAR_multi.R)
 
 - Added an explicit index-convention statement to the `R_xy` `@param` block: `R_xy[i,j] = cor(b_y_i, b_x_j)` — outcome row, exposure col. Pointed out it's the transpose of the joint-covariance layout.
-- Added a "Symmetric-part invariance" paragraph in the same param block explaining that AR depends only on the symmetric part of V_xy, hence `AR(β₀; R_xy) == AR(β₀; t(R_xy))`.
+- Added a "Symmetric-part invariance" paragraph in the same param block explaining that AR depends only on the symmetric part of V_xy, hence `AR(β₀; R_xy) == AR(β₀; t(R_xy))` **when `D_x = D_y` (or R_xy is symmetric, or D_x is a scalar multiple of D_y)**. In the general case with unequal D_x, D_y the convention matters.
 - Added an inline comment at line 159 (the V_xy assembly) reiterating the convention and the symmetric-part property.
 
 These changes are all in roxygen comments; no behavior change.
@@ -64,6 +62,12 @@ Added three new `test_that` blocks (14 new assertions, all pass):
 
 3. **`R_xy: V_xy = Dy R_xy Dx (NOT Dx R_xy Dy) — direct AR comparison`** — when `se_x != se_y` and R_xy is asymmetric, the two assembly conventions DO produce different *symmetric parts* (because the Dx and Dy aren't equal). This is the test that would catch a future swap of `Dx <-> Dy` in line 157. We compute an `R_xy_eff` such that `Dy %*% R_xy_eff %*% Dx == Dx %*% R_xy %*% Dy` and verify the answers differ.
 
+**Test SE convention (relevant to the §1.2 conditional invariance):**
+- Test 1 uses `se_x = rep(0.1, 3)` and `se_y = rep(0.05, 3)`. Both `D_x` and `D_y` are scalar multiples of I (D_x = 0.1 * I, D_y = 0.05 * I), so transpose invariance `AR(R_xy) == AR(t(R_xy))` holds **trivially** here — this test passes because it exercises the protected (`D_x` proportional to `D_y`) case, not the general case. It still pins useful behavior (it would fire if the assembly inverted R_xy itself or zeroed out V_xy).
+- Test 3 uses `se_x = c(0.20, 0.18, 0.22)` and `se_y = c(0.05, 0.07, 0.04)` — `D_x` is NOT a scalar multiple of `D_y`. This is the **unprotected** case where the convention genuinely matters; test 3 catches the `Dx <-> Dy` swap by verifying the two conventions give different `beta_hat` / `J_stat`.
+
+Net: the regression suite pins the package convention against a future swap, even though only test 3 exercises the general-case sensitivity.
+
 #### 1.3.3 Test counts
 
 - Baseline (pre-Round-3): 68 assertions across 3 test files (test-mrAR.R: 27, test-mrAR_multi.R: 34, test-wald_burden.R: 7).
@@ -74,7 +78,7 @@ Added three new `test_that` blocks (14 new assertions, all pass):
 
 The generator at `test_run_v2/generate_test_data_v2.R:141-146` uses the joint-covariance layout. In its "overlap" DGP it builds R_xy as `rho * I + 0.5 * rho * (J - I)` (symmetric), so its convention difference relative to the package would not matter even in a regime with asymmetric R_xy. **No fix needed in the generator** — the convention mismatch is benign at the AR layer (see §1.2).
 
-I did NOT modify `generate_test_data_v2.R` because (a) it's in Worker A's directory tree and (b) the difference is mathematically null.
+I did NOT modify `generate_test_data_v2.R` because (a) it's in Worker A's directory tree and (b) the v2 generator's R_xy is itself symmetric (its "overlap" mode constructs `rho * I + 0.5 * rho * (J - I)`), so the convention mismatch is null **for the specific R_xy the generator actually produces**, even though the difference is NOT null in general.
 
 ---
 

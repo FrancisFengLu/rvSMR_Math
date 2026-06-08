@@ -6,20 +6,20 @@ Worker B scope: (1) R_xy index-direction bug in `mrAR_multi.R`; (2) mr.raps BMI�
 
 **Diagnosis.** Math (main.tex §Step 9), the explainer (`steps_5_to_9_logic.md`), and the package code (`rvMR/R/mrAR_multi.R:117,157`) all agree on the convention `R_xy[i,j] = cor(b_y_i, b_x_j)` with assembly `V_xy = D_y R_xy D_x`. The Round-2 generator (`test_run_v2/generate_test_data_v2.R:141-146`) uses the joint-covariance layout `R_xy[i,j] = cor(b_x_i, b_y_j)` — i.e. the transpose. The generator's R_xy is symmetric, so the convention mismatch was hidden.
 
-**Deeper finding.** The "silent bug" turns out to be **mathematically null at the AR layer**. The AR statistic `m^T V(β₀)^{-1} m` is a scalar quadratic form, so it depends only on the **symmetric part** of V_xy. Under either convention,
+**Deeper finding (conditional, NOT general).** The AR statistic `m^T V(β₀)^{-1} m` is a scalar quadratic form, so it depends only on the **symmetric part** of V_xy. Under the two conventions,
 - package: sym(V_xy) = `(D_y R_xy D_x + D_x R_xy^T D_y)/2`,
-- generator: sym(V_xy) = `(D_x R_xy D_y + D_y R_xy^T D_x)/2`,
+- generator: sym(V_xy) = `(D_x R_xy D_y + D_y R_xy^T D_x)/2`.
 
-which are the same matrix. Consequently `AR(β₀; R_xy) == AR(β₀; t(R_xy))` for ANY R_xy, not just symmetric ones. The conventions are equivalent for AR / J-test inference. Orientation would only matter for non-quadratic uses (joint-distribution sampling, joint MVN log-likelihood, etc.).
+These coincide — hence `AR(β₀; R_xy) == AR(β₀; t(R_xy))` — **when `D_x = D_y` (or `D_x` is a scalar multiple of `D_y`, e.g. all SE_x equal and all SE_y equal), or when `R_xy` is already symmetric**. The Round-3 supervisor independently verified this is NOT a general invariance: with K=3, `se_x=c(0.05,0.10,0.20)`, `se_y=c(0.10,0.15,0.30)`, and an off-diagonal asymmetric R_xy, AR = 48.71 vs 47.44 (~2.7% delta) under transpose. So in the **general case with unequal D_x, D_y and asymmetric R_xy, the convention does matter**, which is why the roxygen now pins it explicitly. The Round-2 generator's R_xy is itself symmetric, so the convention mismatch is null **for the matrices that generator actually produces** — but not as a general statement.
 
 **Fix applied.** Documentation + regression tests; no behavior change.
 - `rvMR/R/mrAR_multi.R` — added explicit index-convention statement to `R_xy` roxygen, added a "Symmetric-part invariance" paragraph, added an inline comment at V_xy assembly (line 159).
 - `rvMR/tests/testthat/test-mrAR_multi.R` — three new `test_that` blocks (14 assertions). They pin (a) transpose invariance, (b) symmetric-part materiality, and (c) detection of a hypothetical `Dx <-> Dy` swap.
 - Test count: 68 baseline → 82 total, **0 failures**. All baseline assertions still pass.
 
-I did NOT modify the test_run_v2 generator because (a) it lives downstream and isn't in my path, and (b) the convention mismatch is mathematically null per the symmetric-part argument.
+I did NOT modify the test_run_v2 generator because (a) it lives downstream and isn't in my path, and (b) the v2 generator's R_xy is symmetric, so the convention mismatch is null **for the specific R_xy that generator produces** (it would NOT be null for general asymmetric R_xy — see the conditional invariance above).
 
-**Verdict on which side was "wrong":** None. The package's convention is documented and mathematically equivalent to the generator's at the AR layer. The original CRITIQUE_v2 concern was correct that there IS a convention mismatch but incorrect that it could "break silently" at the AR layer — it cannot.
+**Verdict on which side was "wrong":** Neither side is buggy in its own scope. The package's convention is correctly documented and matches `main.tex` §Step 9; the generator emits a symmetric R_xy so it never actually hits the unprotected case. The original CRITIQUE_v2 concern that the mismatch could "break silently" was correct in principle — the two assemblies do diverge for a general asymmetric R_xy with `D_x ≠ D_y` — but neither codepath presently feeds such an input into the other.
 
 ## 2. mr.raps BMI→SBP comparison vs Wang-Kang 2022 Table 1
 
