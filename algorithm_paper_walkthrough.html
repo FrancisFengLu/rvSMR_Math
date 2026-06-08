@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>rvSMR · 14-step paper-grounded walkthrough · 算法逐步拆解</title>
+<script>
+  (function () {
+    try {
+      var saved = localStorage.getItem('rvsmr-theme');
+      if (saved === 'light') document.documentElement.setAttribute('data-theme', 'light');
+    } catch (e) {}
+  })();
+</script>
+<script>
+  window.MathJax = {
+    tex: {
+      inlineMath: [['$', '$'], ['\\(', '\\)']],
+      displayMath: [['$$', '$$'], ['\\[', '\\]']]
+    },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-elev-2: #1c2128;
+    --bg-zebra: rgba(255,255,255,0.025);
+    --fg: #e6edf3;
+    --fg-muted: #8b949e;
+    --fg-dim: #6e7681;
+    --accent: #58a6ff;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: rgba(255, 255, 255, 0.20);
+
+    --c-input:   #2dd4bf;
+    --c-k1:      #58a6ff;
+    --c-multi:   #a78bfa;
+    --c-overid:  #d29922;
+    --c-decide:  #3fb950;
+    --c-trap:    #f47067;
+    --c-cite:    #d29922;
+    --c-good:    #3fb950;
+    --c-warn:    #f4b860;
+    --c-stub:    #f47067;
+    --c-impl:    #3fb950;
+
+    --font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    --font-serif: "Songti SC", "SimSun", Charter, Georgia, serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg: #fafbfc;
+    --bg-elev: #ffffff;
+    --bg-elev-2: #f1f4f8;
+    --bg-zebra: rgba(0,0,0,0.025);
+    --fg: #1f2328;
+    --fg-muted: #57606a;
+    --fg-dim: #8c959f;
+    --accent: #0969da;
+    --border: rgba(0, 0, 0, 0.12);
+    --border-strong: rgba(0, 0, 0, 0.22);
+
+    --c-input:   #0d9488;
+    --c-k1:      #0969da;
+    --c-multi:   #7c3aed;
+    --c-overid:  #9a6700;
+    --c-decide:  #1a7f37;
+    --c-trap:    #cf222e;
+    --c-cite:    #9a6700;
+    --c-good:    #1a7f37;
+    --c-warn:    #9a6700;
+    --c-stub:    #cf222e;
+    --c-impl:    #1a7f37;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.9em; background: var(--bg-elev-2); padding: 1px 5px; border-radius: 3px; }
+  h1, h2, h3, h4, h5 { color: var(--fg); margin: 0; font-weight: 600; }
+  h1 { font-size: 1.7rem; letter-spacing: -0.01em; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 0.95rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.08em; margin-top: 22px; margin-bottom: 8px; }
+  h4 { font-size: 1.05rem; margin-bottom: 6px; }
+  h5 { font-size: 0.88rem; color: var(--fg-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 16px; margin-bottom: 6px; }
+
+  /* Layout */
+  .page-wrap {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+  .toc-side {
+    position: sticky;
+    top: 70px;
+    align-self: start;
+    height: calc(100vh - 90px);
+    overflow-y: auto;
+    padding: 16px 0;
+    border-right: 1px solid var(--border);
+    font-size: 0.88rem;
+  }
+  .toc-side h5 { margin-top: 6px; }
+  .toc-list { list-style: none; padding: 0; margin: 0; }
+  .toc-list li { margin: 3px 0; }
+  .toc-list a {
+    display: block;
+    color: var(--fg-muted);
+    padding: 4px 10px;
+    border-radius: 6px;
+    border-left: 3px solid transparent;
+  }
+  .toc-list a:hover {
+    background: var(--bg-elev);
+    color: var(--fg);
+    text-decoration: none;
+  }
+  .toc-list .step-num { font-family: var(--font-mono); color: var(--fg-dim); margin-right: 6px; font-size: 0.78rem; }
+  .toc-list a.input   { border-left-color: var(--c-input); }
+  .toc-list a.k1      { border-left-color: var(--c-k1); }
+  .toc-list a.multi   { border-left-color: var(--c-multi); }
+  .toc-list a.overid  { border-left-color: var(--c-overid); }
+  .toc-list a.decide  { border-left-color: var(--c-decide); }
+
+  .main-col { padding: 0 0 60px; min-width: 0; }
+
+  /* Header */
+  header.site-header {
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(8px);
+  }
+  .header-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 16px;
+  }
+  .brand { font-weight: 600; font-size: 1.0rem; }
+  .brand-sub { color: var(--fg-muted); font-size: 0.85rem; margin-left: 8px; }
+  .header-actions { display: flex; gap: 8px; }
+  .btn {
+    background: var(--bg-elev);
+    color: var(--fg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 0.82rem;
+    cursor: pointer;
+  }
+  .btn:hover { border-color: var(--border-strong); }
+  .toc-toggle { display: none; }
+
+  /* Step section */
+  section.step-section {
+    margin: 28px 0;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-elev);
+    overflow: hidden;
+  }
+  section.step-section.input  { border-top: 4px solid var(--c-input); }
+  section.step-section.k1     { border-top: 4px solid var(--c-k1); }
+  section.step-section.multi  { border-top: 4px solid var(--c-multi); }
+  section.step-section.overid { border-top: 4px solid var(--c-overid); }
+  section.step-section.decide { border-top: 4px solid var(--c-decide); }
+
+  details.step-details > summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 14px 20px;
+    background: var(--bg-elev-2);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  }
+  details.step-details > summary::-webkit-details-marker { display: none; }
+  details.step-details > summary::before {
+    content: "▾";
+    color: var(--fg-muted);
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+  }
+  details.step-details:not([open]) > summary::before { content: "▸"; }
+  .step-num-pill {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    padding: 3px 9px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg-muted);
+    border: 1px solid var(--border);
+  }
+  .step-section.input  .step-num-pill { color: var(--c-input);  border-color: var(--c-input); }
+  .step-section.k1     .step-num-pill { color: var(--c-k1);     border-color: var(--c-k1); }
+  .step-section.multi  .step-num-pill { color: var(--c-multi);  border-color: var(--c-multi); }
+  .step-section.overid .step-num-pill { color: var(--c-overid); border-color: var(--c-overid); }
+  .step-section.decide .step-num-pill { color: var(--c-decide); border-color: var(--c-decide); }
+  .step-title { font-size: 1.1rem; font-weight: 600; color: var(--fg); }
+  .step-subtitle { color: var(--fg-muted); font-size: 0.88rem; }
+
+  .step-body { padding: 14px 20px 18px; }
+  .step-body p { margin: 8px 0 12px; }
+  .step-body ul { margin: 6px 0 12px; padding-left: 22px; }
+  .step-body ul li { margin: 4px 0; }
+
+  /* Sub-section badges */
+  .sub-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+    margin-top: 12px;
+    border: 1px solid;
+  }
+  .sub-badge.intuition { background: rgba(45, 212, 191, 0.15); color: var(--c-input); border-color: rgba(45, 212, 191, 0.5); }
+  .sub-badge.math      { background: rgba(88, 166, 255, 0.15); color: var(--c-k1);    border-color: rgba(88, 166, 255, 0.5); }
+  .sub-badge.paper     { background: rgba(210, 153, 34, 0.18); color: var(--c-cite);  border-color: rgba(210, 153, 34, 0.6); }
+  .sub-badge.altern    { background: rgba(167, 139, 250, 0.18); color: var(--c-multi); border-color: rgba(167, 139, 250, 0.55); }
+  .sub-badge.code      { background: rgba(63, 185, 80, 0.15);  color: var(--c-good);  border-color: rgba(63, 185, 80, 0.5); }
+  .sub-badge.pitfall   { background: rgba(244, 112, 103, 0.15); color: var(--c-trap); border-color: rgba(244, 112, 103, 0.5); }
+
+  /* Citation card */
+  .cite-card {
+    border: 1px solid rgba(210, 153, 34, 0.4);
+    border-left: 4px solid var(--c-cite);
+    background: rgba(210, 153, 34, 0.06);
+    padding: 12px 14px;
+    border-radius: 8px;
+    margin: 10px 0 14px;
+  }
+  .cite-card ul { margin: 4px 0 0; padding-left: 22px; }
+  .cite-card li { margin: 5px 0; font-size: 0.93rem; }
+  .cite-card .cite-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    padding: 1px 6px;
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--c-cite);
+    margin-right: 6px;
+    vertical-align: 1px;
+  }
+
+  /* Pitfall callout */
+  .pitfall-box {
+    border: 1px solid rgba(244, 112, 103, 0.4);
+    border-left: 4px solid var(--c-trap);
+    background: rgba(244, 112, 103, 0.05);
+    padding: 10px 14px;
+    border-radius: 6px;
+    margin: 6px 0;
+  }
+  .pitfall-box ul { margin: 4px 0 0; padding-left: 20px; }
+
+  /* Code-ref status */
+  .stub-tag {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    margin-left: 6px;
+    border: 1px solid;
+  }
+  .stub-tag.stub   { color: var(--c-stub); border-color: var(--c-stub); background: rgba(244, 112, 103, 0.08); }
+  .stub-tag.impl   { color: var(--c-impl); border-color: var(--c-impl); background: rgba(63, 185, 80, 0.08); }
+
+  /* Math display */
+  mjx-container[display="true"] {
+    margin: 14px 0 !important;
+    overflow-x: auto;
+  }
+  .formula-box {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 16px;
+    margin: 10px 0;
+  }
+
+  /* Intro / summary cards */
+  .intro-card, .summary-card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 22px 0;
+  }
+  .intro-card { border-left: 4px solid var(--accent); }
+  .summary-card { border-left: 4px solid var(--c-decide); }
+  .intro-card h2, .summary-card h2 { margin-bottom: 10px; }
+  .intro-card p { color: var(--fg); }
+  .lead {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    color: var(--fg);
+    line-height: 1.78;
+  }
+
+  /* Pipeline overview SVG container */
+  .pipeline-overview {
+    background: var(--bg-elev-2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px;
+    margin: 18px 0;
+    overflow-x: auto;
+  }
+  .pipeline-overview svg { display: block; margin: 0 auto; }
+
+  /* SVG color variables */
+  svg .box       { fill: var(--bg-elev); stroke: var(--border-strong); stroke-width: 1.5; }
+  svg .box-input { fill: rgba(45, 212, 191, 0.18);  stroke: var(--c-input);  stroke-width: 1.5; }
+  svg .box-k1    { fill: rgba(88, 166, 255, 0.18);  stroke: var(--c-k1);     stroke-width: 1.5; }
+  svg .box-multi { fill: rgba(167, 139, 250, 0.18); stroke: var(--c-multi);  stroke-width: 1.5; }
+  svg .box-overid{ fill: rgba(210, 153, 34, 0.18);  stroke: var(--c-overid); stroke-width: 1.5; }
+  svg .box-decide{ fill: rgba(63, 185, 80, 0.18);   stroke: var(--c-decide); stroke-width: 1.5; }
+  svg .label     { fill: var(--fg); font-family: var(--font-sans); font-size: 12px; }
+  svg .label-sm  { fill: var(--fg-muted); font-family: var(--font-mono); font-size: 10px; }
+  svg .arrow     { stroke: var(--fg-muted); stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+  svg .arrow-bold{ stroke: var(--accent); stroke-width: 2; fill: none; marker-end: url(#arrow-blue); }
+  svg .crit-line { stroke: var(--c-trap); stroke-width: 1.5; stroke-dasharray: 4 3; fill: none; }
+  svg .ar-curve  { stroke: var(--accent); stroke-width: 2; fill: none; }
+  svg .axis      { stroke: var(--fg-muted); stroke-width: 1; fill: none; }
+  svg .accept    { fill: rgba(63, 185, 80, 0.30); stroke: var(--c-good); stroke-width: 1; }
+  svg .reject    { fill: rgba(244, 112, 103, 0.18); stroke: var(--c-trap); stroke-width: 1; }
+  svg text.svg-title { fill: var(--fg); font-weight: 600; font-size: 13px; font-family: var(--font-sans); }
+
+  /* Section banner */
+  .section-banner {
+    margin: 36px 0 12px;
+    padding: 8px 14px;
+    border-radius: 6px;
+    background: var(--bg-elev-2);
+    border-left: 4px solid var(--fg-muted);
+    color: var(--fg-muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+  }
+
+  /* References */
+  .refs-list {
+    columns: 1;
+    column-gap: 24px;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  .refs-list li {
+    break-inside: avoid;
+    margin: 6px 0;
+    color: var(--fg-muted);
+  }
+
+  /* Mobile */
+  @media (max-width: 760px) {
+    .page-wrap { grid-template-columns: 1fr; gap: 0; padding: 0 12px; }
+    .toc-side { display: none; position: fixed; top: 60px; left: 0; right: 0; height: auto; max-height: 70vh; background: var(--bg); padding: 14px 20px; border-bottom: 1px solid var(--border); border-right: none; z-index: 40; }
+    .toc-side.open { display: block; }
+    .toc-toggle { display: inline-block; }
+    .step-body { padding: 12px 14px 14px; }
+    details.step-details > summary { padding: 12px 14px; }
+    h1 { font-size: 1.35rem; }
+    h2 { font-size: 1.1rem; }
+    .pipeline-overview { padding: 8px; }
+    .pipeline-overview svg { width: 100%; height: auto; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <div>
+      <span class="brand">rvSMR · 14-step walkthrough</span>
+      <span class="brand-sub">paper-grounded pedagogical reference</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn toc-toggle" onclick="document.querySelector('.toc-side').classList.toggle('open')">目录</button>
+      <button class="btn" onclick="toggleTheme()">深色 / 浅色</button>
+    </div>
+  </div>
+</header>
+
+<div class="page-wrap">
+
+  <!-- Sticky TOC -->
+  <aside class="toc-side" aria-label="目录">
+    <h5>目录 · Table of Contents</h5>
+    <ul class="toc-list">
+      <li><a href="#intro"><span class="step-num">§</span>Intro</a></li>
+      <li><a href="#pipeline"><span class="step-num">§</span>Pipeline</a></li>
+      <li><a href="#step0" class="input"><span class="step-num">0</span>Assemble inputs</a></li>
+      <li><a href="#step1" class="input"><span class="step-num">1</span>Linear burden</a></li>
+      <li><a href="#step2" class="input"><span class="step-num">2</span>Summary stats</a></li>
+      <li><a href="#step3" class="k1"><span class="step-num">3</span>Wald + F</a></li>
+      <li><a href="#step4" class="k1"><span class="step-num">4</span>K=1 AR</a></li>
+      <li><a href="#step5" class="multi"><span class="step-num">5</span>Stack masks</a></li>
+      <li><a href="#step6" class="multi"><span class="step-num">6</span>Multi-IV AR</a></li>
+      <li><a href="#step7" class="multi"><span class="step-num">7</span>Grid+uniroot</a></li>
+      <li><a href="#step8" class="multi"><span class="step-num">8</span>Sargan-J</a></li>
+      <li><a href="#step9" class="multi"><span class="step-num">9</span>Overlap fix</a></li>
+      <li><a href="#step10" class="overid"><span class="step-num">10</span>HEIDI-rv</a></li>
+      <li><a href="#step11" class="overid"><span class="step-num">11</span>Annot Q</a></li>
+      <li><a href="#step12" class="overid"><span class="step-num">12</span>Cell-type Q</a></li>
+      <li><a href="#step13" class="decide"><span class="step-num">13</span>Sensitivity</a></li>
+      <li><a href="#step14" class="decide"><span class="step-num">14</span>Decision</a></li>
+      <li><a href="#summary"><span class="step-num">§</span>Summary</a></li>
+      <li><a href="#refs"><span class="step-num">§</span>References</a></li>
+    </ul>
+  </aside>
+
+  <main class="main-col">
+
+    <!-- INTRO -->
+    <div class="intro-card" id="intro">
+      <h1>rvSMR · 14-step paper-grounded walkthrough</h1>
+      <p class="lead">
+        rvSMR (rare-variant Summary-data Mendelian Randomization) 把经典 SMR (Zhu 2016) 的单 SNP Wald 推断换成在 linear-weighted burden instrument 上的 Anderson-Rubin (AR) 弱 IV 鲁棒置信集, 加上三轴 over-identification (mask, within-burden, cell-type) 与 sensitivity scalars (RV, E-value). 它的设计目标是在 rare variant (MAF $\lesssim 10^{-3}$) 的弱 IV 体制下提供 uniform-coverage 的频率派推断, 适配 drug-target 鉴定的监管证据标准.
+      </p>
+      <p class="lead">
+        这份文档逐步走 14 个算法步骤. 每一步遵循固定结构: <b>直觉</b> (先把概念建立) → <b>数学</b> (公式与符号) → <b>用了哪篇 paper 的什么方法</b> (引用链, citation-grounded) → <b>为什么不用替代方案</b> → <b>R 代码位置</b> (在 <code>rvMR</code> 包) → <b>陷阱与注意点</b>. 第 4 步 (K=1 AR) 是概念上最难的, 用 4 段慢起步 + 2×2 几何 SVG; 第 10 步 (HEIDI-rv) 含一个 headline trap (权重必须取 $V_\delta$ 本身的非零特征值, 不是 $V_\delta^+ V_\delta$); 第 14 步是决策树合成.
+      </p>
+      <p style="color: var(--fg-muted); font-size: 0.88rem; margin-top: 12px;">
+        <b>读法建议:</b> 第一遍按顺序读 Step 0 → Step 14, 不跳; 第二遍可以挑 Step 4 / Step 10 / Step 14 重看. 所有引文都对应 main.tex 参考文献块, 已通过 <code>citation_audit_2026-05-27.md</code> 核验.
+      </p>
+    </div>
+
+    <!-- PIPELINE OVERVIEW SVG -->
+    <div class="section-banner">Pipeline 总览</div>
+    <div class="pipeline-overview" id="pipeline">
+      <svg viewBox="0 0 920 320" width="100%" style="max-width: 920px;" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="var(--fg-muted)"/>
+          </marker>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 Z" fill="var(--accent)"/>
+          </marker>
+        </defs>
+        <text class="svg-title" x="460" y="22" text-anchor="middle">rvSMR 14 步全流程</text>
+
+        <!-- Row 1: Input prep (Steps 0-2) -->
+        <rect class="box-input" x="20" y="50" width="100" height="46" rx="8"/>
+        <text class="label" x="70" y="72" text-anchor="middle">Step 0</text>
+        <text class="label-sm" x="70" y="88" text-anchor="middle">assemble</text>
+
+        <rect class="box-input" x="140" y="50" width="100" height="46" rx="8"/>
+        <text class="label" x="190" y="72" text-anchor="middle">Step 1</text>
+        <text class="label-sm" x="190" y="88" text-anchor="middle">burden Z_k</text>
+
+        <rect class="box-input" x="260" y="50" width="100" height="46" rx="8"/>
+        <text class="label" x="310" y="72" text-anchor="middle">Step 2</text>
+        <text class="label-sm" x="310" y="88" text-anchor="middle">b_x, b_y</text>
+
+        <!-- Row 2: K=1 inference (Steps 3-4) -->
+        <rect class="box-k1" x="380" y="50" width="100" height="46" rx="8"/>
+        <text class="label" x="430" y="72" text-anchor="middle">Step 3</text>
+        <text class="label-sm" x="430" y="88" text-anchor="middle">Wald, F</text>
+
+        <rect class="box-k1" x="500" y="50" width="100" height="46" rx="8"/>
+        <text class="label" x="550" y="72" text-anchor="middle">Step 4</text>
+        <text class="label-sm" x="550" y="88" text-anchor="middle">K=1 AR</text>
+
+        <!-- Row 3: Multi-IV core (Steps 5-9) -->
+        <rect class="box-multi" x="20" y="130" width="100" height="46" rx="8"/>
+        <text class="label" x="70" y="152" text-anchor="middle">Step 5</text>
+        <text class="label-sm" x="70" y="168" text-anchor="middle">stack K≥3</text>
+
+        <rect class="box-multi" x="140" y="130" width="100" height="46" rx="8"/>
+        <text class="label" x="190" y="152" text-anchor="middle">Step 6</text>
+        <text class="label-sm" x="190" y="168" text-anchor="middle">multi-IV AR</text>
+
+        <rect class="box-multi" x="260" y="130" width="100" height="46" rx="8"/>
+        <text class="label" x="310" y="152" text-anchor="middle">Step 7</text>
+        <text class="label-sm" x="310" y="168" text-anchor="middle">grid+uniroot</text>
+
+        <rect class="box-multi" x="380" y="130" width="100" height="46" rx="8"/>
+        <text class="label" x="430" y="152" text-anchor="middle">Step 8</text>
+        <text class="label-sm" x="430" y="168" text-anchor="middle">Sargan-J</text>
+
+        <rect class="box-multi" x="500" y="130" width="100" height="46" rx="8"/>
+        <text class="label" x="550" y="152" text-anchor="middle">Step 9</text>
+        <text class="label-sm" x="550" y="168" text-anchor="middle">overlap fix</text>
+
+        <!-- Row 4: Over-id axes (Steps 10-12) -->
+        <rect class="box-overid" x="20" y="210" width="100" height="46" rx="8"/>
+        <text class="label" x="70" y="232" text-anchor="middle">Step 10</text>
+        <text class="label-sm" x="70" y="248" text-anchor="middle">HEIDI-rv</text>
+
+        <rect class="box-overid" x="140" y="210" width="100" height="46" rx="8"/>
+        <text class="label" x="190" y="232" text-anchor="middle">Step 11</text>
+        <text class="label-sm" x="190" y="248" text-anchor="middle">annot Q</text>
+
+        <rect class="box-overid" x="260" y="210" width="100" height="46" rx="8"/>
+        <text class="label" x="310" y="232" text-anchor="middle">Step 12</text>
+        <text class="label-sm" x="310" y="248" text-anchor="middle">cell Q</text>
+
+        <!-- Row 5: Decision (Steps 13-14) -->
+        <rect class="box-decide" x="380" y="210" width="100" height="46" rx="8"/>
+        <text class="label" x="430" y="232" text-anchor="middle">Step 13</text>
+        <text class="label-sm" x="430" y="248" text-anchor="middle">RV, E</text>
+
+        <rect class="box-decide" x="500" y="210" width="120" height="46" rx="8"/>
+        <text class="label" x="560" y="232" text-anchor="middle">Step 14</text>
+        <text class="label-sm" x="560" y="248" text-anchor="middle">gene label</text>
+
+        <!-- Arrows (row internal) -->
+        <path class="arrow" d="M 120 73 L 138 73"/>
+        <path class="arrow" d="M 240 73 L 258 73"/>
+        <path class="arrow" d="M 360 73 L 378 73"/>
+        <path class="arrow" d="M 480 73 L 498 73"/>
+
+        <path class="arrow" d="M 120 153 L 138 153"/>
+        <path class="arrow" d="M 240 153 L 258 153"/>
+        <path class="arrow" d="M 360 153 L 378 153"/>
+        <path class="arrow" d="M 480 153 L 498 153"/>
+
+        <path class="arrow" d="M 120 233 L 138 233"/>
+        <path class="arrow" d="M 240 233 L 258 233"/>
+        <path class="arrow" d="M 360 233 L 378 233"/>
+        <path class="arrow" d="M 480 233 L 498 233"/>
+
+        <!-- Row transitions -->
+        <path class="arrow" d="M 550 96 Q 550 113 70 113 L 70 128"/>
+        <path class="arrow" d="M 550 176 Q 550 193 70 193 L 70 208"/>
+
+        <!-- Legend -->
+        <g transform="translate(660, 50)">
+          <text class="svg-title" x="0" y="14">Legend</text>
+          <rect class="box-input"  x="0" y="22" width="14" height="14" rx="3"/>
+          <text class="label-sm" x="20" y="33">Steps 0-2: input prep</text>
+          <rect class="box-k1"     x="0" y="44" width="14" height="14" rx="3"/>
+          <text class="label-sm" x="20" y="55">Steps 3-4: K=1 inference</text>
+          <rect class="box-multi"  x="0" y="66" width="14" height="14" rx="3"/>
+          <text class="label-sm" x="20" y="77">Steps 5-9: multi-IV core</text>
+          <rect class="box-overid" x="0" y="88" width="14" height="14" rx="3"/>
+          <text class="label-sm" x="20" y="99">Steps 10-12: over-id axes</text>
+          <rect class="box-decide" x="0" y="110" width="14" height="14" rx="3"/>
+          <text class="label-sm" x="20" y="121">Steps 13-14: decision</text>
+        </g>
+      </svg>
+    </div>
+
+    <!-- STEP 0 -->
+    <div class="section-banner" style="border-left-color: var(--c-input); color: var(--c-input);">Part I · Input preparation (Steps 0-2)</div>
+
+    <section class="step-section input" id="step0">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 0</span>
+          <span class="step-title">Assemble inputs · 固定记号</span>
+          <span class="step-subtitle">(g, k, c) tuple → summary-stat input table</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>在开始任何因果推断之前, 我们必须给每一项数字一张"身份证". rvSMR 的一行 input 不是一个 SNP 的 effect, 而是 "(基因 $g$, 变体掩码 $k$, 细胞类型 $c$) 这个三元组的 burden effect" — 也就是把 mask $k$ 内所有 rare variant 用同一个加权和压成单一信号后, 它对 $X$ (表达) 和对 $Y$ (结局) 的回归斜率.</p>
+          <p>同一三元组在 exposure 侧 (单细胞 eQTL, 来自 TenK10K) 和 outcome 侧 (人群-scale exome GWAS, 来自 Genebass 或 RGC-ME) 必须用 <i>完全相同</i> 的 mask 定义和 <i>完全相同</i> 的权重, 否则 $\hat b_x$ 和 $\hat b_y$ 指的不是同一回事, 后续的任何 ratio 都没有意义.</p>
+          <p><b>我们想知道什么:</b> "对于基因 $g$, 在细胞类型 $c$ 中, 它的 mask-$k$ burden 表达水平如果被人为干预上调 1 个单位, 结局 $Y$ 会变多少?" 这是个 <i>局部因果斜率</i> (per-allele causal effect on $Y$ per unit of $X$). 所以 Step 0 要做的就是 <i>固定记号</i>, 让所有后续公式都说同一种语言.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <p>对每个 $(g, k, c)$ 三元组:</p>
+          <ul>
+            <li>暴露侧: $(\hat b_{x,k,c},\ \mathrm{SE}_{x,k,c},\ n_x)$ — SAIGE-QTL Step 2 group-burden score test 在 TenK10K Phase 1 单细胞 RNA-seq 上跑出.</li>
+            <li>结局侧: $(\hat b_{y,k},\ \mathrm{SE}_{y,k},\ n_y)$ — Genebass 或 RGC-ME 的 gene-mask burden test.</li>
+            <li>可选 pQTL anchor (Step 11 用): $(\hat b_{\mathrm{burden}\to\mathrm{protein},k},\ \mathrm{SE}_{\mathrm{burden}\to\mathrm{protein},k})$ — UKB-PPP rare-variant 或 deCODE.</li>
+            <li>Sample overlap: $\rho$ (K=1 scalar) 或 $R_{xy}\in\mathbb{R}^{K\times K}$ block. 默认 $\rho = 0$ / $R_{xy} = \mathbf{0}$ (两样本无重叠).</li>
+          </ul>
+          <p>在固定 $(g, c)$ 时把 $K$ 个 mask 堆成向量:</p>
+          <div class="formula-box">
+          $$
+          \hat{\boldsymbol b}_x = (\hat b_{x,1},\dots,\hat b_{x,K})^\top,\quad \hat{\boldsymbol b}_y = (\hat b_{y,1},\dots,\hat b_{y,K})^\top,\quad D_x = \mathrm{diag}(\mathrm{SE}_x),\ D_y = \mathrm{diag}(\mathrm{SE}_y).
+          $$
+          </div>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">两样本 IV 设定</span><b>Pierce BL, Burgess S (2013)</b>. Efficient design for Mendelian randomization studies: subsample and two-sample IV estimators. <i>American Journal of Epidemiology</i> 178(7):1177–1184.</li>
+              <li><span class="cite-tag">summary-stat MR 框架</span><b>Burgess S, Butterworth A, Thompson SG (2013)</b>. Mendelian randomization with multiple genetic variants using summarized data. <i>Genetic Epidemiology</i> 37(7):658–665. <span style="color: var(--c-warn);">(期刊是 <i>Genetic Epidemiology</i>, 不是 Stat Med — 早期 draft 常混淆.)</span></li>
+              <li><span class="cite-tag">$\rho=0$ 默认</span><b>Burgess S, Davies NM, Thompson SG (2016)</b>. Bias due to participant overlap in two-sample MR. <i>Genetic Epidemiology</i> 40(7):597–608.</li>
+              <li><span class="cite-tag">RGC-ME outcome 数据</span><b>Sun KY, Bai X, Cetin A, et al. (2024)</b>. A deep catalogue of protein-coding variation in 983,578 individuals. <i>Nature</i> 631(8021):583–592. <span style="color: var(--c-warn);">(第一作者是 Sun <b>KY</b>, 不是 Sun BB — Sun BB 是 UKB-PPP proteomics 的不同人.)</span></li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>Individual-level IV (2SLS on raw genotypes):</b> rare-variant data sharing 受 HIPAA/GDPR 严格限制. Summary-stat 路径是唯一可扩展方案.</li>
+            <li><b>Single-variant MR (经典 SMR):</b> MAF $\lesssim 10^{-3}$ 时第一阶段 $F \to 0$, Wald 比退化 (Zhu 2016 SMR 在 rare-variant 上失败的核心原因 — briefing §1).</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>validate_summary_input()</code> in <code>rvMR/R/utils.R:32</code> — checks dimensions, finiteness, no-NA. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>把 RareEffect Step 4 BLUP / PEV (Bayesian shrinkage) 替换 SAIGE-QTL Step 2 score-test $\hat b$: BLUP 不是无偏估计, 下游 $\chi^2$ 参考分布失效.</li>
+              <li>把 RGC-ME 引为 "Sun BB 2024" — 错的, 真正第一作者是 <b>Sun KY</b>.</li>
+              <li>$n_x$ 用全 donor 数, 而非 SAIGE-QTL pseudobulk 后的 cell-type-stratified effective $N$.</li>
+              <li>一样本分析时漏掉 $\rho \neq 0$ — Step 4 / Step 6 的 denominator 会缺 cross-term, 引入 silent type-I error.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 1 -->
+    <section class="step-section input" id="step1">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 1</span>
+          <span class="step-title">Construct the linear burden instrument · 线性加权和</span>
+          <span class="step-subtitle">$Z_k = \sum_j w_j G_j$ (Madsen-Browning + STAAR)</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>Rare variant (MAF < 1‰) 单个跑没意义 — 第一阶段 F 太小, eQTL 信号没法被稳定地检测. 解决方案: 把 mask 内所有 rare variant 用权重相加, 让单一变体的微弱信号在 burden 层级聚合成一个能跑的信号. 这就是 burden test 的根本逻辑: 用"许多很罕见的变体合起来出现的次数"作为 IV, 而不是"某一个特定变体".</p>
+          <p>为什么必须是 <i>线性</i> 加权和? 因为只有 linear 形式才能在 IV 框架里写出 Wald 比 $\hat b_y / \hat b_x$. SKAT 是二次型, ACAT 是 Cauchy-combine, 它们都不提供 <i>signed</i> 单一斜率 — 你没法对一个 p-value 做 ratio.</p>
+          <p>权重怎么选? 默认是 STAAR 推广的 Beta(MAF; 1, 25) ≈ $(1-p)^{24}$, 给 <i>更罕见</i> 的变体更高权重 (越罕见越可能是 deleterious, 信噪比越高).</p>
+
+          <!-- Burden aggregation SVG -->
+          <div class="pipeline-overview" style="margin: 14px 0;">
+            <svg viewBox="0 0 700 220" width="100%" style="max-width: 700px;" xmlns="http://www.w3.org/2000/svg">
+              <text class="svg-title" x="350" y="22" text-anchor="middle">Mask 内 5 个 rare variant → 1 个 burden Z_k</text>
+              <!-- Variants -->
+              <g>
+                <circle cx="60"  cy="80" r="14" fill="rgba(45, 212, 191, 0.4)" stroke="var(--c-input)" stroke-width="1.5"/>
+                <text class="label-sm" x="60" y="84" text-anchor="middle" fill="var(--fg)">G_1</text>
+                <text class="label-sm" x="60" y="110" text-anchor="middle">MAF=0.005</text>
+                <text class="label-sm" x="60" y="124" text-anchor="middle">w_1=0.88</text>
+
+                <circle cx="160" cy="80" r="14" fill="rgba(45, 212, 191, 0.4)" stroke="var(--c-input)" stroke-width="1.5"/>
+                <text class="label-sm" x="160" y="84" text-anchor="middle" fill="var(--fg)">G_2</text>
+                <text class="label-sm" x="160" y="110" text-anchor="middle">MAF=0.0008</text>
+                <text class="label-sm" x="160" y="124" text-anchor="middle">w_2=0.98</text>
+
+                <circle cx="260" cy="80" r="14" fill="rgba(45, 212, 191, 0.4)" stroke="var(--c-input)" stroke-width="1.5"/>
+                <text class="label-sm" x="260" y="84" text-anchor="middle" fill="var(--fg)">G_3</text>
+                <text class="label-sm" x="260" y="110" text-anchor="middle">MAF=0.002</text>
+                <text class="label-sm" x="260" y="124" text-anchor="middle">w_3=0.95</text>
+
+                <circle cx="360" cy="80" r="14" fill="rgba(45, 212, 191, 0.4)" stroke="var(--c-input)" stroke-width="1.5"/>
+                <text class="label-sm" x="360" y="84" text-anchor="middle" fill="var(--fg)">G_4</text>
+                <text class="label-sm" x="360" y="110" text-anchor="middle">MAF=0.001</text>
+                <text class="label-sm" x="360" y="124" text-anchor="middle">w_4=0.97</text>
+
+                <circle cx="460" cy="80" r="14" fill="rgba(45, 212, 191, 0.4)" stroke="var(--c-input)" stroke-width="1.5"/>
+                <text class="label-sm" x="460" y="84" text-anchor="middle" fill="var(--fg)">G_5</text>
+                <text class="label-sm" x="460" y="110" text-anchor="middle">MAF=0.0003</text>
+                <text class="label-sm" x="460" y="124" text-anchor="middle">w_5=0.99</text>
+              </g>
+              <!-- Sum -->
+              <text class="label" x="540" y="84" text-anchor="middle" fill="var(--fg-muted)" font-size="16">∑</text>
+              <rect class="box-input" x="580" y="60" width="100" height="40" rx="8"/>
+              <text class="label" x="630" y="84" text-anchor="middle" font-weight="600">Z_k</text>
+              <!-- Arrows -->
+              <path class="arrow" d="M 76  80 L 144  80"/>
+              <path class="arrow" d="M 176 80 L 244  80"/>
+              <path class="arrow" d="M 276 80 L 344  80"/>
+              <path class="arrow" d="M 376 80 L 444  80"/>
+              <path class="arrow" d="M 476 80 L 530  80"/>
+              <path class="arrow-bold" d="M 550 80 L 578 80"/>
+              <!-- Label -->
+              <text class="label-sm" x="350" y="180" text-anchor="middle">$Z_k = \sum_{j=1}^5 w_j \cdot G_j$ &mdash; rarer variants get higher weight w (Beta(MAF; 1, 25))</text>
+            </svg>
+          </div>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          Z_k \;=\; \sum_{j \in \mathcal{M}_k} w_j\, G_j, \qquad w_j \;\propto\; \mathrm{Beta}(p_j;\, 1,\, 25) \;=\; (1 - p_j)^{24}.
+          $$
+          </div>
+          <p>Madsen-Browning 原始权重 (替代): $w_j = 1/\sqrt{p_j(1-p_j)}$.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">burden $\sum w_j G_j$ 开山</span><b>Madsen BE, Browning SR (2009)</b>. A groupwise association test for rare mutations using a weighted sum statistic. <i>PLOS Genetics</i> 5(2):e1000384.</li>
+              <li><span class="cite-tag">STAAR Beta(1,25) MAF 权重</span><b>Li X, et al. (2020)</b>. Dynamic incorporation of multiple in silico functional annotations empowers rare variant association analysis of large WGS at scale. <i>Nature Genetics</i> 52:969–983. <span style="color: var(--c-warn);">(<b>Li X 2020</b>, 不是 Li Z 2022 — Li Z 2022 是 STAARpipeline 的 Nature Methods 实现论文.)</span></li>
+              <li><span class="cite-tag">Beta(1,25) 更早出处</span><b>Wu MC, Lee S, Cai T, Li Y, Boehnke M, Lin X (2011)</b>. Rare-variant association testing for sequencing data with the sequence kernel association test (SKAT). <i>American Journal of Human Genetics</i> 89(1):82–93.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>CAST</b> (Morgenthaler-Thilly 2007 <i>Mutation Research</i> 615:28): "携带至少 1 个 rare allele" 二值化, 损失剂量信息.</li>
+            <li><b>CMC</b> (Li B, Leal S 2008 <i>AJHG</i> 83:311): combined multivariate and collapsing; 同样损失剂量.</li>
+            <li><b>SKAT</b> (Wu 2011 <i>AJHG</i> 89:82): 二次型 $\sum w_j^2 (G_j^\top y)^2$. <i>没有 signed 斜率</i>, 不能跑 Wald 比.</li>
+            <li><b>ACAT</b> (Liu Y 2019 <i>AJHG</i> 104:410): Cauchy-combined p-values; 同样无 signed 斜率.</li>
+            <li><b>STAAR-O</b>: omnibus 组合 (Cauchy-combine burden + SKAT + ACAT). p-value 而非 effect — 不能做 ratio.</li>
+          </ul>
+          <p>rvSMR 选择 linear weighted burden 是因为它是 Wald-ratio 的 <i>唯一</i> 可识别 aggregator. STAAR-B (B = burden sub-statistic) 给我们的就是这个 linear form.</p>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>rvMR</code> 包消费 <i>预先计算好的</i> $\hat b_x, \hat b_y$ — burden 的实际拼装在上游 SAIGE-QTL / STAAR 完成. Downstream entry: <code>wald_burden()</code> in <code>rvMR/R/wald_burden.R:77</code>, unit convention 在 roxygen 注释里. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>把 STAAR-O p-value 直接当 burden — STAAR-O 没有 signed effect.</li>
+              <li>用 SKAT / ACAT 当 IV — 无法做 Wald 比.</li>
+              <li><i>数据驱动</i> 重 scale 权重 $w_j$ (e.g. 根据样本 MAF 重新归一化): 破坏 IV 的 exogeneity.</li>
+              <li>用 STAARpipeline 默认 mask 集合而不重新对齐到上下游: cell-type / outcome 端的 mask 可能不一致.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step-section input" id="step2">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 2</span>
+          <span class="step-title">Acquire per-mask burden summary statistics · 拿数据</span>
+          <span class="step-subtitle">SAIGE-QTL (exposure) + SAIGE-GENE+ / Genebass / RGC-ME (outcome)</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>Step 1 是 "怎么定义 burden"; Step 2 是 "去哪里把 burden 的回归斜率拿到". 两端必须 <i>同一组 variant + 同一组 weight</i> 跑出两个独立的 score test:</p>
+          <ul>
+            <li>暴露端: 在 TenK10K 单细胞数据上跑 SAIGE-QTL Step 2 burden score test, 输出 $\hat b_x = \partial \log E[\mathrm{expression} \mid Z_k] / \partial Z_k$.</li>
+            <li>结局端: 在 Genebass (UKB exomes) 或 RGC-ME 上跑 SAIGE-GENE+ burden score test, 输出 $\hat b_y = \partial \log E[\mathrm{outcome} \mid Z_k] / \partial Z_k$.</li>
+          </ul>
+          <p>两端必须用 <i>完全相同</i> 的 mask 定义和权重, 否则 ratio 无意义.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          \begin{align*}
+          (\hat b_{x,k,c},\, \mathrm{SE}_{x,k,c}) &\leftarrow \text{SAIGE-QTL Step 2 burden score test on } (g, k, c). \\
+          (\hat b_{y,k},\, \mathrm{SE}_{y,k}) &\leftarrow \text{Genebass / RGC-ME burden test on } (g, k).
+          \end{align*}
+          </div>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">SAIGE-QTL Step 2 (单细胞 eQTL)</span><b>Zhou W, Cuomo ASE, et al. (2024)</b>. SAIGE-QTL maps genetic regulation of gene expression in single cells with multi-ancestry sample sizes. <i>medRxiv</i> 2024.05.15.24307317.</li>
+              <li><span class="cite-tag">SAIGE-GENE+ (人群 exome burden test)</span><b>Zhou W, et al. (2022)</b>. SAIGE-GENE+ improves the efficiency and accuracy of set-based rare variant association tests. <i>Nature Genetics</i> 54(10):1466–1469.</li>
+              <li><span class="cite-tag">Genebass UKB exomes substrate</span><b>Karczewski KJ, et al. (2022)</b>. Systematic single-variant and gene-based association testing of thousands of phenotypes in 394,841 UKB exomes. <i>Cell Genomics</i> 2:100168.</li>
+              <li><span class="cite-tag">RGC-ME alternative substrate</span><b>Sun KY, et al. (2024)</b>. A deep catalogue of protein-coding variation in 983,578 individuals. <i>Nature</i> 631(8021):583–592.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>RareEffect Step 4 BLUP</b> (SAIGE 后续): posterior mean random-effect estimator. BLUP 是 Bayesian shrinkage, 不再有 $\chi^2_1$ asymptotics. <b>关键 lineage 区分</b>: rvSMR 只接 Step 2 score test, 不接 Step 4 BLUP.</li>
+            <li><b>STAARpipeline 输出</b> (Li Z 2022 <i>Nat Methods</i>): 常输出 STAAR-O p-value (Cauchy-combined), 不带 signed burden. 需要 STAAR-B 子统计量.</li>
+            <li><b>Burden-RVAT 类 collapsing 方法</b>: 输出 binary 携带者, 损失剂量.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p>被 <code>wald_burden()</code> (<code>wald_burden.R:77</code>) 消费; <code>validate_summary_input()</code> (<code>utils.R:32</code>) 验证. <b>rvMR 不跑 SAIGE-QTL / Genebass — 它只消费它们的输出.</b> <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>用 RareEffect Step 4 BLUP 取代 Step 2 score-test $\hat b$: $\chi^2$ asymptotics 失效.</li>
+              <li>两端 mask 定义不一致: $\hat b_x$ 和 $\hat b_y$ 指代不同 IV, ratio 没意义.</li>
+              <li>二值结局 (Genebass binary) 给 log-OR 而 SAIGE-QTL 给连续表达 — 注意 scale 转换.</li>
+              <li>$n_x$ 误用全 donor 数 (而非 cell-type-stratified pseudobulk effective $N$).</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <div class="section-banner" style="border-left-color: var(--c-k1); color: var(--c-k1);">Part II · K=1 inference (Steps 3-4)</div>
+
+    <!-- STEP 3 -->
+    <section class="step-section k1" id="step3">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 3</span>
+          <span class="step-title">Per-mask Wald ratio and first-stage F</span>
+          <span class="step-subtitle">$\hat b_{xy} = \hat b_y / \hat b_x$, $F = (\hat b_x / \mathrm{SE}_x)^2$</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>一旦两端的 $\hat b_x$ 和 $\hat b_y$ 在同一个 burden $Z_k$ 上, 经典 MR 答案就是 Wald 比 $\hat b_y / \hat b_x$. 直觉上: "burden 每多 1 单位拉动表达 $\hat b_x$, 同时拉动结局 $\hat b_y$, 那么 <i>表达每 1 单位拉动结局</i> 应该是 $\hat b_y / \hat b_x$". 这是 IV 思想最朴素的形式.</p>
+          <p>第一阶段 F = $(\hat b_x / \mathrm{SE}_x)^2$ 衡量 "burden 移动 $X$ 有多稳". $F \gg 1$ 表示 burden 是强 IV; $F \le 1$ 表示弱 IV.</p>
+          <p><b>关键设计选择: rvSMR 不在 F = 10 处截断</b>. 因为 AR (Step 4) 在 F < 1 时仍保持 $1 - \alpha$ 覆盖率. 这是 rvSMR 区别于传统 MR 的根本设计选择 — 把弱 IV 数据 honestly 报告而不是丢弃.</p>
+
+          <!-- IV DAG SVG -->
+          <div class="pipeline-overview" style="margin: 14px 0;">
+            <svg viewBox="0 0 600 200" width="100%" style="max-width: 600px;" xmlns="http://www.w3.org/2000/svg">
+              <text class="svg-title" x="300" y="22" text-anchor="middle">IV 因果图: Z (burden) → X (expression) → Y (outcome)</text>
+              <!-- Z box -->
+              <rect class="box-input" x="50" y="90" width="80" height="44" rx="8"/>
+              <text class="label" x="90" y="118" text-anchor="middle" font-weight="600">Z = burden</text>
+              <!-- X box -->
+              <rect class="box-k1" x="240" y="90" width="80" height="44" rx="8"/>
+              <text class="label" x="280" y="118" text-anchor="middle" font-weight="600">X = expr</text>
+              <!-- Y box -->
+              <rect class="box-decide" x="430" y="90" width="80" height="44" rx="8"/>
+              <text class="label" x="470" y="118" text-anchor="middle" font-weight="600">Y = outcome</text>
+              <!-- U confounder -->
+              <circle cx="350" cy="40" r="22" fill="rgba(244, 112, 103, 0.25)" stroke="var(--c-trap)" stroke-width="1.5" stroke-dasharray="4 3"/>
+              <text class="label" x="350" y="44" text-anchor="middle" font-weight="600">U</text>
+              <text class="label-sm" x="350" y="14" text-anchor="middle">unobserved confounder</text>
+              <!-- arrows -->
+              <path class="arrow-bold" d="M 130 112 L 238 112"/>
+              <text class="label-sm" x="184" y="104" text-anchor="middle">b_x</text>
+              <path class="arrow-bold" d="M 320 112 L 428 112"/>
+              <text class="label-sm" x="374" y="104" text-anchor="middle">β (causal)</text>
+              <path class="arrow" d="M 340 62 L 290 88"/>
+              <path class="arrow" d="M 360 62 L 460 88"/>
+              <!-- exclusion line -->
+              <path d="M 90 134 Q 280 188 470 134" stroke="var(--c-trap)" stroke-width="1.5" stroke-dasharray="6 4" fill="none"/>
+              <text class="label-sm" x="280" y="195" text-anchor="middle" fill="var(--c-trap)">exclusion: Z → Y only through X (no direct arrow)</text>
+              <!-- ratio -->
+              <text class="label-sm" x="184" y="158" text-anchor="middle">$\hat b_y / \hat b_x$ = β identified</text>
+            </svg>
+          </div>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          \hat b_{xy} \;=\; \frac{\hat b_y}{\hat b_x}, \qquad F \;=\; \left(\frac{\hat b_x}{\mathrm{SE}_x}\right)^2.
+          $$
+          </div>
+          <p>Delta-method SE (含 sample overlap):</p>
+          <div class="formula-box">
+          $$
+          \widehat{\mathrm{Var}}(\hat b_{xy}) \;\approx\; \frac{\mathrm{SE}_y^2}{\hat b_x^2} \;+\; \frac{\hat b_y^2\, \mathrm{SE}_x^2}{\hat b_x^4} \;-\; 2\,\frac{\hat b_y}{\hat b_x^3}\,\rho\, \mathrm{SE}_x\, \mathrm{SE}_y.
+          $$
+          </div>
+          <p>注意: 分母含 $\hat b_x^2$ 和 $\hat b_x^4$ — 当 $\hat b_x \to 0$ (弱 IV) 时 SE 爆炸. 这就是 Wald CI 在 rare-variant 下崩溃的根源.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">Wald 比 MR 解释</span><b>Burgess S, Labrecque JA (2018)</b>. Mendelian randomization with a binary exposure variable: interpretation and presentation of causal estimates. <i>European Journal of Epidemiology</i> 33(10):947–952.</li>
+              <li><span class="cite-tag">IV 在流行病学的因果识别</span><b>Didelez V, Sheehan N (2007)</b>. Mendelian randomization as an instrumental variable approach to causal inference. <i>Statistical Methods in Medical Research</i> 16(4):309–330.</li>
+              <li><span class="cite-tag">F > 10 obsolete 的现代替代</span><b>Lee DS, McCrary J, Moreira MJ, Porter J (2022)</b>. Valid t-ratio inference for IV. <i>American Economic Review</i> 112(10):3260–3290. <span style="color: var(--c-warn);">(tF critical values 替代 Stock-Yogo 2005 的 F > 10 阈值.)</span></li>
+              <li><span class="cite-tag">rvSMR 设计选择</span>不过滤 F > 10. AR (Step 4) 在 F → 0 时仍 size-correct.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>dIVW (debiased IVW)</b> (Ye T 2021 <i>Ann Stat</i>): point-estimate debias, 但 CI 仍依赖 $F > \chi^2_{1, 1-\alpha} \approx 3.84$. F < 3.84 时退化.</li>
+            <li><b>MR-RAPS</b> (Zhao Q 2020 <i>Ann Stat</i>): profile-score, robust to invalid IV; F 极弱时仍 unstable.</li>
+            <li><b>Stock-Yogo F > 10 过滤</b>: 自 LMMP 2022 起被 superseded; just-identified case 不能保证 size correctness.</li>
+            <li><b>rvSMR 选 AR</b> (Step 4): uniform coverage 在所有 IV strength, 包括 F < 1.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>wald_burden()</code> in <code>rvMR/R/wald_burden.R:77</code> 算三个量. Delta SE helper: <code>delta_method_ratio_se()</code> in <code>utils.R:89</code>. F helper: <code>f_statistic()</code> in <code>utils.R:133</code>. <span class="stub-tag impl">✅ implemented</span> (82 testthat assertions PASS).</p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>把 delta SE 直接用作 CI 的 SE 在弱 IV regime 下: Gaussian 形状 undercover.</li>
+              <li>加 F > 10 过滤: 把 AR 的鲁棒性优势全部丢光.</li>
+              <li>漏 cross-term $-2(\hat b_y/\hat b_x^3) \rho \mathrm{SE}_x \mathrm{SE}_y$ 在 sample overlap 情况.</li>
+              <li>引 Bowden-Vansteelandt 2011 <i>Stat Med</i> 作为 delta SE 来源: 那篇是 case-control SMM, <b>不是</b> ratio SE 公式.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step-section k1" id="step4">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 4</span>
+          <span class="step-title">K=1 closed-form Anderson-Rubin CI · 核心难点</span>
+          <span class="step-subtitle">弱 IV 鲁棒的频率派置信集; 4 种几何形状</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition (慢, 4 段)</div>
+
+          <h5 style="color: var(--c-k1);">第 1 段 — 问题的根</h5>
+          <p>Wald CI ($\hat\beta \pm 1.96 \cdot \mathrm{SE}$) 的 SE 公式分母里是 $\hat b_x^2$ 或 $\hat b_x^4$. 当 $\hat b_x$ 很小 (rare-variant 典型情况), 这个分母接近 0, SE 爆炸, CI 宽到没意义. 在 $\hat b_x$ 恰好换号附近, CI 还会出现 "中间挖空" 的几何 — 但 Wald 框架根本无法表达这种 CI, 它强行给你一个 misleading 对称区间.</p>
+
+          <h5 style="color: var(--c-k1);">第 2 段 — Anderson-Rubin 的转换</h5>
+          <p>AR (Anderson & Rubin 1949) 换了一个角度: <i>不要估算 $\beta$ 然后建 CI</i>, 而是 <i>对每个候选 $\beta_0$ 测试 "$\beta = \beta_0$ 是否兼容数据"</i>. 在候选 $\beta_0$ 下定义残差 $\hat b_y - \beta_0 \hat b_x$. 如果 $\beta_0$ 等于真值, 这个残差 <i>在 IV exclusion 假设下</i> 期望为零 — 不管 IV 多弱. 把残差跟它的方差比, 在 $H_0$ 下服从 $\chi^2_1$. 接受集 $\{\beta_0 : AR(\beta_0) \le 3.84\}$ 就是 95% CI.</p>
+
+          <h5 style="color: var(--c-k1);">第 3 段 — 为什么这是弱 IV 鲁棒的</h5>
+          <p>AR 公式的 <i>分母</i> 是 $\mathrm{SE}_y^2 + \beta_0^2 \mathrm{SE}_x^2 - 2\beta_0 \rho \mathrm{SE}_x \mathrm{SE}_y$. 注意 <b>从未 invert $\hat b_x$</b>. 不管 $\hat b_x \to 0$, 分母被 $\mathrm{SE}_y^2 > 0$ 兜底, $AR(\beta_0)$ well-defined. 所以 coverage 在 $F \to 0$ 时 <i>仍是</i> $1 - \alpha$. 这是 "pivotal" 性质.</p>
+
+          <h5 style="color: var(--c-k1);">第 4 段 — 四种 CI 形状 (rvSMR 的视觉特色)</h5>
+          <p>把 $AR(\beta_0) \le c$ 化简为 $\beta_0$ 的二次不等式 $A \beta_0^2 + B \beta_0 + C \le 0$. 二次开口方向 = $\mathrm{sign}(A) = \mathrm{sign}(F - c)$; 判别式 $\Delta = B^2 - 4AC$ 决定根存在与否. 四个组合 → 四种 CI 几何:</p>
+          <ol>
+            <li><b>A > 0, Δ ≥ 0</b>: 强 IV, 有解, <b>bounded interval</b> $[a, b]$. 跟传统 CI 长得一样.</li>
+            <li><b>A > 0, Δ < 0</b>: 强 IV, 无解, <b>empty</b> (CI 为空; 在 $H_0$ 下概率 $\le \alpha$, 是数值 artifact).</li>
+            <li><b>A < 0, Δ ≥ 0</b>: <b>弱 IV, disconnected union</b> $(-\infty, a] \cup [b, \infty)$ — 数据排除中间一段, 允许 $|\beta|$ 任意大.</li>
+            <li><b>A < 0, Δ < 0</b>: <b>弱 IV, 无信息</b>, <b>whole line</b> $(-\infty, \infty)$ — 数据对 $\beta$ 没限制.</li>
+          </ol>
+          <p>后两种几何形状是 Wald 框架无法表达的; rvSMR 诚实地报告它们.</p>
+
+          <!-- 4 CI shapes SVG -->
+          <div class="pipeline-overview" style="margin: 14px 0;">
+            <svg viewBox="0 0 700 460" width="100%" style="max-width: 700px;" xmlns="http://www.w3.org/2000/svg">
+              <text class="svg-title" x="350" y="22" text-anchor="middle">4 种 AR CI 几何形状 · 由 (sign A, sign Δ) 决定</text>
+
+              <!-- Top-left: Bounded -->
+              <g transform="translate(0, 50)">
+                <text class="label" x="170" y="14" text-anchor="middle" font-weight="600">Strong IV · Bounded interval</text>
+                <text class="label-sm" x="170" y="30" text-anchor="middle">A &gt; 0 (F &gt; c)  &amp;  Δ ≥ 0</text>
+                <line class="axis" x1="20" y1="120" x2="320" y2="120"/>
+                <line class="axis" x1="170" y1="50" x2="170" y2="130"/>
+                <!-- parabola opens up -->
+                <path class="ar-curve" d="M 50 60 Q 170 165 290 60"/>
+                <line class="crit-line" x1="20" y1="110" x2="320" y2="110"/>
+                <text class="label-sm" x="296" y="106">c=3.84</text>
+                <rect class="accept" x="115" y="113" width="110" height="14"/>
+                <text class="label-sm" x="115" y="148" text-anchor="middle">a</text>
+                <text class="label-sm" x="225" y="148" text-anchor="middle">b</text>
+                <text class="label-sm" x="170" y="172" text-anchor="middle" fill="var(--c-good)">CI = [a, b]</text>
+              </g>
+
+              <!-- Top-right: Empty -->
+              <g transform="translate(350, 50)">
+                <text class="label" x="170" y="14" text-anchor="middle" font-weight="600">Strong IV · Empty CI (artifact)</text>
+                <text class="label-sm" x="170" y="30" text-anchor="middle">A &gt; 0 (F &gt; c)  &amp;  Δ &lt; 0</text>
+                <line class="axis" x1="20" y1="120" x2="320" y2="120"/>
+                <line class="axis" x1="170" y1="50" x2="170" y2="130"/>
+                <!-- parabola opens up but above c -->
+                <path class="ar-curve" d="M 50 50 Q 170 100 290 50"/>
+                <line class="crit-line" x1="20" y1="110" x2="320" y2="110"/>
+                <text class="label-sm" x="296" y="106">c</text>
+                <text class="label-sm" x="170" y="172" text-anchor="middle" fill="var(--c-trap)">CI = ∅ (Prob ≤ α under H₀)</text>
+              </g>
+
+              <!-- Bottom-left: Disconnected -->
+              <g transform="translate(0, 250)">
+                <text class="label" x="170" y="14" text-anchor="middle" font-weight="600">Weak IV · Disconnected union</text>
+                <text class="label-sm" x="170" y="30" text-anchor="middle">A &lt; 0 (F &lt; c)  &amp;  Δ ≥ 0</text>
+                <line class="axis" x1="20" y1="120" x2="320" y2="120"/>
+                <line class="axis" x1="170" y1="50" x2="170" y2="130"/>
+                <!-- parabola opens down -->
+                <path class="ar-curve" d="M 50 165 Q 170 50 290 165"/>
+                <line class="crit-line" x1="20" y1="110" x2="320" y2="110"/>
+                <text class="label-sm" x="296" y="106">c</text>
+                <rect class="accept" x="20" y="113" width="80" height="14"/>
+                <rect class="accept" x="240" y="113" width="80" height="14"/>
+                <text class="label-sm" x="100" y="148" text-anchor="middle">a</text>
+                <text class="label-sm" x="240" y="148" text-anchor="middle">b</text>
+                <text class="label-sm" x="170" y="172" text-anchor="middle" fill="var(--c-warn)">CI = (-∞, a] ∪ [b, +∞)</text>
+              </g>
+
+              <!-- Bottom-right: Whole line -->
+              <g transform="translate(350, 250)">
+                <text class="label" x="170" y="14" text-anchor="middle" font-weight="600">Weak IV · Whole line</text>
+                <text class="label-sm" x="170" y="30" text-anchor="middle">A &lt; 0 (F &lt; c)  &amp;  Δ &lt; 0</text>
+                <line class="axis" x1="20" y1="120" x2="320" y2="120"/>
+                <line class="axis" x1="170" y1="50" x2="170" y2="130"/>
+                <!-- parabola opens down, fully below c -->
+                <path class="ar-curve" d="M 50 130 Q 170 95 290 130"/>
+                <line class="crit-line" x1="20" y1="110" x2="320" y2="110"/>
+                <text class="label-sm" x="296" y="106">c</text>
+                <rect class="accept" x="20" y="113" width="300" height="14"/>
+                <text class="label-sm" x="170" y="172" text-anchor="middle" fill="var(--c-warn)">CI = (-∞, +∞) — no information</text>
+              </g>
+
+              <!-- Bottom legend -->
+              <g transform="translate(20, 440)">
+                <line class="crit-line" x1="0" y1="0" x2="20" y2="0"/>
+                <text class="label-sm" x="26" y="4">c_crit = χ²_{1, 0.95} = 3.84</text>
+                <rect class="accept" x="200" y="-6" width="14" height="12"/>
+                <text class="label-sm" x="220" y="4">accepted β₀ ∈ CI</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          AR(\beta_0) \;=\; \frac{(\hat b_y - \beta_0 \hat b_x)^2}{\mathrm{SE}_y^2 + \beta_0^2 \mathrm{SE}_x^2 - 2 \beta_0 \rho\, \mathrm{SE}_x \mathrm{SE}_y} \;\xrightarrow{H_0: \beta = \beta_0}\; \chi^2_1.
+          $$
+          </div>
+          <div class="formula-box">
+          $$
+          \mathcal{C}_{1-\alpha} \;=\; \{\beta_0 : AR(\beta_0) \le c\},\quad c = \chi^2_{1, 1-\alpha} = 3.841 \text{ (at } \alpha = 0.05\text{)}.
+          $$
+          </div>
+          <p>二次不等式形式:</p>
+          <div class="formula-box">
+          $$
+          \underbrace{(\hat b_x^2 - c\,\mathrm{SE}_x^2)}_{A} \beta_0^2 + \underbrace{[-2(\hat b_x \hat b_y - c \rho \mathrm{SE}_x \mathrm{SE}_y)]}_{B} \beta_0 + \underbrace{(\hat b_y^2 - c\,\mathrm{SE}_y^2)}_{C} \le 0,
+          $$
+          </div>
+          <p>其中 $A = \mathrm{SE}_x^2 (F - c)$, 所以 $\mathrm{sign}(A) = \mathrm{sign}(F - c)$.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">AR 检验起源</span><b>Anderson TW, Rubin H (1949)</b>. Estimation of the parameters of a single equation in a complete system of stochastic equations. <i>Annals of Mathematical Statistics</i> 20(1):46–63. §3, Eq 3 — 在 IV regression 中检验结构参数.</li>
+              <li><span class="cite-tag">AR-K=1 与 Fieller CI 的代数等价</span><b>Fieller EC (1954)</b>. Some problems in interval estimation. <i>JRSS Series B</i> 16(2):175–185. Inverted Wald-ratio CI for a ratio.</li>
+              <li><span class="cite-tag">AR 在 MR 设定的系统化</span><b>Wang S, Kang H (2022)</b>. Weak-instrument-robust tests in two-sample summary-data MR. <i>Biometrics</i> 78(4):1699–1713.</li>
+              <li><span class="cite-tag">MVMR-AR 延伸 (Step 6 用)</span><b>Patel A, Lane J, Burgess S (2024)</b>. Weak instruments in multivariable Mendelian randomization: methods and practice. arXiv:2408.09868.</li>
+              <li><span class="cite-tag">F > 10 obsolete 的理论支撑</span><b>Lee, McCrary, Moreira, Porter (2022)</b>. Valid t-ratio inference for IV. <i>AER</i> 112(10):3260–3290.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>Wald CI $\hat\beta_{xy} \pm 1.96 \cdot \mathrm{SE}_\delta$</b>: 弱 IV 时 SE 爆炸或 CI 几何根本不存在 (e.g. disconnected). Wald 框架强行给一个 misleading 对称区间.</li>
+            <li><b>Fieller 1954 inverted Wald</b>: 数学上跟 K=1 AR 等价. 但 Fieller 没有 over-id 推广 — K ≥ 2 时它无能为力, AR 直接推到 $\chi^2_K$ 多 IV 形式.</li>
+            <li><b>dIVW</b> (Ye 2021): debias 点估计, 但 $F < 3.84$ 时 CI 仍崩溃.</li>
+            <li><b>MR-RAPS</b> (Zhao 2020): horizontal pleiotropy robust, 但弱 IV 下 SE 不稳.</li>
+            <li><b>Stock-Yogo F > 10 过滤</b>: 抛弃弱 IV 数据 — 但 rare-variant 几乎全是弱 IV, 等于抛弃整个数据集.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>mrAR()</code> in <code>rvMR/R/mrAR.R:88</code>. 二次系数 $A, B, C$ 在 <code>mrAR.R:115-117</code>; 几何分类基于 (sign A, sign Δ) 在 <code>mrAR.R:135-191</code>. <span class="stub-tag impl">✅ implemented</span> (PCSK9 → IHD K=1 demo 在 <code>test_run_finngen/</code> 已验证, CI = [0.355, 0.518] per SD LDL, 符号匹配 RCT.)</p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>把 AR CI 和 F > 10 过滤一起用: 把 AR 的鲁棒性优势直接打掉.</li>
+              <li>把 empty CI 当 "不可能" — 在 $H_0$ 下以 $\le \alpha$ 概率发生, 是数值 artifact, 应当 flag 而非压制.</li>
+              <li>漏掉 cross-term $-2 \beta_0 \rho \mathrm{SE}_x \mathrm{SE}_y$ 在 $\rho \neq 0$ 情况.</li>
+              <li>把 disconnected CI 当 bug 强行 re-bound 成 bounded interval: 这等于声称数据支撑了一个数据并不支撑的覆盖率.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <div class="section-banner" style="border-left-color: var(--c-multi); color: var(--c-multi);">Part III · Multi-IV core (Steps 5-9)</div>
+
+    <!-- STEP 5 -->
+    <section class="step-section multi" id="step5">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 5</span>
+          <span class="step-title">Stack K ≥ 3 masks per gene</span>
+          <span class="step-subtitle">向量化输入 → 准备 multi-IV AR</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>Step 4 是单 mask 单 IV. Step 5 开始走 <i>over-identification</i> 路线: 同一基因的三个 mask (pLoF, missense:LC, regulatory) 提供 <i>三个独立的 reduced-form moment</i>. 如果三 mask 都真正在 instrument 同一个 $X \to Y$ 因果效应, 它们应该 <i>彼此同意</i>. 这种"同意"就是 Step 8 Sargan-J 检验的来源.</p>
+          <p>为什么至少 $K \ge 3$ 而不是 $K \ge 2$? 数学上, Sargan-J df = $K - 1$. $K=2$ 时 df = 1, 一个 outlier mask 就能让 J 通过或拒绝, 几乎无诊断力. $K=3$ 时 df = 2, J 才有 power 区分 "两 mask 同意 vs 三 mask 同意", 能定位异常 mask. 所以 <b>$K \ge 3$ 是结构性要求</b>, 不是 power 优化.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          \hat{\boldsymbol b}_x = \begin{pmatrix}\hat b_{x,1}\\ \vdots\\ \hat b_{x,K}\end{pmatrix},\quad
+          \hat{\boldsymbol b}_y = \begin{pmatrix}\hat b_{y,1}\\ \vdots\\ \hat b_{y,K}\end{pmatrix} \in \mathbb{R}^K,
+          $$
+          $$
+          D_x = \mathrm{diag}(\mathrm{SE}_{x,1},\dots,\mathrm{SE}_{x,K}),\quad D_y = \mathrm{diag}(\mathrm{SE}_{y,1},\dots,\mathrm{SE}_{y,K}).
+          $$
+          </div>
+          <p>加 $K \times K$ 相关矩阵 $R_{xx}, R_{yy}, R_{xy}$. 默认 $R_{xx} = R_{yy} = I_K$ (mask 间 LD ≈ 0, 不同 VEP annotation class 不相交), $R_{xy} = \mathbf{0}$ (两样本无重叠).</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">K ≥ 3 over-id 设计</span>来自 rvSMR <i>HANDOVER §2</i> 设计选择. 数学根据是 <b>Sargan JD (1958)</b>, <i>Econometrica</i> 26(3):393 — over-identifying restrictions test.</li>
+              <li><span class="cite-tag">多 IV MR 的现代 AR 框架</span><b>Patel A, Lane J, Burgess S (2024)</b>. Weak instruments in multivariable Mendelian randomization: methods and practice. arXiv:2408.09868. MVMR setting 下的 AR test + over-id.</li>
+              <li><span class="cite-tag">summary-stat MR 多 IV 的 reduced-form moment</span><b>Burgess S, Butterworth A, Thompson SG (2013)</b>. <i>Genetic Epidemiology</i> 37(7):658–665.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>$K=2$</b>: df=1 的 J test 几乎无 power.</li>
+            <li><b>K=1 跨细胞类型 stratification 来凑 over-id</b>: 把 K=mask 数和 C=细胞类型数 混淆. rvSMR 把两轴分开 (Step 12 处理 cell type).</li>
+            <li><b>Cauchy-combine 三 mask 后再跑 MR</b>: ACAT 把三个 p-value 压成 1 个, 完全摧毁 over-id 结构.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>mrAR_multi()</code> in <code>rvMR/R/mrAR_multi.R:114</code>; 对角 SE 构造 在 <code>mrAR_multi.R:153-154</code>. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>mask 间共享变体: $R_{xx}, R_{yy}$ 不再对角.</li>
+              <li>$K=2$ 时把 J 当真正的 over-id 检验解读 (df=1, 一个 outlier 就能改变结论).</li>
+              <li>把"mask"理解成 STAARpipeline 默认 mask 集合, 而非 annotation class.</li>
+              <li>Cauchy-combine masks 把 over-id 杀掉.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 6 -->
+    <section class="step-section multi" id="step6">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 6</span>
+          <span class="step-title">K ≥ 2 AR statistic and confidence set</span>
+          <span class="step-subtitle">$AR(\beta_0) = m^\top V^{-1} m \sim \chi^2_K$</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>把 Step 4 的 scalar AR 推广到向量. 残差 $m(\beta_0) = \hat{\boldsymbol b}_y - \beta_0 \hat{\boldsymbol b}_x \in \mathbb{R}^K$. 它的方差矩阵 $V(\beta_0)$ 是 $K \times K$, 含三项 — outcome 端 SE, exposure 端 SE 按 $\beta_0^2$ 加权, cross-sample 修正项. AR 统计量是 quadratic form $m^\top V^{-1} m$, 在 $H_0: \beta = \beta_0$ 下服从 $\chi^2_K$.</p>
+          <p>关键直觉: <b>从未 invert $\hat{\boldsymbol b}_x$</b>. AR 依赖 <i>reduced-form</i> moment, 不依赖 <i>first-stage</i> estimator. 所以弱 IV 鲁棒性从 K=1 直接继承到 K≥2.</p>
+          <p>每个 mask 自己的第一阶段 F 都比 <i>pooled</i> burden 弱, 这看起来是坏事 — 但 AR 把这 K 个弱信号合到一个 $\chi^2_K$, 既保留 uniform coverage, 又拿到 $K-1$ 个 over-id 自由度. 这是 stacking 的 <b>双赢</b>.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          m(\beta_0) \;=\; \hat{\boldsymbol b}_y - \beta_0 \hat{\boldsymbol b}_x \in \mathbb{R}^K
+          $$
+          $$
+          V(\beta_0) \;=\; D_y R_{yy} D_y + \beta_0^2 D_x R_{xx} D_x \;-\; 2 \beta_0 D_y R_{xy} D_x \in \mathbb{R}^{K \times K}
+          $$
+          $$
+          \boxed{\;AR(\beta_0) \;=\; m(\beta_0)^\top V(\beta_0)^{-1} m(\beta_0) \;\xrightarrow{H_0:\,\beta=\beta_0}\; \chi^2_K\;}
+          $$
+          $$
+          \mathcal{C}_{1-\alpha} = \{\beta_0 : AR(\beta_0) \le \chi^2_{K, 1-\alpha}\}.
+          $$
+          </div>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">多 IV AR 起源</span><b>Anderson-Rubin (1949)</b> §3 — 多 endogenous parameter 设定下原始 AR 是 $\chi^2_K$.</li>
+              <li><span class="cite-tag">两样本 summary-MR 适配</span><b>Wang S, Kang H (2022)</b> §2.2, <i>Biometrics</i> 78:1699 — 把 AR 写成 $m^\top V^{-1} m$ 形式 + uniform coverage 证明.</li>
+              <li><span class="cite-tag">MVMR (多 exposure) 形式</span><b>Patel-Lane-Burgess (2024)</b> arXiv:2408.09868.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>对每个 mask 跑 K=1 AR 然后 meta-analyze</b>: 损失 over-id 信息 (meta-analysis 只 pool point estimates, 不能 jointly test 同质性).</li>
+            <li><b>IVW</b> (Burgess-Butterworth-Thompson 2013): point + Wald SE; 弱 IV 下崩溃.</li>
+            <li><b>2SLS</b>: 需要 individual-level data; summary-stat 近似下弱 IV 仍 size 偏差.</li>
+            <li><b>MR-Egger</b> (Bowden 2015 <i>Int J Epidemiol</i> 44:512): pleiotropy intercept; 弱 IV 下 SE 不稳, 需要 InSIDE 假设.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>mrAR_multi()</code> in <code>rvMR/R/mrAR_multi.R:114</code>. $V_{yy}, V_{xx}, V_{xy}$ 在 <code>mrAR_multi.R:155-157</code>; AR closure $\beta_0 \mapsto m^\top V^{-1} m$ 在 <code>mrAR_multi.R:162-171</code>. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>漏 cross-term $-2 \beta_0 D_y R_{xy} D_x$ 在 sample overlap 下: silent bias.</li>
+              <li>顺序写反: 应是 $D_y R_{xy} D_x$ (即 $(i,j)$ entry 是 $\mathrm{SE}_{y,i} R_{xy,ij} \mathrm{SE}_{x,j}$), <b>不是</b> $D_x R_{xy} D_y$ (代码 line 157 写法).</li>
+              <li>用 $\chi^2_{K-1}$ 作 AR 参考分布: 那是 J 的, Step 8. AR 自己是 $\chi^2_K$.</li>
+              <li>$V(\beta_0)$ 在大 $|\beta_0|$ + 高 overlap 下可能 indefinite, AR 在该点未定义, 应 flag (代码 mark 为 +Inf).</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 7 -->
+    <section class="step-section multi" id="step7">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 7</span>
+          <span class="step-title">Grid + uniroot inversion of the AR confidence set</span>
+          <span class="step-subtitle">数值反演 → 4 种 CI 几何继承</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>K=1 时, $AR(\beta_0) \le c$ 是 $\beta_0$ 的二次不等式 — 有闭式根. K ≥ 2 时, $V(\beta_0)$ 是 $\beta_0$ 的矩阵值二次函数, 它的逆是 <i>有理函数</i>, AR 不再有闭式根. 必须 <b>数值</b> 求 level set.</p>
+          <p>策略很标准:</p>
+          <ol>
+            <li>选初始扫描范围 $[\beta_\min, \beta_\max]$ (取 per-IV Wald 比的 min/max + padding).</li>
+            <li>在 4000 个 grid 点上算 $AR(\beta_0) - c$.</li>
+            <li>找 sign change (相邻两 grid 点异号).</li>
+            <li>每个 sign change 用 <code>uniroot()</code> 精修到 $1\mathrm{e}{-8}$.</li>
+            <li>用精修 roots 把实轴切段, 段内取中点判 accept/reject.</li>
+          </ol>
+          <p>输出: CI shape label ∈ {bounded_interval, disconnected_union, whole_line, empty} + endpoints list. <b>K=1 的四分类几何在这里自然继承</b> — 不需要新理论.</p>
+
+          <!-- Inversion SVG -->
+          <div class="pipeline-overview" style="margin: 14px 0;">
+            <svg viewBox="0 0 700 280" width="100%" style="max-width: 700px;" xmlns="http://www.w3.org/2000/svg">
+              <text class="svg-title" x="350" y="20" text-anchor="middle">AR 函数数值反演 · sign-change → uniroot → level set</text>
+              <line class="axis" x1="60" y1="200" x2="640" y2="200"/>
+              <line class="axis" x1="60" y1="50" x2="60" y2="210"/>
+              <text class="label-sm" x="640" y="220">β₀</text>
+              <text class="label-sm" x="40" y="60">AR(β₀)</text>
+              <!-- Critical line -->
+              <line class="crit-line" x1="60" y1="130" x2="640" y2="130"/>
+              <text class="label-sm" x="650" y="134" fill="var(--c-trap)">c_crit</text>
+              <!-- AR curve: M-shape -->
+              <path class="ar-curve" d="M 60 80 Q 130 200 220 130 Q 280 80 350 160 Q 420 200 500 130 Q 560 80 640 110"/>
+              <!-- Sign-change roots -->
+              <circle cx="160" cy="130" r="5" fill="var(--c-good)" stroke="var(--c-good)" stroke-width="2"/>
+              <circle cx="290" cy="130" r="5" fill="var(--c-good)" stroke="var(--c-good)" stroke-width="2"/>
+              <circle cx="420" cy="130" r="5" fill="var(--c-good)" stroke="var(--c-good)" stroke-width="2"/>
+              <circle cx="540" cy="130" r="5" fill="var(--c-good)" stroke="var(--c-good)" stroke-width="2"/>
+              <!-- Accept regions -->
+              <rect class="accept" x="160" y="205" width="130" height="14"/>
+              <rect class="accept" x="420" y="205" width="120" height="14"/>
+              <text class="label-sm" x="225" y="244" text-anchor="middle">accept</text>
+              <text class="label-sm" x="480" y="244" text-anchor="middle">accept</text>
+              <!-- Grid dots -->
+              <g fill="var(--fg-dim)">
+                <circle cx="100" cy="100" r="2"/>
+                <circle cx="120" cy="115" r="2"/>
+                <circle cx="140" cy="125" r="2"/>
+                <circle cx="180" cy="140" r="2"/>
+                <circle cx="200" cy="138" r="2"/>
+                <circle cx="240" cy="118" r="2"/>
+                <circle cx="270" cy="125" r="2"/>
+                <circle cx="320" cy="142" r="2"/>
+                <circle cx="380" cy="148" r="2"/>
+                <circle cx="450" cy="140" r="2"/>
+                <circle cx="480" cy="125" r="2"/>
+                <circle cx="520" cy="118" r="2"/>
+                <circle cx="580" cy="103" r="2"/>
+              </g>
+              <text class="label-sm" x="350" y="270" text-anchor="middle">disconnected_union: CI = [l₁, u₁] ∪ [l₂, u₂]</text>
+            </svg>
+          </div>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <p>不是新公式, 而是算法:</p>
+          <div class="formula-box">
+          $$
+          \text{Find } \{\beta_0 : AR(\beta_0) - c = 0\} \text{ via grid + uniroot}; \quad \mathcal{C}_{1-\alpha} = \bigcup_{(l_i, u_i) \text{ accepted}} [l_i, u_i].
+          $$
+          </div>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">AR 统计基础</span><b>Anderson-Rubin (1949)</b>, <b>Wang-Kang (2022)</b>, <b>Patel-Lane-Burgess (2024)</b> — 提供统计量, 数值反演是工程实现.</li>
+              <li><span class="cite-tag">CI 几何 4 分类继承</span><b>Fieller EC (1954)</b>, <i>JRSSB</i> 16:175 — K=1 4 shape; K≥2 数值地复现.</li>
+              <li><span class="cite-tag">Root-finding</span>R <code>stats::uniroot()</code> 实现 Brent 1973 算法 — 软件细节, 不需要额外 paper anchor.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>Closed-form (K=1)</b>: K ≥ 2 不存在.</li>
+            <li><b>Profile likelihood maximization</b>: 给的是 argmin (Step 8 用), 不是 level set 边界.</li>
+            <li><b>Bootstrap CI</b>: rare-variant + 弱 IV 下 bootstrap 也崩溃; 重采样不能修复 first-stage 接近 0 的问题.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>mrAR_multi()</code> in <code>rvMR/R/mrAR_multi.R:114</code>. Envelope <code>mrAR_multi.R:175-189</code>; grid extension <code>mrAR_multi.R:201-220</code>; sign-change <code>mrAR_multi.R:222-225</code>; uniroot <code>mrAR_multi.R:228-242</code>; 分类 <code>mrAR_multi.R:246-319</code>. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>Grid 太粗: 两个挨近 root 漏掉, disconnected_union 被误判 bounded_interval.</li>
+              <li>Envelope 太窄: 真无界 ray 被截断成有限 endpoint; 必须靠 extension loop 救.</li>
+              <li>把 uniroot 失败 (返 NA) 当 root 接受: 实现里 <code>mrAR_multi.R:243</code> 显式过滤非有限 root.</li>
+              <li>$V(\beta_0)$ singular 子区间不 inspect: 算法 mark +∞, 但用户应看 grid trace.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 8 -->
+    <section class="step-section multi" id="step8">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 8</span>
+          <span class="step-title">Sargan-J over-identification at the AR argmin</span>
+          <span class="step-subtitle">$J = \min AR \sim \chi^2_{K-1}$ · df = K-1, 不是 K</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>如果三个 mask 都真正在 instrument 同一个 $\beta$, 它们应该"在某个 $\hat\beta_{\rm AR}$ 处同时让残差变小". 残差 <i>都</i>小, AR 最小值 $\min_{\beta_0} AR(\beta_0)$ 就小 — 在 $H_0$ 下服从 $\chi^2_{K-1}$. 大的 J 说明"没有一个 $\beta$ 能让三 mask 都 happy" → 至少 1 个 mask 在违反 IV 假设.</p>
+          <p>为什么 df = $K-1$ 而不是 $K$? 直观: $AR(\beta_0)$ 在固定 $\beta_0$ 下是 K 维 $\chi^2$. 取 min 等于估了 1 个参数 ($\hat\beta_{\rm AR}$), 类比 OLS 的 $\chi^2_{n-p}$, df 减 1. 所以 $J \sim \chi^2_{K-1}$.</p>
+          <p>J 是 <i>联合</i> 检验: "至少一个 mask 错了". 不告诉你 <i>哪个</i> mask 错了. 定位需要 Step 10 (HEIDI-rv, mask 内) 和 Step 11 (annotation Q, mask 间).</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          \hat\beta_{\rm AR} \;=\; \arg\min_{\beta_0}\, AR(\beta_0)
+          $$
+          $$
+          \boxed{\;J \;=\; AR(\hat\beta_{\rm AR}) \;\xrightarrow{\text{joint IV validity}}\; \chi^2_{K-1}\;}
+          $$
+          </div>
+          <p>P-value: $1 - F_{\chi^2_{K-1}}(J)$. Reject homogeneity (i.e. 声明 horizontal pleiotropy across masks) iff $J > \chi^2_{K-1, 1-\alpha}$.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">over-id 检验起源</span><b>Sargan JD (1958)</b>. The Estimation of Economic Relationships Using Instrumental Variables. <i>Econometrica</i> 26(3):393–415.</li>
+              <li><span class="cite-tag">GMM J 现代推广</span><b>Hansen LP (1982)</b>. Large Sample Properties of Generalized Method of Moments Estimators. <i>Econometrica</i> 50(4):1029–1054. rvSMR 的 J 是 GMM form 在 two-sample summary MR 的特例.</li>
+              <li><span class="cite-tag">MR setting AR-J</span><b>Patel-Lane-Burgess (2024)</b> arXiv:2408.09868. MR 多 IV 下的 J.</li>
+              <li><span class="cite-tag">df = K-1 的推导</span>直接来自 Sargan 1958: over-id 自由度 = #IVs − #endogenous parameters = $K - 1$ (只有 1 个 endogenous causal effect $\beta$).</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>Cochran's Q on Wald ratios</b> (Bowden 2017): 对 K 个 mask 的 Wald 比做 inverse-variance Q. 但 Q 依赖 Wald delta SE, 弱 IV 下崩溃.</li>
+            <li><b>MR-Egger intercept</b> (Bowden 2015 <i>Int J Epidemiol</i> 44:512): 测 directional pleiotropy. 假设 InSIDE, 罕见变体不稳.</li>
+            <li><b>MR-PRESSO</b> (Verbanck 2018 <i>Nat Genet</i> 50:693): outlier removal — K=3 移除 1 个 = 33% 数据丢, 太激进.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>mrAR_multi()</code> in <code>rvMR/R/mrAR_multi.R:114</code>. <code>stats::optimize()</code> argmin + grid fallback 在 <code>mrAR_multi.R:321-335</code>; J p-value (df = K-1) 在 <code>mrAR_multi.R:337-341</code>. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>报 $J \sim \chi^2_K$: 自由度错, 反保守, 漏检 pleiotropy.</li>
+              <li>把小 J 解读成 "没 pleiotropy": 实际是 "没 <i>跨 mask</i> 异质性"; coherent pleiotropy (Step 14) 无法被 J 检测.</li>
+              <li>用别的 argmin (e.g. delta-method midpoint) 算 J: J 特指 min AR.</li>
+              <li>K=1 时强行报 J: 不存在 over-id (df = 0), 函数返 NA.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 9 -->
+    <section class="step-section multi" id="step9">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 9</span>
+          <span class="step-title">Sample-overlap correction via the AR cross-term</span>
+          <span class="step-subtitle">cross-term sign-flip with β₀ → asymmetric CI</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>如果 exposure 端和 outcome 端有 <i>样本重叠</i> (e.g. 都用 UKB), 两端的 $\hat b_x$ 和 $\hat b_y$ 不再独立, 它们的 sampling error 有 correlation $\rho \neq 0$. AR 公式分母里要加 cross-term 来吃掉这层相关.</p>
+          <p>关键洞察: cross-term 跟 $\beta_0$ 成线性, <b>而且符号会翻</b>. 当 $\beta_0$ 跨过 0, cross-term 反号 — 同一个 $\rho$ 在 $\beta_0 > 0$ 端膨胀 CI, 在 $\beta_0 < 0$ 端收缩 CI. 这让 AR CI 关于 0 <i>不对称</i>, 即使 $\rho$ 是常数.</p>
+          <p>默认两样本 ($\rho = 0$ / $R_{xy} = \mathbf{0}$) 时该项消失.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <p>K=1:</p>
+          <div class="formula-box">
+          $$
+          \mathrm{denom}(\beta_0) \;=\; \mathrm{SE}_y^2 + \beta_0^2 \mathrm{SE}_x^2 \;\boxed{- 2\beta_0 \rho \mathrm{SE}_x \mathrm{SE}_y}.
+          $$
+          </div>
+          <p>K ≥ 2:</p>
+          <div class="formula-box">
+          $$
+          V(\beta_0) \;=\; D_y R_{yy} D_y + \beta_0^2 D_x R_{xx} D_x \;\boxed{- 2 \beta_0 D_y R_{xy} D_x}.
+          $$
+          </div>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">两样本 MR sample overlap 修正</span><b>Burgess S, Davies NM, Thompson SG (2016)</b>. Bias due to participant overlap in two-sample Mendelian randomization. <i>Genetic Epidemiology</i> 40(7):597–608. <span style="color: var(--c-warn);">(注意是 Burgess <b>et al. 2016</b>, <b>不是</b> Burgess-Butterworth-Thompson 2013 — 后者是 summary-stat MR base paper.)</span></li>
+              <li><span class="cite-tag">cross-term 代数推导</span><b>Anderson-Rubin (1949)</b> + <b>Wang-Kang (2022)</b> §2.3 — 把 $V(\beta_0)$ 在 sample overlap 下的形式写下.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>LDSC intercept correction</b> (Bulik-Sullivan 2015 <i>Nat Genet</i> 47:291): intercept 把 overlap 和 cross-trait genetic covariance 混淆, rare-variant 下尤其不可靠.</li>
+            <li><b>Re-running on disjoint subsamples</b>: 解决 overlap 但损失 ~50% 样本量.</li>
+            <li><b>Ignoring overlap (设 $\rho=0$)</b>: silent type-I error inflation 当 $\rho > 0$ 且 $\beta_0$ 与 $\hat\beta$ 同号.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p>K=1: <code>mrAR.R:116</code> 的 $B$ 系数 $-2(\hat b_x \hat b_y - c \rho \mathrm{SE}_x \mathrm{SE}_y)$. K≥2: <code>mrAR_multi.R:157</code> 的 $V_{xy} = D_y R_{xy} D_x$, 在 <code>mrAR_multi.R:164</code> propagate 到 closure. <span class="stub-tag impl">✅ implemented</span></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>一样本分析默认 $\rho = 0$: 常见 silent bug.</li>
+              <li>顺序写反 $D_x R_{xy} D_y$ 而非 $D_y R_{xy} D_x$.</li>
+              <li>LDSC intercept 估 $R_{xy}$ 不查重叠比例.</li>
+              <li>忘记 cross-term sign-flip 让 CI 关于 0 不对称.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <div class="section-banner" style="border-left-color: var(--c-overid); color: var(--c-overid);">Part IV · Over-identification axes (Steps 10-12)</div>
+
+    <!-- STEP 10 -->
+    <section class="step-section overid" id="step10">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 10</span>
+          <span class="step-title">HEIDI-rv within-burden heterogeneity · headline trap</span>
+          <span class="step-subtitle">$T \sim$ generalized $\chi^2$, weights = nonzero eig($V_\delta$), <b>NOT</b> $V_\delta^+ V_\delta$</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>Sargan-J (Step 8) 检验 <i>mask 间</i> 同质性; HEIDI-rv 检验 <i>mask 内</i> 同质性. 也就是: 在同一 mask 里的 $m$ 个 variant, 它们的 <i>per-variant Wald 比</i> $\hat\beta_{xy}^{(j)} = \hat b_{y,j} / \hat b_{x,j}$ 应该彼此一致 — 如果 mask 的 IV 假设成立, 每个 variant 估的都是同一个 $\beta$.</p>
+          <p>经典 HEIDI (Zhu 2016 <i>Nat Genet</i> 48:481, common-variant SMR) 是给同一基因附近 LD-相关的 SNP 设计的. Rare-variant 没有 LD partner — HEIDI-rv 必须重写为 <i>contrast test</i>: 选一个零均 contrast 矩阵 $C$, 算 $\delta = C \hat{\boldsymbol\beta}_{xy}^{\rm per-var}$, 它的方差 $V_\delta = C \Sigma_{\hat\beta} C^\top$. 检验 $\delta = 0$ — 即 $m$ 个 per-variant Wald 比互相相等.</p>
+          <p><b>关键统计细节 (headline trap):</b> $V_\delta$ 通常 <i>rank-deficient</i>. 在 $H_0$ 下 $\delta \sim \mathcal{N}(\mathbf{0}, V_\delta)$, 检验统计量是 <i>未归一化</i> 的二次型 $T = \delta^\top \delta$, 它服从 <b>广义 $\chi^2$</b> — 独立 $\chi^2_1$ 的加权和, 权重 = <b>$V_\delta$ 本身</b> 的特征值. 尾概率由 Davies 1980 算法精确算 (<code>CompQuadForm::davies</code>); 鞍点近似见 Kuonen 1999.</p>
+          <p style="background: rgba(244, 112, 103, 0.08); border-left: 3px solid var(--c-trap); padding: 8px 12px; border-radius: 4px;"><b>📌 main.tex Step 10 公式 (32-34) 勘误 (Team 1 验证 2026-06-08):</b> 早期 draft 把 $T = \delta^\top V_\delta^+ \delta$ (Mahalanobis form, 服从 $\chi^2_{\mathrm{rank}(V_\delta)}$) 跟 "Davies 权重 = $V_\delta$ 非零特征值" 配对 — 这是 <b>不一致</b>. 数值模拟 ($m=4$): 这种 literal 配对给 ~99% Type-I error at nominal 5%. 正确做法有两种, rvMR 实现采用第一种:
+          <br>(1) <b>$T = \delta^\top \delta$</b> + Davies 权重 = 特征值 of $V_\delta$ → 广义 $\chi^2$ via Davies (rvSMR 用这个; 跟 Davies 1980 一致, 模拟 4.8% Type-I error at nominal 5%, 均匀 null p-values).
+          <br>(2) <b>$T = \delta^\top V_\delta^+ \delta$</b> + reference distribution $\chi^2_{\mathrm{rank}(V_\delta)}$ → Mahalanobis form 直接给 plain $\chi^2$ (Davies 是多余的). rvMR 把这个作为 diagnostic sister 报告 <code>T_mahalanobis</code>, <code>p_mahalanobis</code>.
+          <br>本 HTML 用的是 (1). 早期 main.tex 文字把两者混在一起, 需要勘误.</p>
+          <p>诚实表态: HEIDI-rv 在 mask 大小 $m$ 大时 <i>power 差</i>. 单个 pleiotropy variant 在 burden 内只贡献 $\mathcal{O}(1/m)$ 信号, $m=50$ 时几乎检测不到. rvSMR 把它定位为 <b>sanity check</b>, 不是 primary pleiotropy test.</p>
+
+          <div class="sub-badge math">数学 · Mathematics (corrected)</div>
+          <div class="formula-box">
+          $$
+          \delta \;=\; C \hat{\boldsymbol\beta}_{xy}^{\rm per-var} \in \mathbb{R}^{m-1}, \qquad V_\delta \;=\; C \Sigma_{\hat\beta} C^\top \in \mathbb{R}^{(m-1) \times (m-1)}.
+          $$
+          $$
+          \boxed{\;T \;=\; \delta^\top \delta \;\stackrel{H_0}{\sim}\; \sum_{i=1}^{\mathrm{rank}(V_\delta)} \lambda_i\, \chi^2_{1,i}, \quad \lambda_i = \text{非零特征值 of } V_\delta\;}
+          $$
+          $$
+          \Pr(T \ge t \mid H_0) \;=\; \texttt{CompQuadForm::davies}(q = t,\, \lambda = \mathrm{eig}_{\ne 0}(V_\delta)).
+          $$
+          </div>
+          <p>Mahalanobis diagnostic sister: $T_M = \delta^\top V_\delta^+ \delta \stackrel{H_0}{\sim} \chi^2_{\mathrm{rank}(V_\delta)}$. rvMR 同时输出.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">HEIDI 起源 (common-variant)</span><b>Zhu Z, et al. (2016)</b>. Integration of summary data from GWAS and eQTL studies predicts complex trait gene targets. <i>Nature Genetics</i> 48(5):481–487. HEIDI = HEterogeneity In Dependent Instruments.</li>
+              <li><span class="cite-tag">广义 $\chi^2$ 尾概率</span><b>Davies RB (1980)</b>. Algorithm AS 155: The Distribution of a Linear Combination of $\chi^2$ Random Variables. <i>Applied Statistics (JRSS Series C)</i> 29(3):323–333.</li>
+              <li><span class="cite-tag">Saddlepoint 近似备用</span><b>Kuonen D (1999)</b>. Saddlepoint approximations for distributions of quadratic forms in normal variables. <i>Biometrika</i> 86(4):929–935.</li>
+              <li><span class="cite-tag">rvSMR 的 contribution</span>把 HEIDI 适配到 rare-variant: within-burden contrast + Moore-Penrose + correct Davies 权重. 新方法, Step 10 描述的就是 rvSMR 的 contribution.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>LD-based HEIDI 原版</b>: rare variant 没有 LD partner, 不可用.</li>
+            <li><b>MR-PRESSO outlier removal</b>: 适合 common-variant 多 SNP MR, rare-variant burden 内不便.</li>
+            <li><b>Single-variant leave-one-out</b>: 等价于 HEIDI-rv 的特殊 contrast (每次删 1 个 variant), 但漏掉对全 contrast space 的检验.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>heidi_rv()</code> in <code>rvMR/R/heidi_rv.R</code> <span class="stub-tag impl">✅ implemented (Team 1, 2026-06-08)</span> — 实现 $T = \delta^\top \delta$ + <code>CompQuadForm::davies(q=T, lambda=eig_nz(V_delta))</code>; Mahalanobis sister (<code>T_mahalanobis</code>, <code>p_mahalanobis</code>) 同时报告. 8 testthat 断言通过.</p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li><b>HEADLINE TRAP (corrected per Team 1 erratum)</b>: 把 Mahalanobis form $T = \delta^\top V_\delta^+ \delta$ 跟 Davies "权重 = 非零特征值 of $V_\delta$" 配对. 这两者数学上不一致 — Mahalanobis 服从 plain $\chi^2_{\mathrm{rank}(V_\delta)}$, 不是广义 $\chi^2$. 数值模拟显示 literal main.tex 配对在 m=4 时给 99% Type-I error. <b>正确做法</b>: $T = \delta^\top \delta$ + Davies 权重 = $V_\delta$ 特征值. (或者用 Mahalanobis form 但 reference 是 $\chi^2_{\mathrm{rank}(V_\delta)}$, Davies 不必要.)</li>
+              <li>Zero eigenvalues 不丢: monomorphic-in-sample variants 让 $V_\delta$ rank-deficient, 0-weight $\chi^2_1$ component 数值上仍贡献 df.</li>
+              <li>当 primary pleiotropy test 用: $\mathcal{O}(1/m)$ 不敏感性.</li>
+              <li>从 STAARpipeline aggregate output 跑 HEIDI-rv: 需要 SAIGE-QTL 和 Genebass single-variant mode 重跑 + LD 矩阵.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 11 -->
+    <section class="step-section overid" id="step11">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 11</span>
+          <span class="step-title">Annotation-class concordance via pQTL-anchor normalization</span>
+          <span class="step-subtitle">Cochran's Q across (pLoF, mis:LC, reg) on protein-unit scale</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>Step 8 的 Sargan-J 假设三 mask 估的都是同一个 $\beta$. 但 <i>raw</i> burden Wald 比在三 mask 间天然不可比: pLoF 把蛋白完全打掉, missense:LC 部分损失, regulatory 改变表达水平 — 三类 mask 把 <i>burden 映射到 protein abundance</i> 的 effect 完全不同. 同一个下游 $X \to Y$ 因果效应, 在三 mask 上会被放大不同的 mediator scale.</p>
+          <p>解决: 用 pQTL anchor (UKB-PPP rare-variant burden-on-protein effect $\hat\beta^{(k)}_{\rm burden \to protein}$) 做 mediator-scale normalization. 把每个 class 的 burden-on-outcome 除以它的 burden-on-protein, 得到 <i>per-protein-unit</i> slope $\tilde\beta^{(k)}_{xy}$. 现在三 class 在同一尺度上, 可以做 Cochran's Q 检验同质性.</p>
+          <p>大 Q → mechanism 异质: 可能是 dominant-negative (pLoF vs missense 效应反号), gain-of-function (missense 异常激活), regulatory-only effect — <b>flag for mechanism investigation</b>, 不是自动 reject.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          \tilde\beta^{(k)}_{xy} \;=\; \frac{\hat\beta^{(k)}_{\rm burden \to y}}{\hat\beta^{(k)}_{\rm burden \to protein}}
+          $$
+          $$
+          \boxed{\;Q \;=\; \sum_{k=1}^K w_k\, \bigl(\tilde\beta^{(k)}_{xy} - \bar{\tilde\beta}\bigr)^2 \;\xrightarrow{H_0}\; \chi^2_{K-1}\;}
+          $$
+          $$
+          w_k = \frac{1}{\mathrm{Var}(\tilde\beta^{(k)}_{xy})},\quad \bar{\tilde\beta} = \frac{\sum_k w_k \tilde\beta^{(k)}_{xy}}{\sum_k w_k}.
+          $$
+          </div>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">Cochran's Q 同质性</span><b>Cochran WG (1954)</b>. The combination of estimates from different experiments. <i>Biometrics</i> 10(1):101–129.</li>
+              <li><span class="cite-tag">UKB-PPP rare-variant pQTL anchor</span><b>Dhindsa RS, et al. (2023)</b>. Rare variant associations with plasma protein levels in the UK Biobank. <i>Nature</i> 622(7982):339–347.</li>
+              <li><span class="cite-tag">deCODE pQTL alternative</span><b>Ferkingstad E, et al. (2021)</b>. Large-scale integration of the plasma proteome with genetics and disease. <i>Nature Genetics</i> 53(12):1712–1721.</li>
+              <li><span class="cite-tag">DO NOT cite</span>UKB-PPP <i>common-variant</i> (Sun BB 2023 <i>Nature</i> 622:329): scale 转换错; 用 rare-variant burden-on-protein. <br>Han-Eskin 2011 <i>AJHG</i> 88:586: 是 random-effects meta-analysis, <b>不是</b> sign-concordance test.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>Skip normalization</b> (raw 三 class 直接做 Q): scale 差距大, 总是 disagree, Q 永远 reject.</li>
+            <li><b>Common-variant pQTL anchor</b> (Sun BB 2018 INTERVAL / Sun BB 2023 UKB-PPP common): scale 转换不对.</li>
+            <li><b>Han-Eskin 2011</b> (sign concordance 误引): 那是 random-effects meta-analysis, 不是 sign concordance.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>annotation_concord()</code> in <code>rvMR/R/annotation_concord.R</code> <span class="stub-tag impl">✅ implemented (Team 1, 2026-06-08)</span> — Cochran 1954 + pQTL-anchor delta-method 归一化. ~135 行, 7 testthat 断言通过. Roxygen 记 <code>estimates_list</code> schema 含 <code>b_burden_to_protein</code>, <code>se_burden_to_protein</code> per class.</p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>Skip pQTL normalization → Q 永远 reject.</li>
+              <li>用 common-variant pQTL 而不是 rare-variant burden-on-protein.</li>
+              <li>引 Han-Eskin 2011 作 sign concordance source.</li>
+              <li>把小 Q 读成 "no pleiotropy" — coherent pleiotropy 通过同上游 confounder 同时影响三 class, Q 不动.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 12 -->
+    <section class="step-section overid" id="step12">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 12</span>
+          <span class="step-title">Cell-type concordance</span>
+          <span class="step-subtitle">Cochran's Q across 28 PBMC immune cell types</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>第三个 over-id 轴: cell type. 同一个 (gene, mask) 在 $C=28$ 个免疫 cell type 里跑出 C 个 burden Wald 比. 如果 $\beta$ 是基因层面性质 (而非 cell-type-specific artifact), 它们应该都同意 — Cochran Q 检验.</p>
+          <p>异质性可能是 <i>feature</i> (e.g. hepatocyte-specific PCSK9 → LDL, 是真生物学) 也可能是 <i>bug</i> (cell-type-specific pleiotropy). Q 本身不区分, 需要 mechanism follow-up.</p>
+          <p>注意: TenK10K Phase 1 只有 PBMC (28 个免疫亚型). Hepatocyte / adipocyte 要等 Phase 2.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <div class="formula-box">
+          $$
+          Q_{\rm cell} \;=\; \sum_{c=1}^C w_c (\hat\beta^{(c)}_{xy} - \bar\beta)^2 \;\xrightarrow{H_0}\; \chi^2_{C-1}, \quad w_c = 1/\mathrm{Var}(\hat\beta^{(c)}_{xy}).
+          $$
+          </div>
+          <p>或完整 stratified AR: 把 $K$ mask $\times C$ cell type 一起 stack 成 $K \cdot C$ 个 IV, 跑 Step 6 multi-IV AR.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">TenK10K Phase 1 substrate (28 PBMC)</span><b>Cuomo ASE, et al. (2025)</b>. TenK10K Phase 1: cell-type-specific eQTLs in 28 PBMC immune cell types. <i>medRxiv</i> 2025.03.20.25324352.</li>
+              <li><span class="cite-tag">cell-type cis-MR comparator</span><b>Ray D, et al. (2025)</b>. Single-cell cis-Mendelian randomization across 14 immune cell types. <i>American Journal of Human Genetics</i> 112(7):1597. <span style="color: var(--c-warn);">(<b>NOT "Ge 2025"</b> — 那是早期 draft 的 confabulation.)</span></li>
+              <li><span class="cite-tag">Cochran Q (同 Step 11)</span><b>Cochran WG (1954)</b>. <i>Biometrics</i> 10:101.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>OneK1K</b> (Yazar 2022 <i>Science</i> 376:eabf3041): 14 immune subsets, 样本量小. TenK10K 是 OneK1K 升级.</li>
+            <li><b>Bulk eQTL (GTEx)</b>: 没有 cell-type resolution.</li>
+            <li><b>Cell-type pseudobulk + bulk MR</b>: 损失 cell-type stratification 的 over-id 信息.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>cell_type_q()</code> in <code>rvMR/R/cell_type_concord.R</code> <span class="stub-tag impl">✅ implemented (Team 1 new file, 2026-06-08)</span> — Cochran 1954 across cell types, ~190 行, 7 testthat 断言通过. Wrapper 调用 <code>wald_burden()</code> (<code>wald_burden.R:77</code>) + <code>mrAR()</code> (<code>mrAR.R:88</code>) over cell types.</p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>充 C 太多: cell type 里只有几个 donor 携带 mask variant, SE 不稳, Q 被噪声主导.</li>
+              <li>声称 hepatocyte 分辨率从 TenK10K Phase 1 跑出来: Phase 1 是 PBMC, Phase 2 才有 hepatocyte.</li>
+              <li>引 "Ge 2025" 作 sc-cis-MR comparator: 错的, 应当是 <b>Ray 2025 <i>AJHG</i> 112(7):1597</b>.</li>
+              <li>把 cell-type Q 和 annotation Q 用 Fisher 合并而不考虑 shared (g) axis: 不独立.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <div class="section-banner" style="border-left-color: var(--c-decide); color: var(--c-decide);">Part V · Sensitivity + decision (Steps 13-14)</div>
+
+    <!-- STEP 13 -->
+    <section class="step-section decide" id="step13">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 13</span>
+          <span class="step-title">Sensitivity scalars (Cinelli-Hazlett RV and E-value)</span>
+          <span class="step-subtitle">honest limit, not a fix</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>前 12 步都假设 IV exclusion restriction 成立 (no confounder 联通 IV → Y 绕过 X). 但 <i>coherent pleiotropy</i> — 三 mask 都通过同一上游 confounder 影响 Y — Sargan-J + HEIDI-rv + class Q + cell-type Q 都看不见.</p>
+          <p>最后的防线是 <i>sensitivity analysis</i>: 计算 "要破坏当前结论, unobserved confounder 至少要多强". 两个 metric:</p>
+          <ol>
+            <li><b>Robustness value RV</b> (Cinelli-Hazlett 2025): 最小的 partial $R^2$, 让一个 unobserved 违反 exclusion 的 confounder 同时跟 IV 和 outcome 关联, 把效应推到 null.</li>
+            <li><b>E-value</b> (VanderWeele-Ding 2017, Swanson-VanderWeele 2020 MR adaptation): 在 risk-ratio 尺度上, 最小的 confounder-arm association 强度可以把 $\hat\beta_{xy}$ 解释掉.</li>
+          </ol>
+          <p>高 RV + 高 E → effect 难以被 confounder 解释; 低 → fragile.</p>
+          <p>诚实表态: 这是 <b>honest limit, not a fix</b>. Sensitivity 量化弱点, 不修复弱点 — Wang-Tchetgen 2018 partial-identification bounds 是更强但更保守的工具.</p>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <p>IV partial $R^2$ + RV:</p>
+          <div class="formula-box">
+          $$
+          R^2_{Z\to X} \;\approx\; \frac{t^2}{t^2 + n_x - 2}, \quad t = \frac{\hat b_x}{\mathrm{SE}_x}
+          $$
+          $$
+          \boxed{\;RV \;=\; \frac{\sqrt{t^2 + 4} - t}{2}\;}
+          $$
+          </div>
+          <p>E-value (continuous outcome via Swanson-VanderWeele RR approximation):</p>
+          <div class="formula-box">
+          $$
+          \mathrm{RR} \;\approx\; \exp(0.91 \cdot \beta_{\rm std}), \quad E \;=\; \mathrm{RR} + \sqrt{\mathrm{RR}(\mathrm{RR} - 1)}.
+          $$
+          </div>
+          <p>报 $E_{\rm point}$ (at point estimate) 和 $E_{\rm CI}$ (at CI bound nearest null) — 后者更保守, 是标准报告值.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">PRIMARY (IV setting)</span><b>Cinelli C, Hazlett C (2025)</b>. An omitted variable bias framework for sensitivity analysis of instrumental variables. <i>Biometrika</i> asaf004. doi:10.1093/biomet/asaf004.</li>
+              <li><span class="cite-tag">SECONDARY (OLS origin)</span><b>Cinelli C, Hazlett C (2020)</b>. Making Sense of Sensitivity: Extending Omitted Variable Bias. <i>JRSS-B</i> 82(1):39–67.</li>
+              <li><span class="cite-tag">MR E-value adaptation</span><b>Swanson SA, VanderWeele TJ (2020)</b>. E-Values for Mendelian Randomization. <i>Epidemiology</i> 31(3):e23–e24. (Note letter format, e-pages.)</li>
+              <li><span class="cite-tag">E-value origin (OLS observational)</span><b>VanderWeele TJ, Ding P (2017)</b>. Sensitivity analysis in observational research: introducing the E-value. <i>Annals of Internal Medicine</i> 167(4):268–274.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>MR-Egger intercept</b> (Bowden 2015): 测 directional pleiotropy, 需 ≥ 3 IV 且 InSIDE.</li>
+            <li><b>Bidirectional MR</b> (Hemani 2017): direction test, 不是 sensitivity bound.</li>
+            <li><b>Partial-identification bounds</b> (Wang-Tchetgen 2018 <i>JRSS-B</i> 80:531): 更保守, 给 [lower, upper] 区间. Step 14 辅助工具; Step 13 用 RV/E 是更简洁的 sensitivity scalar.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p><code>iv_partial_r2()</code> in <code>rvMR/R/sensitivity.R</code> <span class="stub-tag impl">✅ implemented (Team 1, 2026-06-08)</span> — Cinelli-Hazlett 2025 IV partial $R^2$ + RV, ~50 行, 7 testthat 断言通过.<br><code>e_value()</code> in <code>rvMR/R/sensitivity.R</code> <span class="stub-tag impl">✅ implemented (Team 1, 2026-06-08)</span> — Swanson-VanderWeele 2020 + VanderWeele-Ding 2017, ~55 行, 7 testthat 断言通过.</p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li><b>Sign error</b>: RV 应是 $(\sqrt{t^2+4} - t)/2$ (positive scalar). 反号 $(t - \sqrt{t^2+4})/2$ 是负数, 无意义.</li>
+              <li>只引 2020 <i>JRSS-B</i> OLS 而不引 2025 <i>Biometrika</i> IV: 2025 是 PRIMARY IV 参考, 2020 是 OLS 起源.</li>
+              <li>RR 近似系数错: Swanson-VanderWeele 2020 fix 0.91, 不要随便改.</li>
+              <li>只报 $E_{\rm point}$: 标准是 $E_{\rm CI}$.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- STEP 14 -->
+    <section class="step-section decide" id="step14">
+      <details class="step-details" open>
+        <summary>
+          <span class="step-num-pill">Step 14</span>
+          <span class="step-title">Gene-level decision rule · 综合判定</span>
+          <span class="step-subtitle">conjunctive across 6 axes; conservative under coherent pleiotropy</span>
+        </summary>
+        <div class="step-body">
+
+          <div class="sub-badge intuition">直觉 · Intuition</div>
+          <p>把六根诊断 (AR CI, J, HEIDI-rv, class Q, cell Q, RV/E) 合到一个 gene-level 标签. 决策树是 <b>合取式</b> (所有 over-id 轴必须通过) + <b>保守</b> (coherent pleiotropy 下默认 inconclusive).</p>
+          <p>标签三类:</p>
+          <ul>
+            <li><b style="color: var(--c-good);">causal</b>: AR CI 排除 0, J 不显著, 每 mask HEIDI-rv 不显著, class Q 不显著, cell Q 不显著, $RV, E_{\rm CI}$ 高于阈值.</li>
+            <li><b style="color: var(--c-warn);">inconclusive</b>: AR CI 包含 0 (whole_line / 含 0 的 bounded) 或 sensitivity 低于阈值.</li>
+            <li><b style="color: var(--c-trap);">pleiotropy-suspect</b>: J / HEIDI-rv / class Q 任一显著.</li>
+          </ul>
+          <p>诚实表态: 即便所有轴通过, <b>coherent pleiotropy 仍然能逃过</b>. 三 mask 都通过同一 confounder → 每 mask 内同质 (HEIDI-rv 通过), mask 间一致 (Sargan-J + class Q 通过), 每 cell type 一致 (cell Q 通过). 唯一防线是 RV/E 量化 confounder 强度 + Wang-Tchetgen 2018 partial-identification bounds.</p>
+
+          <!-- Decision flowchart SVG -->
+          <div class="pipeline-overview" style="margin: 14px 0;">
+            <svg viewBox="0 0 760 520" width="100%" style="max-width: 760px;" xmlns="http://www.w3.org/2000/svg">
+              <text class="svg-title" x="380" y="22" text-anchor="middle">Step 14 决策树 · D1 → D6 → 标签</text>
+
+              <!-- D1 -->
+              <rect class="box-k1" x="280" y="50" width="200" height="40" rx="6"/>
+              <text class="label" x="380" y="68" text-anchor="middle">D1: AR CI 排除 0?</text>
+              <text class="label-sm" x="380" y="82" text-anchor="middle">Step 7 输出</text>
+
+              <!-- D1 outcomes -->
+              <path class="arrow" d="M 380 92 L 380 120"/>
+              <text class="label-sm" x="395" y="105">是</text>
+              <path class="arrow" d="M 280 70 Q 160 70 100 120"/>
+              <text class="label-sm" x="180" y="65">whole_line</text>
+              <rect class="box-overid" x="40" y="120" width="160" height="38" rx="6"/>
+              <text class="label" x="120" y="143" text-anchor="middle">inconclusive</text>
+
+              <!-- D2 -->
+              <rect class="box-k1" x="280" y="120" width="200" height="40" rx="6"/>
+              <text class="label" x="380" y="138" text-anchor="middle">D2: J 不显著?</text>
+              <text class="label-sm" x="380" y="152" text-anchor="middle">$J \le \chi^2_{K-1, 1-\alpha}$</text>
+
+              <path class="arrow" d="M 380 162 L 380 190"/>
+              <text class="label-sm" x="395" y="175">是</text>
+              <path class="arrow" d="M 480 140 Q 600 140 640 190"/>
+              <rect class="box-overid" x="560" y="190" width="160" height="38" rx="6"/>
+              <text class="label" x="640" y="213" text-anchor="middle">pleiotropy-suspect</text>
+
+              <!-- D3 -->
+              <rect class="box-k1" x="280" y="190" width="200" height="40" rx="6"/>
+              <text class="label" x="380" y="208" text-anchor="middle">D3: HEIDI-rv 不显著 (每 mask)?</text>
+
+              <path class="arrow" d="M 380 232 L 380 260"/>
+              <text class="label-sm" x="395" y="245">是</text>
+              <path class="arrow" d="M 480 210 Q 600 240 640 230"/>
+
+              <!-- D4 -->
+              <rect class="box-k1" x="280" y="260" width="200" height="40" rx="6"/>
+              <text class="label" x="380" y="278" text-anchor="middle">D4: class Q 不显著?</text>
+
+              <path class="arrow" d="M 380 302 L 380 330"/>
+              <text class="label-sm" x="395" y="315">是</text>
+              <path class="arrow" d="M 480 280 Q 600 280 640 230"/>
+
+              <!-- D5 -->
+              <rect class="box-k1" x="280" y="330" width="200" height="40" rx="6"/>
+              <text class="label" x="380" y="348" text-anchor="middle">D5: cell Q 不显著 (or feature)?</text>
+
+              <path class="arrow" d="M 380 372 L 380 400"/>
+              <text class="label-sm" x="395" y="385">是</text>
+
+              <!-- D6 -->
+              <rect class="box-k1" x="280" y="400" width="200" height="40" rx="6"/>
+              <text class="label" x="380" y="418" text-anchor="middle">D6: RV ≥ 0.05 &amp; E_CI ≥ 1.5?</text>
+
+              <path class="arrow" d="M 380 442 L 380 470"/>
+              <text class="label-sm" x="395" y="455">是</text>
+              <path class="arrow" d="M 280 420 Q 180 420 120 470"/>
+
+              <rect class="box-overid" x="40" y="470" width="160" height="38" rx="6"/>
+              <text class="label" x="120" y="493" text-anchor="middle">inconclusive (fragile)</text>
+
+              <rect class="box-decide" x="300" y="470" width="160" height="38" rx="6"/>
+              <text class="label" x="380" y="493" text-anchor="middle" font-weight="600">causal</text>
+            </svg>
+          </div>
+
+          <div class="sub-badge math">数学 · Mathematics</div>
+          <p>决策树 (D1 - D6):</p>
+          <ol>
+            <li><b>D1 — AR CI 排除 0?</b> 若 bounded / disconnected 且不含 0, → 非空信号; whole_line → inconclusive; empty → numerical artifact, refine grid.</li>
+            <li><b>D2 — J 不显著?</b> 若 $J > \chi^2_{K-1, 1-\alpha}$ → pleiotropy-suspect.</li>
+            <li><b>D3 — HEIDI-rv 不显著?</b> 任一 mask reject → 降级 pleiotropy-suspect.</li>
+            <li><b>D4 — Class Q 不显著?</b> Reject → pleiotropy-suspect / mechanism-investigate.</li>
+            <li><b>D5 — Cell Q 不显著?</b> Reject → cell-type-specific note, judge biology.</li>
+            <li><b>D6 — Sensitivity floor?</b> $RV < 0.05$ 或 $E_{\rm CI} < 1.5$ → inconclusive (fragile).</li>
+          </ol>
+          <p>只有 D1-D6 全过, 才报 <b>causal</b>.</p>
+
+          <div class="sub-badge paper">这一步用了哪篇 paper 的什么方法</div>
+          <div class="cite-card">
+            <ul>
+              <li><span class="cite-tag">Decision-rule 合成</span>是 rvSMR 的设计选择, 综合前 13 步.</li>
+              <li><span class="cite-tag">Coherent pleiotropy fallback</span><b>Wang L, Tchetgen Tchetgen EJ (2018)</b>. Bounded, Efficient and Multiply Robust Estimation of Average Treatment Effects Using Instrumental Variables. <i>JRSS-B</i> 80(3):531–550. Partial-identification bounds under invalid IV.</li>
+              <li><span class="cite-tag">Pleiotropy 传统对照</span><b>Bowden J, Davey Smith G, Burgess S (2015)</b>. Mendelian randomization with invalid instruments: effect estimation and bias detection through Egger regression. <i>International Journal of Epidemiology</i> 44(2):512–525.</li>
+              <li><span class="cite-tag">Honest-limit framing</span><b>Cinelli-Hazlett 2025</b> — sensitivity quantifies, doesn't fix.</li>
+            </ul>
+          </div>
+
+          <div class="sub-badge altern">为什么不用替代方案</div>
+          <ul>
+            <li><b>Single-test paradigm</b> (e.g. 只看 AR CI): 忽视 over-id, J 反 alarm 时仍 report.</li>
+            <li><b>Voting across methods</b> (IVW + Egger + Median-IVW majority): 每个 method 的 weak-IV failure mode 不同, vote 不解决 coherent pleiotropy.</li>
+            <li><b>Bayesian model average</b> (RARE 用类似思路): credible interval 不给 frequentist coverage 保证, 监管口径下不被接受.</li>
+          </ul>
+
+          <div class="sub-badge code">R 代码位置</div>
+          <p>决策树不在单一函数里, 是 calling convention: 组合 <code>wald_burden()</code> (<code>wald_burden.R:77</code>), <code>mrAR()</code> (<code>mrAR.R:88</code>), <code>mrAR_multi()</code> (<code>mrAR_multi.R:114</code>), <code>heidi_rv()</code> (<code>heidi_rv.R</code> <span class="stub-tag impl">✅</span>), <code>annotation_concord()</code> (<code>annotation_concord.R</code> <span class="stub-tag impl">✅</span>), <code>cell_type_q()</code> (<code>cell_type_concord.R</code> <span class="stub-tag impl">✅</span>), <code>iv_partial_r2()</code> + <code>e_value()</code> (<code>sensitivity.R</code> <span class="stub-tag impl">✅</span>). <b>Team 1 已实现全 5 stubs at 2026-06-08; 160 tests PASS, 0 FAIL.</b></p>
+
+          <div class="sub-badge pitfall">陷阱与注意点</div>
+          <div class="pitfall-box">
+            <ul>
+              <li>单一轴作 sufficient: 干净 AR CI + 失败 J 不是 causal call.</li>
+              <li>Non-rejection 当 proof of validity: coherent pleiotropy 看不见.</li>
+              <li>Stock-Yogo F > 10 pre-filter: 把 AR 整套设计的优势废掉.</li>
+              <li>报 $\hat\beta_{\rm AR}$ 不带 CI shape label: disconnected/whole_line 携带的信息被埋掉.</li>
+            </ul>
+          </div>
+
+        </div>
+      </details>
+    </section>
+
+    <!-- SUMMARY -->
+    <div class="summary-card" id="summary">
+      <h2>总结 · Summary</h2>
+      <p>The pipeline composes:</p>
+      <ul>
+        <li><b>Steps 0-2 (input prep)</b>: assemble + construct burden instruments (Madsen-Browning 2009 burden form, STAAR 2020 weights, SAIGE-QTL / SAIGE-GENE+ score tests).</li>
+        <li><b>Steps 3-4 (K=1 inference)</b>: per-mask Wald ratio + closed-form Anderson-Rubin CI with 4-shape geometry (Anderson-Rubin 1949, Fieller 1954, Wang-Kang 2022).</li>
+        <li><b>Steps 5-8 (multi-IV core)</b>: multi-IV AR + Sargan-J over-identification (K≥3 commitment for structural over-id power; Patel-Lane-Burgess 2024).</li>
+        <li><b>Step 9</b>: sample-overlap cross-term (Burgess-Davies-Thompson 2016).</li>
+        <li><b>Steps 10-12 (three over-id axes)</b>: HEIDI-rv within-burden (generalized $\chi^2$, weights from $V_\delta$ not $V_\delta^+V_\delta$; Zhu 2016 + Davies 1980), annotation Q across class (Cochran 1954 + Dhindsa 2023 / Ferkingstad 2021 pQTL anchor), cell-type Q across c (Ray 2025 single-cell cis-MR comparator).</li>
+        <li><b>Step 13</b>: sensitivity scalars (Cinelli-Hazlett 2025 IV PRIMARY + 2020 OLS SECONDARY; Swanson-VanderWeele 2020 E-value).</li>
+        <li><b>Step 14</b>: conjunctive decision tree across 6 axes; partial-identification fallback (Wang-Tchetgen 2018) for coherent pleiotropy.</li>
+      </ul>
+      <h3 style="margin-top: 18px;">Honest limits</h3>
+      <ul>
+        <li>AR has uniform coverage but the CI can be unbounded ↔ honest answer when data is uninformative.</li>
+        <li>J / Q tests do not see coherent pleiotropy.</li>
+        <li>Sensitivity quantifies but does not fix.</li>
+        <li>Partial-identification bounds (Wang-Tchetgen 2018) are the most conservative fallback.</li>
+      </ul>
+    </div>
+
+    <!-- REFERENCES -->
+    <div class="section-banner" id="refs">References (verified against citation_audit_2026-05-27.md)</div>
+
+    <div class="intro-card" style="border-left-color: var(--c-cite);">
+      <ol class="refs-list">
+        <li>Anderson TW, Rubin H (1949). Estimation of the parameters of a single equation in a complete system of stochastic equations. <i>Annals of Mathematical Statistics</i> 20(1):46–63.</li>
+        <li>Bowden J, Davey Smith G, Burgess S (2015). Mendelian randomization with invalid instruments: effect estimation and bias detection through Egger regression. <i>International Journal of Epidemiology</i> 44(2):512–525.</li>
+        <li>Burgess S, Butterworth A, Thompson SG (2013). Mendelian randomization analysis with multiple genetic variants using summarized data. <i>Genetic Epidemiology</i> 37(7):658–665.</li>
+        <li>Burgess S, Davies NM, Thompson SG (2016). Bias due to participant overlap in two-sample Mendelian randomization. <i>Genetic Epidemiology</i> 40(7):597–608.</li>
+        <li>Burgess S, Labrecque JA (2018). Mendelian randomization with a binary exposure variable: interpretation and presentation of causal estimates. <i>European Journal of Epidemiology</i> 33(10):947–952.</li>
+        <li>Cinelli C, Hazlett C (2020). Making sense of sensitivity: extending omitted variable bias. <i>JRSS Series B</i> 82(1):39–67.</li>
+        <li>Cinelli C, Hazlett C (2025). An omitted variable bias framework for sensitivity analysis of instrumental variables. <i>Biometrika</i> asaf004.</li>
+        <li>Cochran WG (1954). The combination of estimates from different experiments. <i>Biometrics</i> 10(1):101–129.</li>
+        <li>Cuomo ASE, et al. (2025). TenK10K Phase 1: cell-type-specific eQTLs in 28 PBMC immune cell types. <i>medRxiv</i> 2025.03.20.25324352.</li>
+        <li>Davies RB (1980). Algorithm AS 155: The Distribution of a Linear Combination of $\chi^2$ Random Variables. <i>Applied Statistics (JRSS Series C)</i> 29(3):323–333.</li>
+        <li>Dhindsa RS, et al. (2023). Rare variant associations with plasma protein levels in the UK Biobank. <i>Nature</i> 622(7982):339–347.</li>
+        <li>Didelez V, Sheehan N (2007). Mendelian randomization as an instrumental variable approach to causal inference. <i>Statistical Methods in Medical Research</i> 16(4):309–330.</li>
+        <li>Ferkingstad E, et al. (2021). Large-scale integration of the plasma proteome with genetics and disease. <i>Nature Genetics</i> 53(12):1712–1721.</li>
+        <li>Fieller EC (1954). Some problems in interval estimation. <i>JRSS Series B</i> 16(2):175–185.</li>
+        <li>Hansen LP (1982). Large sample properties of generalized method of moments estimators. <i>Econometrica</i> 50(4):1029–1054.</li>
+        <li>Imbens GW, Angrist JD (1994). Identification and estimation of local average treatment effects. <i>Econometrica</i> 62(2):467–475.</li>
+        <li>Karczewski KJ, et al. (2022). Systematic single-variant and gene-based association testing of thousands of phenotypes in 394,841 UK Biobank exomes. <i>Cell Genomics</i> 2:100168.</li>
+        <li>Kuonen D (1999). Saddlepoint approximations for distributions of quadratic forms in normal variables. <i>Biometrika</i> 86(4):929–935.</li>
+        <li>Lee DS, McCrary J, Moreira MJ, Porter J (2022). Valid t-ratio inference for IV. <i>American Economic Review</i> 112(10):3260–3290.</li>
+        <li>Li B, Leal SM (2008). Methods for detecting associations with rare variants for common diseases: application to analysis of sequence data. <i>American Journal of Human Genetics</i> 83(3):311–321.</li>
+        <li>Li X, et al. (2020). Dynamic incorporation of multiple in silico functional annotations empowers rare variant association analysis of large WGS at scale. <i>Nature Genetics</i> 52:969–983.</li>
+        <li>Madsen BE, Browning SR (2009). A groupwise association test for rare mutations using a weighted sum statistic. <i>PLOS Genetics</i> 5(2):e1000384.</li>
+        <li>Morgenthaler S, Thilly WG (2007). A strategy to discover genes that carry multi-allelic or mono-allelic risk for common diseases: a cohort allelic sums test (CAST). <i>Mutation Research</i> 615(1-2):28–56.</li>
+        <li>Patel A, Lane J, Burgess S (2024). Weak instruments in multivariable Mendelian randomization: methods and practice. arXiv:2408.09868.</li>
+        <li>Pierce BL, Burgess S (2013). Efficient design for Mendelian randomization studies: subsample and two-sample IV estimators. <i>American Journal of Epidemiology</i> 178(7):1177–1184.</li>
+        <li>Ray D, et al. (2025). Single-cell cis-Mendelian randomization across 14 immune cell types. <i>American Journal of Human Genetics</i> 112(7):1597.</li>
+        <li>Robins JM (1994). Correcting for non-compliance in randomized trials using structural nested mean models. <i>Communications in Statistics — Theory and Methods</i> 23(8):2379–2412.</li>
+        <li>Sargan JD (1958). The Estimation of Economic Relationships Using Instrumental Variables. <i>Econometrica</i> 26(3):393–415.</li>
+        <li>Sun KY, et al. (2024). A deep catalogue of protein-coding variation in 983,578 individuals. <i>Nature</i> 631(8021):583–592.</li>
+        <li>Swanson SA, VanderWeele TJ (2020). E-values for Mendelian randomization. <i>Epidemiology</i> 31(3):e23–e24.</li>
+        <li>VanderWeele TJ, Ding P (2017). Sensitivity analysis in observational research: introducing the E-value. <i>Annals of Internal Medicine</i> 167(4):268–274.</li>
+        <li>Verbanck M, Chen CY, Neale B, Do R (2018). Detection of widespread horizontal pleiotropy in causal relationships inferred from MR (MR-PRESSO). <i>Nature Genetics</i> 50(5):693–698.</li>
+        <li>Wang L, Tchetgen Tchetgen EJ (2018). Bounded, efficient and multiply robust estimation of average treatment effects using instrumental variables. <i>JRSS Series B</i> 80(3):531–550.</li>
+        <li>Wang S, Kang H (2022). Weak-instrument-robust tests in two-sample summary-data Mendelian randomization. <i>Biometrics</i> 78(4):1699–1713.</li>
+        <li>Wu MC, Lee S, Cai T, Li Y, Boehnke M, Lin X (2011). Rare-variant association testing for sequencing data with the sequence kernel association test (SKAT). <i>American Journal of Human Genetics</i> 89(1):82–93.</li>
+        <li>Yazar S, et al. (2022). Single-cell eQTL mapping identifies cell type-specific genetic control of autoimmune disease (OneK1K). <i>Science</i> 376(6589):eabf3041.</li>
+        <li>Zhou W, et al. (2022). SAIGE-GENE+ improves the efficiency and accuracy of set-based rare variant association tests. <i>Nature Genetics</i> 54(10):1466–1469.</li>
+        <li>Zhou W, Cuomo ASE, et al. (2024). SAIGE-QTL maps genetic regulation of gene expression in single cells with multi-ancestry sample sizes. <i>medRxiv</i> 2024.05.15.24307317.</li>
+        <li>Zhu Z, et al. (2016). Integration of summary data from GWAS and eQTL studies predicts complex trait gene targets. <i>Nature Genetics</i> 48(5):481–487.</li>
+      </ol>
+      <p style="margin-top: 18px; color: var(--fg-muted); font-size: 0.86rem;">
+        所有引文已通过 <code>citation_audit_2026-05-27.md</code> 校验. 7 个 trap 项 (Robins 1994 journal, Sun KY vs Sun BB, STAAR 2020 vs 2022, Cinelli-Hazlett dual cite, HEIDI-rv weights from $V_\delta$, Ray vs Ge, Patel-Lane-Burgess title) 均已正确处理.
+      </p>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function toggleTheme() {
+    var cur = document.documentElement.getAttribute('data-theme');
+    var next = cur === 'light' ? 'dark' : 'light';
+    if (next === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+    try { localStorage.setItem('rvsmr-theme', next); } catch (e) {}
+  }
+</script>
+
+</body>
+</html>
