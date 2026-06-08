@@ -343,16 +343,18 @@ The defaults $\rho=0$ / $R_{xy}=\mathbf{0}$ recover the two-sample non-overlappi
 \delta \;=\; C\,\hat{\boldsymbol b}_{xy}^{\,\mathrm{per-var}} \;\in\; \mathbb{R}^{m-1},\qquad V_\delta \;=\; C\,\Sigma_{\hat b}\,C^\top \;\in\; \mathbb{R}^{(m-1)\times(m-1)}.
 \label{eq:contrast}
 \end{equation}
-The test statistic is the generalized quadratic form
+The test statistic is the \emph{un-whitened} quadratic form
 \begin{equation}
-T \;=\; \delta^\top\, V_\delta^{+}\, \delta,
+T \;=\; \delta^\top\, \delta \;=\; \|\delta\|_2^{\,2},
 \label{eq:Theidi}
 \end{equation}
-where $V_\delta^{+}$ is the Moore--Penrose pseudoinverse. Under $H_0:\delta=0$, $T$ follows a \emph{generalized $\chi^2$} --- a weighted sum of independent $\chi^2_1$ variables with weights equal to the \textbf{non-zero eigenvalues of $V_\delta$ itself}. The tail probability is computed by the Davies algorithm \citep{Davies1980,Kuonen1999}, e.g.\
+i.e.\ the squared Euclidean norm of $\delta$. Under $H_0:\delta=0$, $T$ follows a \emph{generalized $\chi^2$} --- a weighted sum of independent $\chi^2_1$ variables with weights equal to the \textbf{non-zero eigenvalues of $V_\delta$ itself}. The tail probability is computed by the Davies algorithm \citep{Davies1980,Kuonen1999}, e.g.\
 \begin{equation}
 \mathrm{Pr}(T \ge t \mid H_0) \;=\; \texttt{CompQuadForm::davies}\bigl(q = t,\, \lambda = \mathrm{eig}_{\ne 0}(V_\delta)\bigr).
 \label{eq:davies}
 \end{equation}
+
+\paragraph{Erratum (corrected 2026-06-08).} An earlier draft paired the Mahalanobis form $T = \delta^\top V_\delta^{+}\delta$ with Davies weights $\mathrm{eig}_{\ne 0}(V_\delta)$. These two specifications are mutually inconsistent: the Mahalanobis $T$ is whitened by $V_\delta^{+}$ and under $H_0$ follows the \emph{plain} $\chi^2_{\mathrm{rank}(V_\delta)}$, while the generalized-$\chi^2$ Davies reference with weights $\mathrm{eig}_{\ne 0}(V_\delta)$ is the null distribution of the \emph{un-whitened} $T=\|\delta\|^2$. Cross-team validation in the rvMR implementation pipeline (2026-06-08) ran the literal-as-written pairing at $m=4$ and observed empirical Type-I rate $\approx 0.99$ at nominal $\alpha=0.05$. After switching to the un-whitened $T = \|\delta\|^2$ form above (paired with Davies weights $\mathrm{eig}_{\ne 0}(V_\delta)$), the empirical Type-I rate at $\alpha=0.05$ returned to $\approx 0.048$. Both alternative pairings --- whitened Mahalanobis with plain $\chi^2_{\mathrm{rank}}$, or un-whitened $\|\delta\|^2$ with generalized $\chi^2$ via Davies --- are internally valid; rvSMR uses the latter because the eigenvalue spread of $V_\delta$ retains scale information that the projector form discards (the headline correctness argument below).
 
 \paragraph{Output.} The HEIDI-rv test statistic $T$, the Davies $p$-value, and the effective degrees of freedom (number of non-zero eigenvalues of $V_\delta$).
 
