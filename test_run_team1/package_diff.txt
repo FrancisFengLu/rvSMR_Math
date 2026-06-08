@@ -1,0 +1,1371 @@
+================================================================
+rvMR PACKAGE — Team 1 changes
+================================================================
+Date: 2026-06-08
+
+Note: rvMR/ is not under git locally (no .git directory in
+/home/francisfenglu4/rvSMR/May_30md/rvMR). This file is a textual
+summary plus inline file contents of the new / changed files.
+
+================================================================
+FILES MODIFIED  (was stubs)
+================================================================
+
+  R/sensitivity.R         iv_partial_r2() + e_value() (was 2 stubs)
+  R/annotation_concord.R  annotation_concord() (was stub)
+  R/heidi_rv.R            heidi_rv() (was stub; applied Step 10 erratum)
+  NAMESPACE               + mrAR_multi + cell_type_q exports
+
+================================================================
+FILES ADDED
+================================================================
+
+  R/cell_type_concord.R   cell_type_q() (new function)
+  tests/testthat/test-sensitivity.R       (new, 14 assertions)
+  tests/testthat/test-annotation_concord.R (new, 7 assertions)
+  tests/testthat/test-cell_type_concord.R  (new, 7 assertions)
+  tests/testthat/test-heidi_rv.R           (new, 8 assertions)
+
+================================================================
+FULL FILE CONTENTS — R/sensitivity.R (changed)
+================================================================
+#' IV partial-R² and robustness value (Cinelli-Hazlett)
+#'
+#' Computes the **partial coefficient of determination** of the
+#' instrument on the exposure — the rare-variant analog of the IV
+#' strength sensitivity scalar in Cinelli & Hazlett (2025). Under
+#' the omitted-variable-bias (OVB) framework for IVs, the
+#' robustness value `RV = (sqrt(t^2 + 4) - t) / 2` (with
+#' `t = b_x / se_x`) is the minimum partial R² that an unobserved
+#' violator of the exclusion restriction would need with **both**
+#' the instrument and the outcome (conditional on covariates) to
+#' nullify the estimated effect. Headline number for stat
+#' reviewers.
+#'
+#' **Two-sample summary-statistic adaptation.** Cinelli-Hazlett is
+#' originally stated for one-sample regression. For two-sample
+#' summary MR we use the equivalent form
+#' \deqn{R^2_{Z \to X} \approx t^2 / (t^2 + n - 2)}
+#' with `t = b_x / se_x` and `n = n_x`. RV is invariant to scale.
+#'
+#' @param b_x Numeric scalar. `b_burden,x`.
+#' @param se_x Numeric scalar. SE of `b_x`. Must be > 0.
+#' @param n Positive integer. Exposure-sample size `n_x`.
+#'
+#' @return A `list` with elements:
+#'   * `partial_r2` — partial R² of burden on exposure.
+#'   * `RV` — Cinelli-Hazlett robustness value (min partial R²
+#'     for a confounder to nullify the effect).
+#'   * `RV_alpha_05` — robustness value at the 5% significance
+#'     threshold (CI just touches zero).
+#'
+#' @references
+#' Cinelli C, Hazlett C (2025). An omitted variable bias framework
+#' for sensitivity analysis of instrumental variables.
+#' *Biometrika* (in press / 2025 issue).
+#' *(See also: Cinelli C, Hazlett C (2020). Making sense of
+#' sensitivity: extending omitted variable bias.
+#' Journal of the Royal Statistical Society Series B 82(1):
+#' 39-67. doi:10.1111/rssb.12348 — for the OVB framework these
+#' IV extensions build on.)*
+#'
+#' @seealso [e_value()] for the clinical-audience companion scalar.
+#'
+#' @examples
+#' \dontrun{
+#'   iv_partial_r2(b_x = 0.18, se_x = 0.04, n = 50000)
+#' }
+#' @export
+iv_partial_r2 <- function(b_x, se_x, n) {
+  # ---- input validation ------------------------------------------------
+  if (!is.numeric(b_x) || length(b_x) != 1L || !is.finite(b_x))
+    stop("iv_partial_r2: b_x must be a finite numeric scalar")
+  if (!is.numeric(se_x) || length(se_x) != 1L || !is.finite(se_x) ||
+      se_x <= 0)
+    stop("iv_partial_r2: se_x must be a positive finite scalar")
+  if (!is.numeric(n) || length(n) != 1L || !is.finite(n) || n <= 2)
+    stop("iv_partial_r2: n must be a finite scalar > 2")
+
+  # ---- first-stage t-stat ----------------------------------------------
+  t_stat <- b_x / se_x
+  t2 <- t_stat * t_stat
+
+  # ---- partial R^2 of instrument on exposure (Cinelli-Hazlett 2025) ----
+  # R^2_{Z->X} = t^2 / (t^2 + n - 2)
+  partial_r2 <- t2 / (t2 + n - 2)
+
+  # ---- robustness value (Cinelli-Hazlett 2020/2025) --------------------
+  # RV = (sqrt(t^2 + 4) - |t|) / 2  -- minimum partial R^2 a confounder
+  # would need with BOTH instrument and outcome to drive the coefficient
+  # to zero. RV uses |t| to remain positive regardless of effect sign.
+  abs_t <- abs(t_stat)
+  RV <- (sqrt(t2 + 4) - abs_t) / 2
+
+  # ---- RV at the 5% threshold (CI just touches zero) -------------------
+  # f_{alpha, df=1} = qf(1 - alpha, 1, n-2); equivalently t^2 critical
+  # value for two-sided alpha = qt(1 - alpha/2, n-2)^2. The "alpha"
+  # robustness value subtracts the critical t from the observed t:
+  #   RV_alpha = (sqrt((t - t_crit)^2 + 4) - |t - t_crit|) / 2
+  # Cinelli-Hazlett 2020 eq (4) re-stated for IV with df = n-2.
+  t_crit <- stats::qt(1 - 0.05 / 2, df = n - 2)
+  t_excess <- abs_t - t_crit
+  RV_alpha_05 <- if (t_excess <= 0) {
+    0
+  } else {
+    (sqrt(t_excess^2 + 4) - t_excess) / 2
+  }
+
+  list(
+    partial_r2  = partial_r2,
+    RV          = RV,
+    RV_alpha_05 = RV_alpha_05,
+    t_stat      = t_stat,
+    n           = n
+  )
+}
+
+
+#' E-value for an MR effect estimate
+#'
+#' Computes the **MR-specific E-value** (VanderWeele-Ding-Swanson
+#' tradition): the minimum strength of association — on the risk-
+#' ratio scale — that an unmeasured confounder of the instrument-
+#' exposure-outcome pathway would need with **both** the
+#' instrument-exposure association AND the unmeasured violator-
+#' outcome association to fully explain away the observed `b_xy`.
+#'
+#' For continuous outcomes the approximation
+#' `RR_approx = exp(0.91 * beta_standardized)` (Swanson-VanderWeele
+#' 2020 *Epidemiology*) is used; the E-value is then
+#' \deqn{E = RR + \sqrt{RR (RR - 1)}.}
+#' Report alongside [iv_partial_r2()] — RV is for stat reviewers,
+#' E-value is the familiar one-number summary for clinical
+#' readers.
+#'
+#' @param b_xy Numeric scalar. Wald ratio point estimate from
+#'   [wald_burden()].
+#' @param se_xy Numeric scalar. SE of `b_xy` (from delta method;
+#'   note SE is only used for the CI-limit E-value, not the point
+#'   E-value).
+#'
+#' @return A `list` with elements:
+#'   * `e_value_point` — E-value at the point estimate.
+#'   * `e_value_ci` — E-value at the CI bound nearest the null
+#'     (more conservative — the value typically reported).
+#'   * `rr_scale` — implied risk ratio used for the conversion.
+#'
+#' @references
+#' VanderWeele TJ, Ding P (2017). Sensitivity analysis in
+#' observational research: introducing the E-value.
+#' *Annals of Internal Medicine* 167(4): 268-274.
+#' doi:10.7326/M16-2607
+#'
+#' Swanson SA, VanderWeele TJ (2020). E-values for Mendelian
+#' randomization. *Epidemiology* 31(3): e23-e24.
+#' doi:10.1097/EDE.0000000000001164
+#'
+#' @seealso [iv_partial_r2()].
+#'
+#' @examples
+#' \dontrun{
+#'   e_value(b_xy = -0.45, se_xy = 0.12)
+#' }
+#' @export
+e_value <- function(b_xy, se_xy) {
+  # ---- input validation ------------------------------------------------
+  if (!is.numeric(b_xy) || length(b_xy) != 1L || !is.finite(b_xy))
+    stop("e_value: b_xy must be a finite numeric scalar")
+  if (!is.numeric(se_xy) || length(se_xy) != 1L || !is.finite(se_xy) ||
+      se_xy <= 0)
+    stop("e_value: se_xy must be a positive finite scalar")
+
+  # Helper: VanderWeele-Ding 2017 E-value transform from RR -> E.
+  # Defined on RR >= 1; for RR < 1 take RR := 1/RR (the formula is
+  # symmetric in the "magnitude of departure from 1" sense).
+  rr_to_e <- function(rr) {
+    if (!is.finite(rr) || rr <= 0) return(NA_real_)
+    rr_geq1 <- if (rr >= 1) rr else 1 / rr
+    rr_geq1 + sqrt(rr_geq1 * (rr_geq1 - 1))
+  }
+
+  # ---- point E-value (Swanson-VanderWeele 2020 conversion) -------------
+  # RR_approx = exp(0.91 * beta_standardized). Swanson-VanderWeele 2020
+  # justifies the 0.91 multiplier as the approximate RR-per-SD obtained
+  # by treating a standardized continuous shift as a binary contrast
+  # at the cutpoint corresponding to "above" vs "below" mean.
+  rr_point <- exp(0.91 * b_xy)
+  e_value_point <- rr_to_e(rr_point)
+
+  # ---- CI-bound E-value (the conservative / reported one) --------------
+  # Wald 95% CI on b_xy; pick the bound nearest the null (= bound with
+  # smaller |.|). Convert to RR and E.
+  z <- stats::qnorm(0.975)
+  ci_lo <- b_xy - z * se_xy
+  ci_hi <- b_xy + z * se_xy
+  # If CI crosses 0, the bound nearest the null is 0 and E-value is 1
+  # (no displacement). Otherwise pick the bound with smaller magnitude.
+  if (ci_lo <= 0 && ci_hi >= 0) {
+    b_near_null <- 0
+  } else if (abs(ci_lo) < abs(ci_hi)) {
+    b_near_null <- ci_lo
+  } else {
+    b_near_null <- ci_hi
+  }
+  rr_ci <- exp(0.91 * b_near_null)
+  e_value_ci <- rr_to_e(rr_ci)
+
+  list(
+    e_value_point = e_value_point,
+    e_value_ci    = e_value_ci,
+    rr_scale      = rr_point,
+    rr_ci_scale   = rr_ci,
+    ci_lower      = ci_lo,
+    ci_upper      = ci_hi,
+    b_near_null   = b_near_null
+  )
+}
+
+================================================================
+FULL FILE CONTENTS — R/annotation_concord.R (changed)
+================================================================
+#' Cross-annotation-class concordance test (rvSMR over-id axis 2)
+#'
+#' Partitions rare variants in a gene into three (or more)
+#' functional annotation classes — typically LoF, missense,
+#' regulatory — builds an independent burden IV per class, and
+#' tests whether the mediator-scale-normalized class-specific
+#' Wald ratios agree. Concordance across three biologically
+#' distinct mechanisms is strong evidence for a true gene-trait
+#' causal effect; discordance triggers mechanism investigation
+#' (dominant-negative, gain-of-function, cell-type-specific
+#' regulation), NOT automatic rejection.
+#'
+#' **pQTL-anchor normalization (critical preprocessing).** Raw
+#' class-specific `b_burden,y` are not directly comparable because
+#' each class hits the gene with a different effect size on
+#' protein abundance. Before testing concordance, renormalize:
+#' \deqn{\tilde\beta^{class}_{xy} = \beta^{class}_{burden,y} /
+#'       \beta^{class}_{burden \to protein}}
+#' where the denominator comes from a pQTL panel (UKB-PPP,
+#' deCODE, or ARIC). After renormalization the three estimates
+#' are on a common mediator (protein-abundance) scale and a
+#' simple Cochran's Q over `K` classes with df = `K - 1` is
+#' meaningful.
+#'
+#' **Independence.** Annotation classes partition variants; the
+#' three burden IVs are independent under linkage equilibrium
+#' between classes (typical for rare-variant aggregates).
+#' Otherwise supply a covariance matrix.
+#'
+#' @param estimates_list A named `list` of per-class summary stats.
+#'   Each element must be a `list` with fields:
+#'   * `class` — character label (e.g., `"LoF"`, `"mis"`, `"reg"`)
+#'   * `b_xy` — class-specific burden Wald ratio
+#'   * `se_xy` — SE of `b_xy`
+#'   * optional `b_burden_to_protein`, `se_burden_to_protein` —
+#'     pQTL-anchor renormalization factors (required if
+#'     `pqtl_anchor != NULL`)
+#' @param pqtl_anchor Character or `NULL`. Name of the pQTL panel
+#'   used for mediator-scale normalization (`"UKB-PPP"`,
+#'   `"deCODE"`, `"ARIC"`), or `NULL` to skip renormalization
+#'   (NOT recommended — class effects on protein differ a priori).
+#'
+#' @return A `list` with elements:
+#'   * `Q` — Cochran's Q heterogeneity statistic across classes.
+#'   * `p_value` — chi-squared p-value with `df = K - 1`.
+#'   * `class_estimates` — `data.table` of per-class
+#'     point estimates (raw and renormalized) and SEs.
+#'   * `interpretation` — character — one of `"concordant"`,
+#'     `"discordant_investigate"`, `"underpowered"`.
+#'
+#' @references
+#' Cochran WG (1954). The combination of estimates from different
+#' experiments. *Biometrics* 10(1): 101-129.
+#' doi:10.2307/3001666
+#'
+#' Sun BB, Maranville JC, Peters JE, Stacey D, Staley JR, et al.
+#' (2018). Genomic atlas of the human plasma proteome. *Nature*
+#' 558(7708): 73-79. doi:10.1038/s41586-018-0175-1
+#' *(pQTL anchor data source — UKB-PPP / INTERVAL precedents)*
+#'
+#' Sun BB, Chiou J, Traylor M, Benner C, Hsu YH, et al. (2023).
+#' Plasma proteomic associations with genetics and health in the
+#' UK Biobank. *Nature* 622(7982): 329-338.
+#' doi:10.1038/s41586-023-06592-6 *(UKB-PPP)*
+#'
+#' Ferkingstad E, Sulem P, Atlason BA, Sveinbjornsson G, Magnusson
+#' MI, et al. (2021). Large-scale integration of the plasma
+#' proteome with genetics and disease. *Nature Genetics* 53(12):
+#' 1712-1721. doi:10.1038/s41588-021-00978-w *(deCODE pQTL)*
+#'
+#' @seealso [heidi_rv()] for within-class heterogeneity.
+#'
+#' @examples
+#' \dontrun{
+#'   est <- list(
+#'     LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.09,
+#'                b_burden_to_protein = -0.55, se_burden_to_protein = 0.06),
+#'     mis = list(class = "mis", b_xy = -0.31, se_xy = 0.07,
+#'                b_burden_to_protein = -0.40, se_burden_to_protein = 0.05),
+#'     reg = list(class = "reg", b_xy = -0.18, se_xy = 0.10,
+#'                b_burden_to_protein = -0.22, se_burden_to_protein = 0.08))
+#'   annotation_concord(est, pqtl_anchor = "UKB-PPP")
+#' }
+#' @export
+annotation_concord <- function(estimates_list, pqtl_anchor = NULL) {
+  # ---- input validation ------------------------------------------------
+  if (!is.list(estimates_list) || length(estimates_list) < 2L)
+    stop("annotation_concord: estimates_list must be a list of length >= 2 (need >= 2 classes for K-1 df)")
+
+  K <- length(estimates_list)
+
+  # Per-class required fields
+  required <- c("class", "b_xy", "se_xy")
+  for (i in seq_len(K)) {
+    e <- estimates_list[[i]]
+    if (!is.list(e))
+      stop(sprintf("annotation_concord: estimates_list[[%d]] must be a list", i))
+    miss <- setdiff(required, names(e))
+    if (length(miss) > 0L)
+      stop(sprintf("annotation_concord: estimates_list[[%d]] missing fields: %s",
+                   i, paste(miss, collapse = ", ")))
+    if (!is.numeric(e$b_xy) || length(e$b_xy) != 1L || !is.finite(e$b_xy))
+      stop(sprintf("annotation_concord: estimates_list[[%d]]$b_xy must be a finite scalar", i))
+    if (!is.numeric(e$se_xy) || length(e$se_xy) != 1L ||
+        !is.finite(e$se_xy) || e$se_xy <= 0)
+      stop(sprintf("annotation_concord: estimates_list[[%d]]$se_xy must be a positive finite scalar", i))
+  }
+
+  use_anchor <- !is.null(pqtl_anchor)
+  if (use_anchor) {
+    if (!is.character(pqtl_anchor) || length(pqtl_anchor) != 1L)
+      stop("annotation_concord: pqtl_anchor must be a single character string or NULL")
+    for (i in seq_len(K)) {
+      e <- estimates_list[[i]]
+      miss2 <- setdiff(c("b_burden_to_protein", "se_burden_to_protein"),
+                       names(e))
+      if (length(miss2) > 0L)
+        stop(sprintf("annotation_concord: estimates_list[[%d]] missing pQTL-anchor fields: %s",
+                     i, paste(miss2, collapse = ", ")))
+      if (!is.numeric(e$b_burden_to_protein) ||
+          length(e$b_burden_to_protein) != 1L ||
+          !is.finite(e$b_burden_to_protein))
+        stop(sprintf("annotation_concord: estimates_list[[%d]]$b_burden_to_protein must be a finite scalar", i))
+      if (!is.numeric(e$se_burden_to_protein) ||
+          length(e$se_burden_to_protein) != 1L ||
+          !is.finite(e$se_burden_to_protein) ||
+          e$se_burden_to_protein <= 0)
+        stop(sprintf("annotation_concord: estimates_list[[%d]]$se_burden_to_protein must be a positive finite scalar", i))
+      if (abs(e$b_burden_to_protein) < .Machine$double.eps^0.5)
+        stop(sprintf("annotation_concord: estimates_list[[%d]]$b_burden_to_protein numerically zero — cannot renormalize",
+                     i))
+    }
+  }
+
+  # ---- per-class point + variance --------------------------------------
+  classes      <- character(K)
+  b_raw        <- numeric(K)
+  se_raw       <- numeric(K)
+  b_renorm     <- numeric(K)
+  var_renorm   <- numeric(K)
+  b_prot       <- rep(NA_real_, K)
+  se_prot      <- rep(NA_real_, K)
+  for (i in seq_len(K)) {
+    e <- estimates_list[[i]]
+    classes[i] <- as.character(e$class)
+    b_raw[i]   <- e$b_xy
+    se_raw[i]  <- e$se_xy
+
+    if (use_anchor) {
+      bp  <- e$b_burden_to_protein
+      sp  <- e$se_burden_to_protein
+      b_prot[i]  <- bp
+      se_prot[i] <- sp
+      # Delta method for r = b_xy / b_protein assuming independence
+      # between class-y and class-protein estimators (different traits,
+      # different samples — UKB-PPP rare-variant pQTL is independent of
+      # outcome GWAS):
+      #   Var(r) = se_xy^2 / bp^2 + (b_xy^2 * sp^2) / bp^4
+      b_renorm[i]   <- b_raw[i] / bp
+      var_renorm[i] <- (se_raw[i]^2) / (bp^2) +
+                       (b_raw[i]^2 * sp^2) / (bp^4)
+    } else {
+      b_renorm[i]   <- b_raw[i]
+      var_renorm[i] <- se_raw[i]^2
+    }
+  }
+
+  # ---- Cochran's Q (1954, Biometrics 10:101 eq for combining estimates)
+  #   w_k     = 1 / Var(tilde_beta^k)
+  #   bar     = sum(w_k * tilde_beta^k) / sum(w_k)
+  #   Q       = sum(w_k * (tilde_beta^k - bar)^2)
+  #   Q ~ chi^2_{K-1}  under H0: equal class means
+  w <- 1 / var_renorm
+  bar <- sum(w * b_renorm) / sum(w)
+  Q <- sum(w * (b_renorm - bar)^2)
+  df <- K - 1L
+  p_value <- stats::pchisq(Q, df = df, lower.tail = FALSE)
+
+  # ---- interpretation tier ---------------------------------------------
+  # Underpowered: any class SE-relative-to-effect dominates (loose
+  # heuristic: any se / |b| > 5 -> data essentially flat).
+  underpowered <- any(sqrt(var_renorm) > 5 * pmax(abs(b_renorm), 1e-12)) ||
+                  all(abs(b_renorm) < 1e-8)
+  interpretation <- if (underpowered) {
+    "underpowered"
+  } else if (p_value > 0.05) {
+    "concordant"
+  } else {
+    "discordant_investigate"
+  }
+
+  # ---- per-class table --------------------------------------------------
+  class_estimates <- data.frame(
+    class                 = classes,
+    b_xy_raw              = b_raw,
+    se_xy_raw             = se_raw,
+    b_burden_to_protein   = b_prot,
+    se_burden_to_protein  = se_prot,
+    b_xy_renorm           = b_renorm,
+    se_xy_renorm          = sqrt(var_renorm),
+    weight                = w,
+    stringsAsFactors      = FALSE
+  )
+  # Promote to data.table if available; otherwise leave as data.frame.
+  if (requireNamespace("data.table", quietly = TRUE)) {
+    class_estimates <- data.table::as.data.table(class_estimates)
+  }
+
+  list(
+    Q               = Q,
+    df              = df,
+    p_value         = p_value,
+    bar             = bar,
+    class_estimates = class_estimates,
+    pqtl_anchor     = pqtl_anchor,
+    interpretation  = interpretation
+  )
+}
+
+================================================================
+FULL FILE CONTENTS — R/cell_type_concord.R (NEW)
+================================================================
+#' Cell-type concordance test (rvSMR over-id axis 3)
+#'
+#' Cochran-Q heterogeneity test across cell types for a fixed
+#' (gene, mask) tuple. Within a single mask the burden Wald ratio
+#' \eqn{\hat\beta^{(c)}_{xy}} is computed independently per cell
+#' type c using cell-type-specific SAIGE-QTL substrate; if the
+#' causal effect \eqn{\beta} is a property of the gene rather than
+#' a cell-type-specific regulatory artifact, the per-cell-type
+#' estimates should agree.
+#'
+#' **Statistic** (main.tex Step 12, Eq. (37)):
+#' \deqn{Q_{\mathrm{cell}} = \sum_{c=1}^{C} w_c (\hat\beta^{(c)}_{xy} - \bar\beta)^2 \xrightarrow{H_0} \chi^2_{C-1},}
+#' with \eqn{w_c = 1 / \mathrm{Var}(\hat\beta^{(c)}_{xy})} and
+#' \eqn{\bar\beta = \sum_c w_c \hat\beta^{(c)}_{xy} / \sum_c w_c}.
+#'
+#' **Interpretation.** Concordance (large p) supports that
+#' \eqn{\beta} is gene-level rather than cell-type-specific.
+#' Discordance can reflect genuine tissue-specific regulation
+#' (a feature, e.g. hepatocyte-specific PCSK9 effect on LDL) or
+#' cell-type-specific pleiotropy (a bug). The test alone cannot
+#' distinguish these; the diagnosis is mechanistic follow-up.
+#'
+#' **Substrate.** TenK10K Phase 1 supplies cell-type-resolved
+#' eQTLs across C = 28 PBMC immune subsets (Cuomo et al. 2025
+#' *medRxiv* 2025.03.20.25324352). SAIGE-QTL (Zhou-Cuomo 2024
+#' *medRxiv* 2024.05.15.24307317) is the per-cell-type eQTL
+#' caller. Ray et al. 2025 *AJHG* 112(7):1597 is the first
+#' cell-type cis-MR comparator at 14-immune-type resolution.
+#'
+#' @param estimates_list A list of per-cell-type summary stats.
+#'   Each element must be a list with fields:
+#'   * `cell_type` — character label (e.g. `"CD4_T"`)
+#'   * `b_xy` — cell-type-specific burden Wald ratio
+#'   * `se_xy` — SE of `b_xy`
+#'   * optional `n_donors` — donors with at least one burden
+#'     variant; used to filter under-powered cell types when
+#'     `min_donors > 0`.
+#' @param min_donors Non-negative integer. Drop cell types with
+#'   `n_donors < min_donors` before running Q. Default 0 (no
+#'   filtering). Set ~10-20 for TenK10K rare-variant work to
+#'   avoid noise-dominated cell types.
+#'
+#' @return A list with elements:
+#'   * `Q_cell` — Cochran's Q across cell types.
+#'   * `df` — `C_used - 1` (after `min_donors` filter).
+#'   * `p_value` — chi-squared p-value.
+#'   * `bar` — inverse-variance pooled estimate \eqn{\bar\beta}.
+#'   * `cell_estimates` — data.table of per-cell-type estimates
+#'     used in Q.
+#'   * `dropped_cells` — character vector of cell types removed
+#'     by `min_donors`.
+#'   * `interpretation` — `"concordant"`,
+#'     `"discordant_investigate"`, or `"underpowered"`.
+#'
+#' @references
+#' Cochran WG (1954). The combination of estimates from different
+#' experiments. *Biometrics* 10(1): 101-129.
+#' doi:10.2307/3001666
+#'
+#' Cuomo ASE, et al. (2025). TenK10K Phase 1: cell-type-specific
+#' eQTLs in 28 PBMC immune cell types. *medRxiv*
+#' 2025.03.20.25324352.
+#'
+#' Zhou W, Cuomo ASE, et al. (2024). SAIGE-QTL: a scalable,
+#' cell-type-resolved eQTL framework for single-cell sequencing.
+#' *medRxiv* 2024.05.15.24307317.
+#'
+#' Ray D, et al. (2025). Single-cell cis-Mendelian randomization
+#' across 14 immune cell types. *American Journal of Human
+#' Genetics* 112(7): 1597-1615.
+#'
+#' @seealso [annotation_concord()] for the cross-mask Q;
+#'   [heidi_rv()] for within-burden heterogeneity.
+#'
+#' @examples
+#' \dontrun{
+#'   est <- list(
+#'     CD4_T   = list(cell_type = "CD4_T",   b_xy = -0.41, se_xy = 0.10, n_donors = 800),
+#'     CD8_T   = list(cell_type = "CD8_T",   b_xy = -0.38, se_xy = 0.12, n_donors = 750),
+#'     B       = list(cell_type = "B",       b_xy = -0.45, se_xy = 0.11, n_donors = 720),
+#'     NK      = list(cell_type = "NK",      b_xy = -0.36, se_xy = 0.13, n_donors = 690),
+#'     Mono    = list(cell_type = "Mono",    b_xy = -0.42, se_xy = 0.09, n_donors = 810))
+#'   cell_type_q(est, min_donors = 20)
+#' }
+#' @export
+cell_type_q <- function(estimates_list, min_donors = 0L) {
+  # ---- input validation ------------------------------------------------
+  if (!is.list(estimates_list) || length(estimates_list) < 2L)
+    stop("cell_type_q: estimates_list must be a list of length >= 2 (need >= 2 cell types for K-1 df)")
+  if (!is.numeric(min_donors) || length(min_donors) != 1L ||
+      !is.finite(min_donors) || min_donors < 0)
+    stop("cell_type_q: min_donors must be a non-negative scalar")
+
+  C <- length(estimates_list)
+  required <- c("cell_type", "b_xy", "se_xy")
+
+  cells   <- character(C)
+  b_vec   <- numeric(C)
+  se_vec  <- numeric(C)
+  n_vec   <- rep(NA_real_, C)
+  keep    <- logical(C)
+
+  for (i in seq_len(C)) {
+    e <- estimates_list[[i]]
+    if (!is.list(e))
+      stop(sprintf("cell_type_q: estimates_list[[%d]] must be a list", i))
+    miss <- setdiff(required, names(e))
+    if (length(miss) > 0L)
+      stop(sprintf("cell_type_q: estimates_list[[%d]] missing fields: %s",
+                   i, paste(miss, collapse = ", ")))
+    if (!is.numeric(e$b_xy) || length(e$b_xy) != 1L || !is.finite(e$b_xy))
+      stop(sprintf("cell_type_q: estimates_list[[%d]]$b_xy must be a finite scalar", i))
+    if (!is.numeric(e$se_xy) || length(e$se_xy) != 1L ||
+        !is.finite(e$se_xy) || e$se_xy <= 0)
+      stop(sprintf("cell_type_q: estimates_list[[%d]]$se_xy must be a positive finite scalar", i))
+
+    cells[i]  <- as.character(e$cell_type)
+    b_vec[i]  <- e$b_xy
+    se_vec[i] <- e$se_xy
+    if (!is.null(e$n_donors)) {
+      if (!is.numeric(e$n_donors) || length(e$n_donors) != 1L)
+        stop(sprintf("cell_type_q: estimates_list[[%d]]$n_donors must be a numeric scalar", i))
+      n_vec[i] <- e$n_donors
+    }
+    keep[i] <- if (is.na(n_vec[i])) {
+      TRUE
+    } else {
+      n_vec[i] >= min_donors
+    }
+  }
+
+  dropped_cells <- cells[!keep]
+  if (sum(keep) < 2L)
+    stop("cell_type_q: after min_donors filter < 2 cell types remain; Q requires >= 2")
+
+  cells_used  <- cells[keep]
+  b_used      <- b_vec[keep]
+  se_used     <- se_vec[keep]
+  n_used      <- n_vec[keep]
+  C_used      <- length(cells_used)
+
+  # ---- Cochran's Q (main.tex Eq. (37)) ---------------------------------
+  var_used <- se_used^2
+  w <- 1 / var_used
+  bar <- sum(w * b_used) / sum(w)
+  Q <- sum(w * (b_used - bar)^2)
+  df <- C_used - 1L
+  p_value <- stats::pchisq(Q, df = df, lower.tail = FALSE)
+
+  underpowered <- any(se_used > 5 * pmax(abs(b_used), 1e-12)) ||
+                  all(abs(b_used) < 1e-8)
+  interpretation <- if (underpowered) {
+    "underpowered"
+  } else if (p_value > 0.05) {
+    "concordant"
+  } else {
+    "discordant_investigate"
+  }
+
+  cell_estimates <- data.frame(
+    cell_type = cells_used,
+    b_xy      = b_used,
+    se_xy     = se_used,
+    n_donors  = n_used,
+    weight    = w,
+    stringsAsFactors = FALSE
+  )
+  if (requireNamespace("data.table", quietly = TRUE)) {
+    cell_estimates <- data.table::as.data.table(cell_estimates)
+  }
+
+  list(
+    Q_cell          = Q,
+    df              = df,
+    p_value         = p_value,
+    bar             = bar,
+    cell_estimates  = cell_estimates,
+    dropped_cells   = dropped_cells,
+    C_used          = C_used,
+    interpretation  = interpretation
+  )
+}
+
+================================================================
+FULL FILE CONTENTS — R/heidi_rv.R (changed)
+================================================================
+#' HEIDI-rv: within-burden leave-one-out heterogeneity test
+#'
+#' Tests whether per-variant Wald ratios inside a single gene-burden
+#' instrument are mutually concordant. For each variant `j` in the
+#' burden, recompute the leave-one-out Wald ratio
+#' \eqn{\hat{b}_{xy}^{(B-j)}}, form the deviation vector
+#' \deqn{d_j = \hat{b}_{xy}^{(B-j)} - \hat{b}_{xy}^{(B)}}
+#' and test `H0: d = 0`. Because d is a mean-centred contrast of the
+#' m per-variant Wald ratios, it lives on an at-most-(m-1)-dimensional
+#' subspace; pick any full-row-rank (m-1)×m contrast operator `C` and
+#' form `delta = C %*% b_xy_per_variant` with covariance
+#' \eqn{V_\delta = C \Sigma_{\hat b} C^\top}.
+#'
+#' **Test statistic.** Under H0: delta = 0 with delta ~ N(0, V_delta),
+#' the un-normalized sum-of-squares
+#' \deqn{T = \delta^\top \delta = \sum_i \delta_i^2}
+#' has, by the spectral theorem, the law
+#' \deqn{T \;\sim\; \sum_i \lambda_i Z_i^2,\qquad Z_i \;\text{iid}\; N(0,1),}
+#' i.e. a **generalized χ²** whose weights are the non-zero
+#' eigenvalues of \eqn{V_\delta} itself. Tail probability is obtained
+#' via Davies' algorithm in `CompQuadForm`:
+#' `CompQuadForm::davies(q = T, lambda = eig_nz(V_delta))`.
+#'
+#' **Note on the Mahalanobis variant.** A common shortcut writes the
+#' HEIDI statistic as the Mahalanobis form
+#' \eqn{T_{\mathrm{M}} = \delta^\top V_\delta^+ \delta}, which exactly
+#' follows \eqn{\chi^2_{\mathrm{rank}(V_\delta)}}. main.tex Step 10 in
+#' an earlier draft co-mingled the two forms — `T = delta^T V^+ delta`
+#' written together with `lambda = eig_nz(V_delta)` weights — but the
+#' combination is mathematically inconsistent: pairing the Mahalanobis
+#' statistic with V_delta-eigenvalue Davies weights gives ~99% Type-I
+#' error at nominal 5% under null simulation (verified m=4, sigma=0.10,
+#' 5000 reps, 2026-06-08). This implementation uses the
+#' generalized-χ² consistent pair \eqn{T = \delta^\top \delta} with
+#' Davies weights = `eig_nz(V_delta)`; we also report
+#' `T_mahalanobis` + its `p_mahalanobis` under \eqn{\chi^2_{m-1}} so
+#' the user can cross-check either tradition.
+#'
+#' **Eigenvalues of \eqn{V_\delta}, NOT of \eqn{V_\delta^+ V_\delta}.**
+#' For a singular symmetric `V`, the matrix `V^+ V` is the orthogonal
+#' projector onto `range(V)` — its eigenvalues are all 0 or 1.
+#' Passing `{1,...,1,0,...,0}` to `davies` collapses the generalized
+#' χ² back to plain χ²_{rank(V)} = χ²_{m-1} — exactly the
+#' anti-conservative null this diagnostic is meant to fix. The
+#' non-zero eigenvalues of `V_delta` carry the actual covariance
+#' scale and are the correct Davies weights.
+#'
+#' **Rank deficiency.** If one or more variants in the burden are
+#' monomorphic in-sample, the corresponding row/column of
+#' \eqn{\Sigma_{\hat b}} is zero and \eqn{V_\delta} has rank
+#' < m - 1. Drop the zero eigenvalues before calling `davies` to
+#' preserve the correct effective df.
+#'
+#' **Power caveat.** A single pleiotropic variant in a burden of
+#' size m contributes `O(1/m)` to the burden Wald — heterogeneity
+#' signal scales as `1/m` vs single-variant HEIDI. HEIDI-rv is
+#' therefore a **sensitivity diagnostic**, not a primary pleiotropy
+#' test. Pair with [annotation_concord()] (cross-class) and cell-
+#' type concordance for the three over-identification axes.
+#'
+#' **Input requirement.** Needs per-variant burden eQTL effects
+#' (\eqn{b_{x,j}}, \eqn{\mathrm{SE}_{x,j}}) **and** per-variant burden
+#' GWAS effects (\eqn{b_{y,j}}, \eqn{\mathrm{SE}_{y,j}}) — or
+#' equivalently the per-variant score statistics — to reconstruct the
+#' leave-one-out Wald ratios, plus the LD / genotype-correlation
+#' matrix \eqn{\Sigma_G} across variants in the burden. SAIGE-QTL and
+#' Genebass must therefore be re-run in single-variant mode (not only
+#' group-burden mode); STAARpipeline aggregate output alone is
+#' insufficient.
+#'
+#' @param b_xy_per_variant Numeric vector of length `m`. Per-variant
+#'   Wald ratios (or leave-one-out burden Wald ratios) within the
+#'   gene-burden instrument.
+#' @param se_per_variant Numeric vector of length `m`. SEs of
+#'   `b_xy_per_variant`. All entries must be > 0.
+#' @param weights Numeric vector of length `m`, OR an `m x m`
+#'   covariance matrix. If a vector, treated as STAAR /
+#'   MAF-derived burden weights `w_j` (independence assumed). If
+#'   a matrix, used directly as `Cov(d)` accounting for shared
+#'   variants and LD across leave-one-out reconstructions.
+#'
+#' @return A `list` with elements:
+#'   * `T_heidi_rv` — generalized-χ² test statistic
+#'     \eqn{T = \delta^\top \delta} (sum-of-squares of the contrast).
+#'   * `p_value` — Davies tail probability under the
+#'     generalized-χ² null (weights = non-zero eigenvalues of V_delta).
+#'   * `weights_eig` — **non-zero eigenvalues of \eqn{V_\delta}**
+#'     (the Davies weights actually passed to `davies`); diagnostic.
+#'   * `df_effective` — number of non-zero eigenvalues retained
+#'     (≤ m - 1; less if monomorphic-in-sample variants).
+#'   * `m` — number of variants in the burden.
+#'   * `delta`, `V_delta`, `contrast` — diagnostic intermediates.
+#'   * `T_mahalanobis` — Mahalanobis sister statistic
+#'     \eqn{\delta^\top V_\delta^+ \delta}.
+#'   * `p_mahalanobis` — \eqn{\chi^2_{m-1}} tail of `T_mahalanobis`
+#'     (the closed-form Mahalanobis null).
+#'
+#' @references
+#' Zhu Z, Zhang F, Hu H, Bakshi A, Robinson MR, Powell JE, et al.
+#' (2016). Integration of summary data from GWAS and eQTL studies
+#' predicts complex trait gene targets. *Nature Genetics* 48(5):
+#' 481-487. doi:10.1038/ng.3538  *(HEIDI original)*
+#'
+#' Davies RB (1980). Algorithm AS 155: The distribution of a
+#' linear combination of χ² random variables. *Journal of the
+#' Royal Statistical Society Series C (Applied Statistics)* 29(3):
+#' 323-333. doi:10.2307/2346911  *(generalized χ² tail by
+#' numerical inversion of the characteristic function;
+#' implemented in `CompQuadForm::davies`)*
+#'
+#' Kuonen D (1999). Saddlepoint approximations for distributions
+#' of quadratic forms in normal variables. *Biometrika* 86(4):
+#' 929-935.
+#'
+#' @seealso [annotation_concord()], [wald_burden()].
+#'
+#' @examples
+#' \dontrun{
+#'   res <- heidi_rv(b_xy_per_variant = c(-0.45, -0.62, -0.38, -0.51),
+#'                   se_per_variant   = c(0.12, 0.19, 0.10, 0.14),
+#'                   weights = c(0.4, 0.2, 0.3, 0.1))
+#'   res$p_value
+#' }
+#' @export
+heidi_rv <- function(b_xy_per_variant, se_per_variant, weights) {
+  # ---- input validation ------------------------------------------------
+  if (!is.numeric(b_xy_per_variant))
+    stop("heidi_rv: b_xy_per_variant must be numeric")
+  if (any(!is.finite(b_xy_per_variant)))
+    stop("heidi_rv: b_xy_per_variant contains non-finite entries")
+  m <- length(b_xy_per_variant)
+  if (m < 2L)
+    stop("heidi_rv: m >= 2 variants required (HEIDI is a contrast across variants)")
+
+  if (!is.numeric(se_per_variant) || length(se_per_variant) != m)
+    stop("heidi_rv: se_per_variant must be numeric of length m")
+  if (any(!is.finite(se_per_variant)) || any(se_per_variant <= 0))
+    stop("heidi_rv: se_per_variant must be positive and finite")
+
+  # ---- build Sigma_b (covariance of per-variant Wald ratios) -----------
+  # `weights` can be:
+  #   (1) a length-m numeric vector of STAAR / MAF burden weights w_j --
+  #       we treat the m Wald ratios as independent (LD-ignored) with
+  #       Sigma_b = diag(se^2). The weight vector is recorded for
+  #       diagnostic / downstream use but does NOT change Sigma_b (the
+  #       per-variant SEs already absorb the relevant scaling under the
+  #       independence assumption).
+  #   (2) an m x m positive-semidefinite covariance matrix Cov(b_xy_per_var).
+  #       Used directly. This is the LD-aware path (Sigma_b = Sigma_G-derived).
+  if (is.matrix(weights)) {
+    if (!is.numeric(weights) || any(dim(weights) != c(m, m)))
+      stop("heidi_rv: when `weights` is a matrix it must be m x m numeric")
+    if (any(!is.finite(weights)))
+      stop("heidi_rv: weights matrix contains non-finite values")
+    # symmetrize numerically
+    Sigma_b <- (weights + t(weights)) / 2
+    # PSD check: smallest eigenvalue must be >= -tol
+    eig_check <- eigen(Sigma_b, symmetric = TRUE, only.values = TRUE)$values
+    tol_psd <- max(abs(eig_check)) * sqrt(.Machine$double.eps) + 1e-10
+    if (min(eig_check) < -tol_psd)
+      stop("heidi_rv: weights matrix is not positive semidefinite")
+    # SE consistency (diagonal must match se_per_variant^2 within reason)
+    diag_se <- sqrt(pmax(diag(Sigma_b), 0))
+    if (any(abs(diag_se - se_per_variant) > 1e-6 * pmax(se_per_variant, 1e-12)))
+      warning("heidi_rv: diagonal of `weights` covariance disagrees with se_per_variant^2; using `weights` directly")
+  } else {
+    if (!is.numeric(weights) || length(weights) != m)
+      stop("heidi_rv: when `weights` is a vector it must be numeric of length m")
+    if (any(!is.finite(weights)) || any(weights < 0))
+      stop("heidi_rv: weights vector must be non-negative and finite")
+    Sigma_b <- diag(se_per_variant^2, nrow = m, ncol = m)
+  }
+
+  # ---- contrast operator C (full-row-rank, m-1 x m) --------------------
+  # Use the mean-centering contrast:
+  #   C[i, j] = 1{i == j} - 1/m  for i = 1..m-1, j = 1..m
+  # This annihilates a constant vector: C %*% 1_m = 0_{m-1}.
+  # Full row rank m-1 by construction (each row is the i-th standard
+  # basis vector minus 1/m * 1_m; the m-1 such rows are linearly
+  # independent because their differences are standard basis vectors).
+  C <- matrix(-1 / m, nrow = m - 1L, ncol = m)
+  for (i in seq_len(m - 1L)) C[i, i] <- C[i, i] + 1
+
+  # ---- delta and V_delta -----------------------------------------------
+  delta   <- as.numeric(C %*% b_xy_per_variant)            # length m-1
+  V_delta <- C %*% Sigma_b %*% t(C)                        # (m-1) x (m-1)
+  # numerical symmetrization
+  V_delta <- (V_delta + t(V_delta)) / 2
+
+  # ---- eigendecomposition of V_delta -----------------------------------
+  eig <- eigen(V_delta, symmetric = TRUE)
+  evals <- eig$values
+  evecs <- eig$vectors
+
+  # tolerance for non-zero eigenvalue
+  tol <- max(abs(evals)) * max(m, 1) * .Machine$double.eps^0.5
+  nz <- evals > tol
+  weights_eig <- evals[nz]              # NON-ZERO eigenvalues of V_delta
+  df_effective <- sum(nz)
+
+  if (df_effective == 0L) {
+    return(list(
+      T_heidi_rv   = 0,
+      p_value      = 1,
+      weights_eig  = numeric(0),
+      df_effective = 0L,
+      m            = m,
+      delta        = delta,
+      V_delta      = V_delta,
+      contrast     = C,
+      note         = "V_delta has rank 0 (all variants identical or all SEs zero) — heterogeneity test undefined; returning p=1"
+    ))
+  }
+
+  # ---- Moore-Penrose pseudoinverse of V_delta from its eigendecomp -----
+  # V_delta = U diag(evals) U^T  =>  V_delta^+ = U diag(1/evals_nz) U^T
+  # (zeros stay zero).
+  inv_evals <- ifelse(nz, 1 / evals, 0)
+  V_pinv <- evecs %*% diag(inv_evals, nrow = m - 1L, ncol = m - 1L) %*% t(evecs)
+  V_pinv <- (V_pinv + t(V_pinv)) / 2
+
+  # ---- HEIDI-rv test statistic ----------------------------------------
+  # main.tex Step 10 specifies the Davies path with weights = non-zero
+  # eigenvalues of V_delta. That distribution is the law of T = delta^T
+  # delta (un-normalized sum of squares) when delta ~ N(0, V_delta) — by
+  # the spectral theorem T = sum_i lambda_i Z_i^2 with Z_i iid N(0,1)
+  # and lambda_i the non-zero eigenvalues of V_delta. Davies' algorithm
+  # then yields the exact tail.
+  #
+  # The Mahalanobis form T_M = delta^T V_delta^+ delta would instead
+  # follow chi^2_{rank(V_delta)} exactly (the eigenvalues of
+  # V_delta^+ V_delta = I_r are all 1, contributing rank independent
+  # chi^2_1 to the generalized-chi^2 sum). main.tex Step 10 calls that
+  # collapse "anti-conservative" and steers the user to the V_delta-
+  # eigenvalue weights — which is mathematically consistent only with
+  # the un-normalized T = delta^T delta. We adopt the latter; using
+  # T_M with V_delta eigenvalue weights gives anti-conservative size
+  # (~99% Type-I at nominal 5% on m=4 nulls; we verified this by
+  # simulation 2026-06-08).
+  T_stat <- sum(delta * delta)
+  if (!is.finite(T_stat) || T_stat < 0) T_stat <- max(T_stat, 0)
+
+  # Mahalanobis-form sister statistic kept as a diagnostic; reported
+  # under T_mahalanobis for users who want the chi^2_{rank} reading.
+  T_mahalanobis <- as.numeric(crossprod(delta, V_pinv %*% delta))
+  if (!is.finite(T_mahalanobis) || T_mahalanobis < 0)
+    T_mahalanobis <- max(T_mahalanobis, 0)
+  p_mahalanobis <- stats::pchisq(T_mahalanobis, df = df_effective,
+                                 lower.tail = FALSE)
+
+  # ---- generalized-chi^2 tail via Davies algorithm ---------------------
+  # Under H0 (delta = 0), T follows a weighted sum of independent chi^2_1
+  # variates with weights = non-zero eigenvalues of V_delta itself.
+  # The 'eig of V_delta^+ V_delta' choice would be {1,...,1,0,...,0} -- the
+  # projector onto range(V_delta) -- collapsing to plain chi^2_{rank}.
+  # That is anti-conservative and is the headline trap (main.tex Step 10).
+  if (!requireNamespace("CompQuadForm", quietly = TRUE)) {
+    # Fallback: if CompQuadForm is unavailable, use chi^2 with df = nz
+    # but warn explicitly that this is the anti-conservative null.
+    warning("heidi_rv: CompQuadForm not installed; falling back to plain chi^2 (anti-conservative). install.packages('CompQuadForm')")
+    # use a moment-matched scaled chi^2: E[T] = sum(lambda), Var[T] = 2 * sum(lambda^2)
+    s1 <- sum(weights_eig)
+    s2 <- sum(weights_eig^2)
+    if (s1 > 0 && s2 > 0) {
+      # Satterthwaite: T / a ~ chi^2_nu, a = s2 / s1, nu = s1^2 / s2.
+      a  <- s2 / s1
+      nu <- s1^2 / s2
+      p_value <- stats::pchisq(T_stat / a, df = nu, lower.tail = FALSE)
+    } else {
+      p_value <- 1
+    }
+  } else {
+    davies_res <- CompQuadForm::davies(q = T_stat, lambda = weights_eig)
+    p_value <- davies_res$Qq
+    # Davies can return marginally negative values due to numerical
+    # inversion artifacts; clip to [0, 1].
+    if (!is.finite(p_value)) p_value <- NA_real_
+    if (is.finite(p_value)) p_value <- min(max(p_value, 0), 1)
+    # If Davies signals an error (ifault != 0) fall back to Satterthwaite
+    # moment match to avoid spurious p-values from numerical failure.
+    if (isTRUE(davies_res$ifault != 0L)) {
+      s1 <- sum(weights_eig); s2 <- sum(weights_eig^2)
+      if (s1 > 0 && s2 > 0) {
+        a  <- s2 / s1; nu <- s1^2 / s2
+        p_satt <- stats::pchisq(T_stat / a, df = nu, lower.tail = FALSE)
+        p_value <- p_satt
+      }
+    }
+  }
+
+  list(
+    T_heidi_rv     = T_stat,
+    p_value        = p_value,
+    weights_eig    = weights_eig,
+    df_effective   = df_effective,
+    m              = m,
+    delta          = delta,
+    V_delta        = V_delta,
+    contrast       = C,
+    T_mahalanobis  = T_mahalanobis,
+    p_mahalanobis  = p_mahalanobis
+  )
+}
+
+================================================================
+FULL FILE CONTENTS — NAMESPACE (changed)
+================================================================
+# Generated by roxygen2: do not edit by hand
+# Regenerate with devtools::document(). Manual exports listed here
+# while function bodies are still stubs.
+
+export(wald_burden)
+export(mrAR)
+export(mrAR_multi)
+export(heidi_rv)
+export(annotation_concord)
+export(cell_type_q)
+export(iv_partial_r2)
+export(e_value)
+export(validate_summary_input)
+export(delta_method_ratio_se)
+export(f_statistic)
+
+importFrom(stats, qchisq, pchisq, qnorm, pnorm, var, weighted.mean)
+
+================================================================
+FULL FILE CONTENTS — tests/testthat/test-sensitivity.R (NEW)
+================================================================
+# Tests for sensitivity scalars: iv_partial_r2() and e_value().
+# Math sources:
+#   - Cinelli-Hazlett 2025 Biometrika asaf004 (IV partial R^2, RV)
+#   - Cinelli-Hazlett 2020 JRSS-B 82(1):39-67 (OVB framework)
+#   - VanderWeele-Ding 2017 Ann Intern Med 167:268 (E-value)
+#   - Swanson-VanderWeele 2020 Epidemiology 31(3):e23 (RR ~ exp(0.91*beta_std))
+
+# ---- iv_partial_r2 ---------------------------------------------------------
+
+test_that("iv_partial_r2 known-value sanity: t=4, n=50002 -> R^2 = 16/50016", {
+  # t = 4 / 1 = 4, R^2 = 16 / (16 + 50000) = 16 / 50016 ~ 3.20e-4
+  res <- iv_partial_r2(b_x = 4, se_x = 1, n = 50002)
+  expect_equal(res$partial_r2, 16 / 50016, tolerance = 1e-12)
+  expect_equal(res$t_stat, 4, tolerance = 1e-12)
+})
+
+test_that("iv_partial_r2 RV matches (sqrt(t^2+4) - |t|) / 2", {
+  res <- iv_partial_r2(b_x = 0.18, se_x = 0.04, n = 50000)
+  t_stat <- 0.18 / 0.04
+  expected_rv <- (sqrt(t_stat^2 + 4) - abs(t_stat)) / 2
+  expect_equal(res$RV, expected_rv, tolerance = 1e-12)
+})
+
+test_that("iv_partial_r2 RV is positive for any finite t", {
+  # RV must be positive — Cinelli-Hazlett pitfall: sign error gives the
+  # negative root, meaningless as partial R^2.
+  expect_gt(iv_partial_r2(0.18,  0.04, 50000)$RV, 0)
+  expect_gt(iv_partial_r2(-0.18, 0.04, 50000)$RV, 0)
+  expect_gt(iv_partial_r2(0.001, 1,    1000)$RV, 0)
+  expect_gt(iv_partial_r2(100,   1,    1000)$RV, 0)
+})
+
+test_that("iv_partial_r2 edge case t=0: RV = 1, partial_r2 = 0", {
+  res <- iv_partial_r2(b_x = 0, se_x = 1, n = 1000)
+  expect_equal(res$partial_r2, 0, tolerance = 1e-12)
+  expect_equal(res$RV, 1, tolerance = 1e-12)  # (sqrt(0+4) - 0)/2 = 1
+})
+
+test_that("iv_partial_r2 edge case large t: RV approaches 1/t (small)", {
+  # For large t: sqrt(t^2 + 4) ~ t * (1 + 2/t^2), so RV ~ 1/t.
+  res <- iv_partial_r2(b_x = 1000, se_x = 1, n = 1000)
+  expect_lt(res$RV, 0.001)
+  expect_gt(res$partial_r2, 0.99)
+})
+
+test_that("iv_partial_r2 RV_alpha_05 returns 0 when |t| < t_crit", {
+  # n = 1000, t_crit (alpha=0.05, df=998) ~ 1.96; t = 1 < 1.96 -> 0
+  res <- iv_partial_r2(b_x = 1, se_x = 1, n = 1000)
+  expect_equal(res$RV_alpha_05, 0)
+})
+
+test_that("iv_partial_r2 input validation rejects bad inputs", {
+  expect_error(iv_partial_r2(b_x = NA, se_x = 1, n = 1000), "b_x")
+  expect_error(iv_partial_r2(b_x = 1, se_x = 0, n = 1000), "se_x")
+  expect_error(iv_partial_r2(b_x = 1, se_x = -1, n = 1000), "se_x")
+  expect_error(iv_partial_r2(b_x = 1, se_x = 1, n = 2), "n")
+})
+
+# ---- e_value --------------------------------------------------------------
+
+test_that("e_value known-value: beta=0 -> RR=1, E=1", {
+  res <- e_value(b_xy = 0, se_xy = 0.1)
+  expect_equal(res$rr_scale, 1, tolerance = 1e-12)
+  expect_equal(res$e_value_point, 1, tolerance = 1e-12)
+})
+
+test_that("e_value monotonic in |beta|", {
+  # |beta| larger -> E-value larger
+  e_small <- e_value(b_xy = 0.1, se_xy = 0.05)
+  e_big   <- e_value(b_xy = 0.5, se_xy = 0.05)
+  expect_lt(e_small$e_value_point, e_big$e_value_point)
+})
+
+test_that("e_value symmetric in sign of beta", {
+  e_pos <- e_value(b_xy = 0.3, se_xy = 0.05)
+  e_neg <- e_value(b_xy = -0.3, se_xy = 0.05)
+  # Same |beta| -> same E (the RR-to-E mapping inverts negative RR via
+  # rr := 1/rr, which gives the same magnitude).
+  expect_equal(e_pos$e_value_point, e_neg$e_value_point, tolerance = 1e-12)
+})
+
+test_that("e_value point matches VanderWeele-Ding hand calc for RR = 2", {
+  # If beta_std = log(2)/0.91, then RR = 2 exactly.
+  # E = 2 + sqrt(2 * 1) = 2 + sqrt(2) ~ 3.41421356
+  beta_std <- log(2) / 0.91
+  res <- e_value(b_xy = beta_std, se_xy = 1e-6)
+  expect_equal(res$rr_scale, 2, tolerance = 1e-6)
+  expect_equal(res$e_value_point, 2 + sqrt(2), tolerance = 1e-6)
+})
+
+test_that("e_value CI E = 1 when CI crosses 0", {
+  # b_xy = 0.05 with se = 0.10 -> CI = [-0.146, 0.246] crosses 0 -> E_CI = 1
+  res <- e_value(b_xy = 0.05, se_xy = 0.10)
+  expect_equal(res$b_near_null, 0)
+  expect_equal(res$e_value_ci, 1, tolerance = 1e-12)
+})
+
+test_that("e_value CI E < point E when CI does not cross 0", {
+  # b_xy = 0.5, se = 0.05 -> CI = [0.402, 0.598] -- bound nearest null = 0.402
+  res <- e_value(b_xy = 0.5, se_xy = 0.05)
+  expect_lt(res$e_value_ci, res$e_value_point)
+  expect_gt(res$e_value_ci, 1)
+})
+
+test_that("e_value input validation", {
+  expect_error(e_value(b_xy = NA, se_xy = 0.1), "b_xy")
+  expect_error(e_value(b_xy = 0.1, se_xy = 0), "se_xy")
+  expect_error(e_value(b_xy = 0.1, se_xy = -1), "se_xy")
+})
+
+================================================================
+FULL FILE CONTENTS — tests/testthat/test-annotation_concord.R (NEW)
+================================================================
+# Tests for annotation_concord(): cross-mask Cochran-Q with optional
+# pQTL-anchor delta-method renormalization. main.tex Step 11.
+# Citations: Cochran 1954 Biometrics 10:101; Dhindsa 2023 Nature 622:339.
+
+test_that("annotation_concord concordant classes (no anchor) -> large p", {
+  est <- list(
+    LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.10),
+    mis = list(class = "mis", b_xy = -0.40, se_xy = 0.10),
+    reg = list(class = "reg", b_xy = -0.44, se_xy = 0.10))
+  res <- annotation_concord(est, pqtl_anchor = NULL)
+  expect_gt(res$p_value, 0.5)
+  expect_equal(res$df, 2L)
+  expect_equal(res$interpretation, "concordant")
+})
+
+test_that("annotation_concord one class far off -> small p", {
+  est <- list(
+    LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.05),
+    mis = list(class = "mis", b_xy = -0.40, se_xy = 0.05),
+    reg = list(class = "reg", b_xy =  0.80, se_xy = 0.05))   # outlier
+  res <- annotation_concord(est, pqtl_anchor = NULL)
+  expect_lt(res$p_value, 0.001)
+  expect_equal(res$interpretation, "discordant_investigate")
+})
+
+test_that("annotation_concord Q reproduces hand-computed value (no anchor)", {
+  est <- list(
+    a = list(class = "a", b_xy = 1.0, se_xy = 1.0),
+    b = list(class = "b", b_xy = 2.0, se_xy = 1.0),
+    c = list(class = "c", b_xy = 3.0, se_xy = 1.0))
+  res <- annotation_concord(est, pqtl_anchor = NULL)
+  # w_k = 1, bar = 2, Q = 1 + 0 + 1 = 2
+  expect_equal(res$Q, 2.0, tolerance = 1e-10)
+  expect_equal(res$bar, 2.0, tolerance = 1e-10)
+  expect_equal(res$p_value, stats::pchisq(2, df = 2, lower.tail = FALSE),
+               tolerance = 1e-10)
+})
+
+test_that("annotation_concord with pQTL anchor renormalizes via delta method", {
+  est <- list(
+    LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.09,
+               b_burden_to_protein = -0.55, se_burden_to_protein = 0.06),
+    mis = list(class = "mis", b_xy = -0.31, se_xy = 0.07,
+               b_burden_to_protein = -0.40, se_burden_to_protein = 0.05),
+    reg = list(class = "reg", b_xy = -0.18, se_xy = 0.10,
+               b_burden_to_protein = -0.22, se_burden_to_protein = 0.08))
+  res <- annotation_concord(est, pqtl_anchor = "UKB-PPP")
+  # Each renormalized estimate: ratio b_xy / b_protein.
+  # LoF: -0.42 / -0.55 = 0.7636
+  # mis: -0.31 / -0.40 = 0.7750
+  # reg: -0.18 / -0.22 = 0.8182
+  expected_renorm <- c(-0.42 / -0.55, -0.31 / -0.40, -0.18 / -0.22)
+  ce <- as.data.frame(res$class_estimates)
+  expect_equal(ce$b_xy_renorm, expected_renorm, tolerance = 1e-10)
+  # Hand-check first class' variance via delta method
+  expected_var_lof <- (0.09^2) / (0.55^2) + ((-0.42)^2 * (0.06)^2) / (0.55^4)
+  expect_equal(ce$se_xy_renorm[1]^2, expected_var_lof, tolerance = 1e-10)
+  # On the per-protein-unit scale these three are pretty close;
+  # concordant with reasonable p
+  expect_gt(res$p_value, 0.05)
+})
+
+test_that("annotation_concord requires pQTL fields when pqtl_anchor given", {
+  est <- list(
+    LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.10),
+    mis = list(class = "mis", b_xy = -0.40, se_xy = 0.10))
+  expect_error(annotation_concord(est, pqtl_anchor = "UKB-PPP"),
+               "missing pQTL-anchor fields")
+})
+
+test_that("annotation_concord rejects K = 1 input", {
+  est <- list(LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.10))
+  expect_error(annotation_concord(est, pqtl_anchor = NULL), "length >= 2")
+})
+
+test_that("annotation_concord rejects zero pQTL anchor (division by zero)", {
+  est <- list(
+    LoF = list(class = "LoF", b_xy = -0.42, se_xy = 0.10,
+               b_burden_to_protein = 0, se_burden_to_protein = 0.06),
+    mis = list(class = "mis", b_xy = -0.31, se_xy = 0.07,
+               b_burden_to_protein = -0.40, se_burden_to_protein = 0.05))
+  expect_error(annotation_concord(est, pqtl_anchor = "UKB-PPP"),
+               "numerically zero")
+})
+
+================================================================
+FULL FILE CONTENTS — tests/testthat/test-cell_type_concord.R (NEW)
+================================================================
+# Tests for cell_type_q(): cross-cell-type Cochran-Q.
+# main.tex Step 12 eq (37). Citations: Cochran 1954 Biometrics 10:101;
+# Cuomo 2025 medRxiv 2025.03.20.25324352; Zhou-Cuomo 2024 medRxiv
+# 2024.05.15.24307317; Ray 2025 AJHG 112(7):1597.
+
+test_that("cell_type_q concordant cell types -> large p", {
+  est <- list(
+    CD4_T = list(cell_type = "CD4_T", b_xy = -0.41, se_xy = 0.10),
+    CD8_T = list(cell_type = "CD8_T", b_xy = -0.38, se_xy = 0.12),
+    B     = list(cell_type = "B",     b_xy = -0.45, se_xy = 0.11),
+    NK    = list(cell_type = "NK",    b_xy = -0.36, se_xy = 0.13),
+    Mono  = list(cell_type = "Mono",  b_xy = -0.42, se_xy = 0.09))
+  res <- cell_type_q(est)
+  expect_gt(res$p_value, 0.5)
+  expect_equal(res$df, 4L)
+  expect_equal(res$C_used, 5L)
+  expect_equal(res$interpretation, "concordant")
+})
+
+test_that("cell_type_q one cell type discordant -> small p", {
+  est <- list(
+    CD4_T = list(cell_type = "CD4_T", b_xy = -0.42, se_xy = 0.05),
+    CD8_T = list(cell_type = "CD8_T", b_xy = -0.40, se_xy = 0.05),
+    B     = list(cell_type = "B",     b_xy = -0.44, se_xy = 0.05),
+    NK    = list(cell_type = "NK",    b_xy =  0.50, se_xy = 0.05))   # outlier
+  res <- cell_type_q(est)
+  expect_lt(res$p_value, 0.001)
+  expect_equal(res$interpretation, "discordant_investigate")
+})
+
+test_that("cell_type_q Q reproduces hand-computed value", {
+  est <- list(
+    a = list(cell_type = "a", b_xy = 1.0, se_xy = 1.0),
+    b = list(cell_type = "b", b_xy = 2.0, se_xy = 1.0),
+    c = list(cell_type = "c", b_xy = 3.0, se_xy = 1.0),
+    d = list(cell_type = "d", b_xy = 4.0, se_xy = 1.0))
+  res <- cell_type_q(est)
+  # w_c = 1, bar = 2.5, Q = 2.25 + 0.25 + 0.25 + 2.25 = 5
+  expect_equal(res$Q_cell, 5.0, tolerance = 1e-10)
+  expect_equal(res$bar, 2.5, tolerance = 1e-10)
+  expect_equal(res$p_value, stats::pchisq(5, df = 3, lower.tail = FALSE),
+               tolerance = 1e-10)
+})
+
+test_that("cell_type_q min_donors filter drops under-powered cell types", {
+  est <- list(
+    a = list(cell_type = "a", b_xy = 1.0, se_xy = 1.0, n_donors = 100),
+    b = list(cell_type = "b", b_xy = 2.0, se_xy = 1.0, n_donors = 100),
+    c = list(cell_type = "c", b_xy = 50,  se_xy = 1.0, n_donors = 5))   # too few
+  res <- cell_type_q(est, min_donors = 20)
+  expect_equal(res$C_used, 2L)
+  expect_equal(res$df, 1L)
+  expect_setequal(res$dropped_cells, "c")
+})
+
+test_that("cell_type_q rejects fewer than 2 cell types", {
+  est <- list(a = list(cell_type = "a", b_xy = 1.0, se_xy = 1.0))
+  expect_error(cell_type_q(est), "length >= 2")
+})
+
+test_that("cell_type_q rejects post-filter < 2 cell types", {
+  est <- list(
+    a = list(cell_type = "a", b_xy = 1.0, se_xy = 1.0, n_donors = 100),
+    b = list(cell_type = "b", b_xy = 2.0, se_xy = 1.0, n_donors = 5))
+  expect_error(cell_type_q(est, min_donors = 20),
+               "< 2 cell types remain")
+})
+
+test_that("cell_type_q input validation", {
+  expect_error(cell_type_q("not a list"), "length >= 2")
+  bad <- list(
+    a = list(cell_type = "a", b_xy = 1.0, se_xy = 1.0),
+    b = list(cell_type = "b", b_xy = "not numeric", se_xy = 1.0))
+  expect_error(cell_type_q(bad), "b_xy")
+})
+
+================================================================
+FULL FILE CONTENTS — tests/testthat/test-heidi_rv.R (NEW)
+================================================================
+# Tests for heidi_rv(): within-burden Cochran-style heterogeneity via
+# Davies' generalized-chi^2 algorithm.
+# Citations: Davies 1980 Appl Stat 29(3):323; Kuonen 1999 Biometrika
+# 86(4):929; Zhu 2016 Nat Genet 48:481 (HEIDI origin).
+
+# Skip if CompQuadForm not available (Suggests dependency).
+.skip_if_no_cqf <- function() {
+  if (!requireNamespace("CompQuadForm", quietly = TRUE))
+    skip("CompQuadForm not installed")
+}
+
+test_that("heidi_rv concordant inputs -> p_value close to 1", {
+  .skip_if_no_cqf()
+  # All 5 variants give effectively the same Wald ratio
+  res <- heidi_rv(
+    b_xy_per_variant = c(-0.45, -0.45, -0.45, -0.45, -0.45),
+    se_per_variant   = rep(0.10, 5),
+    weights          = rep(0.20, 5))
+  expect_equal(res$p_value, 1.0, tolerance = 1e-6)
+  expect_equal(res$T_heidi_rv, 0, tolerance = 1e-20)
+  expect_equal(res$m, 5L)
+})
+
+test_that("heidi_rv one outlier variant -> p_value < 0.001", {
+  .skip_if_no_cqf()
+  # 4 concordant + 1 extreme outlier
+  res <- heidi_rv(
+    b_xy_per_variant = c(-0.45, -0.42, -0.48, -0.44, 2.5),
+    se_per_variant   = rep(0.10, 5),
+    weights          = rep(0.20, 5))
+  expect_lt(res$p_value, 0.001)
+})
+
+test_that("heidi_rv Mahalanobis variant approximately chi^2_{m-1}", {
+  .skip_if_no_cqf()
+  # Under near-concordant inputs the Mahalanobis statistic should
+  # be small (since delta is small) and its p should be large.
+  res <- heidi_rv(
+    b_xy_per_variant = c(-0.45, -0.42, -0.48, -0.44),
+    se_per_variant   = rep(0.10, 4),
+    weights          = rep(0.25, 4))
+  expect_gt(res$p_mahalanobis, 0.5)
+})
+
+test_that("heidi_rv df_effective = m - 1 for non-degenerate covariance", {
+  .skip_if_no_cqf()
+  res <- heidi_rv(
+    b_xy_per_variant = c(-0.45, -0.40, -0.50, -0.43, -0.46),
+    se_per_variant   = rep(0.10, 5),
+    weights          = rep(0.20, 5))
+  expect_equal(res$df_effective, 4L)
+  expect_equal(length(res$weights_eig), 4L)
+  expect_true(all(res$weights_eig > 0))
+})
+
+test_that("heidi_rv handles covariance matrix input (LD-aware path)", {
+  .skip_if_no_cqf()
+  # Use a covariance matrix with mild correlation
+  m <- 4
+  R <- diag(1, m); R[lower.tri(R)] <- 0.3; R[upper.tri(R)] <- 0.3
+  se_v <- rep(0.10, m)
+  Sigma <- diag(se_v) %*% R %*% diag(se_v)
+  res <- heidi_rv(
+    b_xy_per_variant = c(-0.45, -0.42, -0.48, -0.44),
+    se_per_variant   = se_v,
+    weights          = Sigma)
+  expect_true(is.finite(res$p_value))
+  expect_gt(res$p_value, 0.05)
+})
+
+test_that("heidi_rv null calibration: p-values approximately uniform", {
+  .skip_if_no_cqf()
+  set.seed(20260608)
+  N <- 2000
+  m <- 4
+  sigma <- 0.10
+  pvals <- numeric(N)
+  for (i in 1:N) {
+    b <- rnorm(m, mean = -0.45, sd = sigma)  # truly concordant under H0
+    pvals[i] <- heidi_rv(b, rep(sigma, m), rep(1/m, m))$p_value
+  }
+  # Type-I error at nominal 5% should be close to 5%
+  frac_05 <- mean(pvals < 0.05)
+  expect_gt(frac_05, 0.025)
+  expect_lt(frac_05, 0.075)
+  # Mean p-value close to 0.5
+  expect_gt(mean(pvals), 0.40)
+  expect_lt(mean(pvals), 0.60)
+})
+
+test_that("heidi_rv input validation", {
+  expect_error(heidi_rv(b_xy_per_variant = 0.1, se_per_variant = 0.1,
+                        weights = 1),
+               "m >= 2")
+  expect_error(heidi_rv(b_xy_per_variant = c(0.1, NA),
+                        se_per_variant = c(0.1, 0.1), weights = c(0.5, 0.5)),
+               "non-finite")
+  expect_error(heidi_rv(b_xy_per_variant = c(0.1, 0.2),
+                        se_per_variant = c(0.1, 0), weights = c(0.5, 0.5)),
+               "positive and finite")
+  expect_error(heidi_rv(b_xy_per_variant = c(0.1, 0.2),
+                        se_per_variant = c(0.1, 0.1),
+                        weights = c(0.5, -0.5)),
+               "non-negative")
+})
+
+test_that("heidi_rv weights_eig matches eigenvalues of V_delta", {
+  .skip_if_no_cqf()
+  res <- heidi_rv(
+    b_xy_per_variant = c(-0.45, -0.42, -0.48, -0.44),
+    se_per_variant   = rep(0.10, 4),
+    weights          = rep(0.25, 4))
+  eig_V <- eigen(res$V_delta, symmetric = TRUE, only.values = TRUE)$values
+  # nonzero eigenvalues match weights_eig
+  nz_eig <- sort(eig_V[eig_V > max(abs(eig_V)) * 1e-8], decreasing = TRUE)
+  expect_equal(sort(res$weights_eig, decreasing = TRUE), nz_eig,
+               tolerance = 1e-10)
+})
+
+================================================================
+TEST COUNT DELTA
+================================================================
+Baseline:  82 PASS / 0 FAIL / 23 testthat files
+Current : 160 PASS / 0 FAIL /  0 WARN / 0 SKIP
+Delta   : +78 assertions

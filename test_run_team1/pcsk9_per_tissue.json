@@ -1,0 +1,626 @@
+{
+  "liver": {
+    "dataset_id": "QTD000266",
+    "label": "liver",
+    "n_donors": 208,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": true,
+        "beta": 0.428707,
+        "se": 0.0908712,
+        "pvalue": 4.56763e-06,
+        "maf": 0.418269,
+        "flipped": false
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": true,
+        "beta": 0.373714,
+        "se": 0.0917613,
+        "pvalue": 6.77944e-05,
+        "maf": 0.408654,
+        "flipped": false
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": true,
+        "beta": 0.265427,
+        "se": 0.175358,
+        "pvalue": 0.131757,
+        "maf": 0.0576923,
+        "flipped": false
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": true,
+        "beta": 0.0954724,
+        "se": 0.0918751,
+        "pvalue": 0.300033,
+        "maf": 0.372596,
+        "flipped": false
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": true,
+        "beta": -0.0512069,
+        "se": 0.245273,
+        "pvalue": 0.834844,
+        "maf": 0.0336538,
+        "flipped": false
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": true,
+        "beta": 0.0482646,
+        "se": 0.309288,
+        "pvalue": 0.876156,
+        "maf": 0.0216346,
+        "flipped": false
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": true,
+        "beta": 0.0283289,
+        "se": 0.338181,
+        "pvalue": 0.933327,
+        "maf": 0.0168269,
+        "flipped": false
+      }
+    ]
+  },
+  "blood": {
+    "dataset_id": "QTD000356",
+    "label": "blood",
+    "n_donors": 670,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": true,
+        "beta": 0.165695,
+        "se": 0.0358169,
+        "pvalue": 4.49066e-06,
+        "maf": 0.418657,
+        "flipped": false
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": true,
+        "beta": 0.130364,
+        "se": 0.0359143,
+        "pvalue": 0.000305698,
+        "maf": 0.413433,
+        "flipped": false
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": true,
+        "beta": -0.0959302,
+        "se": 0.0630288,
+        "pvalue": 0.12849,
+        "maf": 0.0768657,
+        "flipped": false
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": true,
+        "beta": 0.0169565,
+        "se": 0.0366995,
+        "pvalue": 0.644209,
+        "maf": 0.378358,
+        "flipped": false
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": true,
+        "beta": 0.0143907,
+        "se": 0.119869,
+        "pvalue": 0.904477,
+        "maf": 0.0216418,
+        "flipped": false
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": true,
+        "beta": 0.0687144,
+        "se": 0.13977,
+        "pvalue": 0.623148,
+        "maf": 0.0156716,
+        "flipped": false
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": true,
+        "beta": 0.144725,
+        "se": 0.147361,
+        "pvalue": 0.326407,
+        "maf": 0.0141791,
+        "flipped": false
+      }
+    ]
+  },
+  "adipose": {
+    "dataset_id": "QTD000116",
+    "label": "adipose",
+    "n_donors": 581,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": true,
+        "beta": 0.0628502,
+        "se": 0.0577314,
+        "pvalue": 0.276765,
+        "maf": 0.407057,
+        "flipped": false
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": true,
+        "beta": 0.0429591,
+        "se": 0.0586893,
+        "pvalue": 0.464487,
+        "maf": 0.407057,
+        "flipped": false
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": true,
+        "beta": 0.0721563,
+        "se": 0.103614,
+        "pvalue": 0.486468,
+        "maf": 0.0757315,
+        "flipped": false
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": true,
+        "beta": 0.073945,
+        "se": 0.0592616,
+        "pvalue": 0.21263,
+        "maf": 0.385542,
+        "flipped": false
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": true,
+        "beta": -0.296098,
+        "se": 0.191792,
+        "pvalue": 0.123184,
+        "maf": 0.0215146,
+        "flipped": false
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": true,
+        "beta": 0.229803,
+        "se": 0.229446,
+        "pvalue": 0.316985,
+        "maf": 0.0146299,
+        "flipped": false
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": true,
+        "beta": 0.306364,
+        "se": 0.223515,
+        "pvalue": 0.171023,
+        "maf": 0.0154905,
+        "flipped": false
+      }
+    ]
+  },
+  "adipose_visceral": {
+    "dataset_id": "QTD000121",
+    "label": "adipose_visceral",
+    "n_donors": 469,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": true,
+        "beta": 0.234288,
+        "se": 0.0665957,
+        "pvalue": 0.000478489,
+        "maf": 0.402985,
+        "flipped": false
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": true,
+        "beta": 0.207925,
+        "se": 0.0648697,
+        "pvalue": 0.00144449,
+        "maf": 0.407249,
+        "flipped": false
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": true,
+        "beta": 0.0077747,
+        "se": 0.117518,
+        "pvalue": 0.947282,
+        "maf": 0.0746269,
+        "flipped": false
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": true,
+        "beta": 0.123214,
+        "se": 0.0676364,
+        "pvalue": 0.0691566,
+        "maf": 0.380597,
+        "flipped": false
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": true,
+        "beta": 0.143404,
+        "se": 0.210704,
+        "pvalue": 0.496476,
+        "maf": 0.0234542,
+        "flipped": false
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": true,
+        "beta": 0.0584355,
+        "se": 0.283965,
+        "pvalue": 0.837052,
+        "maf": 0.0127932,
+        "flipped": false
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": true,
+        "beta": 0.379477,
+        "se": 0.280104,
+        "pvalue": 0.176164,
+        "maf": 0.0127932,
+        "flipped": false
+      }
+    ]
+  },
+  "artery_aorta": {
+    "dataset_id": "QTD000131",
+    "label": "artery_aorta",
+    "n_donors": 387,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": true,
+        "beta": 0.187916,
+        "se": 0.067547,
+        "pvalue": 0.00567776,
+        "maf": 0.413437,
+        "flipped": false
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": true,
+        "beta": 0.18428,
+        "se": 0.0666381,
+        "pvalue": 0.005969,
+        "maf": 0.417313,
+        "flipped": false
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": true,
+        "beta": 0.052487,
+        "se": 0.116463,
+        "pvalue": 0.652485,
+        "maf": 0.0852713,
+        "flipped": false
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": true,
+        "beta": 0.0931073,
+        "se": 0.0702084,
+        "pvalue": 0.185602,
+        "maf": 0.387597,
+        "flipped": false
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": true,
+        "beta": 0.19097,
+        "se": 0.212938,
+        "pvalue": 0.370388,
+        "maf": 0.0258398,
+        "flipped": false
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": true,
+        "beta": -0.131512,
+        "se": 0.244326,
+        "pvalue": 0.590717,
+        "maf": 0.0193798,
+        "flipped": false
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": true,
+        "beta": -0.142401,
+        "se": 0.250437,
+        "pvalue": 0.569963,
+        "maf": 0.0180879,
+        "flipped": false
+      }
+    ]
+  },
+  "artery_coronary": {
+    "dataset_id": "QTD000136",
+    "label": "artery_coronary",
+    "n_donors": 213,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": false,
+        "beta": null,
+        "se": null
+      }
+    ]
+  },
+  "artery_tibial": {
+    "dataset_id": "QTD000141",
+    "label": "artery_tibial",
+    "n_donors": 584,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": false,
+        "beta": null,
+        "se": null
+      }
+    ]
+  },
+  "muscle": {
+    "dataset_id": "QTD000281",
+    "label": "muscle",
+    "n_donors": 702,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": false,
+        "beta": null,
+        "se": null
+      }
+    ]
+  },
+  "small_intestine": {
+    "dataset_id": "QTD000321",
+    "label": "small_intestine",
+    "n_donors": 174,
+    "lead_lookups": [
+      {
+        "rsid": "rs471705",
+        "pos": 55055569,
+        "found": true,
+        "beta": -0.0172515,
+        "se": 0.0727556,
+        "pvalue": 0.812872,
+        "maf": 0.433908,
+        "flipped": false
+      },
+      {
+        "rsid": "rs6676563",
+        "pos": 55187310,
+        "found": true,
+        "beta": -0.0547638,
+        "se": 0.0709375,
+        "pvalue": 0.44126,
+        "maf": 0.428161,
+        "flipped": false
+      },
+      {
+        "rsid": "rs2802881",
+        "pos": 55366245,
+        "found": true,
+        "beta": 0.0835055,
+        "se": 0.147889,
+        "pvalue": 0.573107,
+        "maf": 0.0517241,
+        "flipped": false
+      },
+      {
+        "rsid": "rs61772108",
+        "pos": 56039051,
+        "found": true,
+        "beta": 0.0659126,
+        "se": 0.0702423,
+        "pvalue": 0.349482,
+        "maf": 0.373563,
+        "flipped": false
+      },
+      {
+        "rsid": "rs114739858",
+        "pos": 54913051,
+        "found": true,
+        "beta": 0.0480745,
+        "se": 0.190806,
+        "pvalue": 0.801402,
+        "maf": 0.0287356,
+        "flipped": false
+      },
+      {
+        "rsid": "rs111521483",
+        "pos": 54517593,
+        "found": false,
+        "beta": null,
+        "se": null
+      },
+      {
+        "rsid": "rs143341434",
+        "pos": 54293874,
+        "found": false,
+        "beta": null,
+        "se": null
+      }
+    ]
+  }
+}
