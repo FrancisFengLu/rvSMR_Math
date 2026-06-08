@@ -1,0 +1,88 @@
+Running run_all_v3a() with n_reps=1000, seeds=20260603,99887766,1234567 ...
+
+--- seed decoupling check ---
+scenario A: Fsweep_F1, scenario B: Fsweep_F0.5, master_seed: 20260603
+  rep 1: seed_A=492681734  seed_B=1772456040  identical=FALSE
+  rep 2: seed_A=1704053360  seed_B=794432465  identical=FALSE
+  rep 3: seed_A=2009165519  seed_B=1287868067  identical=FALSE
+  rep 4: seed_A=990115157  seed_B=306403749  identical=FALSE
+  rep 5: seed_A=1431185897  seed_B=1081783826  identical=FALSE
+
+=== F-sweep (homog sign): F=0.25 (lambda=0.75) ===
+  seed 20260603 (idx 1) ... done (302s): cov_AR=0.964 cov_IVWratios=0.982 cov_IVWsummary=0.911 F_mean=1.24 n_bd=92 n_dgperr=0
+  seed 99887766 (idx 2) ... done (299s): cov_AR=0.955 cov_IVWratios=0.971 cov_IVWsummary=0.903 F_mean=1.25 n_bd=95 n_dgperr=0
+  seed 1234567 (idx 3) ... done (296s): cov_AR=0.950 cov_IVWratios=0.975 cov_IVWsummary=0.890 F_mean=1.28 n_bd=109 n_dgperr=0
+
+=== F-sweep (homog sign): F=0.5 (lambda=1.50) ===
+  seed 20260603 (idx 1) ... done (284s): cov_AR=0.951 cov_IVWratios=0.972 cov_IVWsummary=0.909 F_mean=1.52 n_bd=171 n_dgperr=0
+  seed 99887766 (idx 2) ... done (285s): cov_AR=0.955 cov_IVWratios=0.974 cov_IVWsummary=0.892 F_mean=1.52 n_bd=159 n_dgperr=0
+  seed 1234567 (idx 3) ... done (285s): cov_AR=0.946 cov_IVWratios=0.968 cov_IVWsummary=0.904 F_mean=1.55 n_bd=148 n_dgperr=0
+
+=== F-sweep (homog sign): F=1 (lambda=3.00) ===
+  seed 20260603 (idx 1) ... done (260s): cov_AR=0.965 cov_IVWratios=0.973 cov_IVWsummary=0.931 F_mean=1.99 n_bd=278 n_dgperr=0
+  seed 99887766 (idx 2) ... done (258s): cov_AR=0.944 cov_IVWratios=0.969 cov_IVWsummary=0.919 F_mean=2.06 n_bd=281 n_dgperr=0
+  seed 1234567 (idx 3) ... done (258s): cov_AR=0.952 cov_IVWratios=0.973 cov_IVWsummary=0.922 F_mean=2.04 n_bd=278 n_dgperr=0
+
+=== Sign-alt alpha (Wang-Kang style): F=0.25 (lambda=0.75) ===
+  seed 20260603 (idx 1) ... done (297s): cov_AR=0.961 cov_IVWratios=0.985 cov_IVWsummary=0.903 F_mean=1.26 n_bd=105 n_dgperr=0
+  seed 99887766 (idx 2) ... done (299s): cov_AR=0.944 cov_IVWratios=0.983 cov_IVWsummary=0.901 F_mean=1.23 n_bd=90 n_dgperr=0
+  seed 1234567 (idx 3) ... done (297s): cov_AR=0.944 cov_IVWratios=0.970 cov_IVWsummary=0.884 F_mean=1.24 n_bd=98 n_dgperr=0
+
+=== Sign-alt alpha (Wang-Kang style): F=0.5 (lambda=1.50) ===
+  seed 20260603 (idx 1) ... done (285s): cov_AR=0.947 cov_IVWratios=0.964 cov_IVWsummary=0.903 F_mean=1.49 n_bd=158 n_dgperr=0
+  seed 99887766 (idx 2) ... done (285s): cov_AR=0.938 cov_IVWratios=0.972 cov_IVWsummary=0.908 F_mean=1.53 n_bd=154 n_dgperr=0
+  seed 1234567 (idx 3) ... done (287s): cov_AR=0.945 cov_IVWratios=0.974 cov_IVWsummary=0.901 F_mean=1.47 n_bd=152 n_dgperr=0
+
+=== Sign-alt alpha (Wang-Kang style): F=1 (lambda=3.00) ===
+  seed 20260603 (idx 1) ... done (260s): cov_AR=0.956 cov_IVWratios=0.971 cov_IVWsummary=0.925 F_mean=1.99 n_bd=271 n_dgperr=0
+  seed 99887766 (idx 2) ... done (263s): cov_AR=0.941 cov_IVWratios=0.962 cov_IVWsummary=0.912 F_mean=1.96 n_bd=266 n_dgperr=0
+  seed 1234567 (idx 3) ... done (257s): cov_AR=0.953 cov_IVWratios=0.974 cov_IVWsummary=0.911 F_mean=2.02 n_bd=282 n_dgperr=0
+
+=== Sign-alt alpha (Wang-Kang style): F=2 (lambda=6.00) ===
+  seed 20260603 (idx 1) ... done (205s): cov_AR=0.962 cov_IVWratios=0.966 cov_IVWsummary=0.928 F_mean=3.01 n_bd=519 n_dgperr=0
+  seed 99887766 (idx 2) ... done (207s): cov_AR=0.940 cov_IVWratios=0.952 cov_IVWsummary=0.923 F_mean=2.95 n_bd=508 n_dgperr=0
+  seed 1234567 (idx 3) ... done (202s): cov_AR=0.956 cov_IVWratios=0.954 cov_IVWsummary=0.925 F_mean=3.09 n_bd=534 n_dgperr=0
+
+=== Sign-alt alpha (Wang-Kang style): F=5 (lambda=15.00) ===
+  seed 20260603 (idx 1) ... done (106s): cov_AR=0.959 cov_IVWratios=0.944 cov_IVWsummary=0.930 F_mean=6.07 n_bd=911 n_dgperr=0
+  seed 99887766 (idx 2) ... done (106s): cov_AR=0.948 cov_IVWratios=0.944 cov_IVWsummary=0.924 F_mean=6.03 n_bd=915 n_dgperr=0
+  seed 1234567 (idx 3) ... done (104s): cov_AR=0.956 cov_IVWratios=0.949 cov_IVWsummary=0.928 F_mean=6.20 n_bd=913 n_dgperr=0
+
+=== Sign-alt alpha (Wang-Kang style): F=20 (lambda=60.00) ===
+  seed 20260603 (idx 1) ... done (80s): cov_AR=0.957 cov_IVWratios=0.954 cov_IVWsummary=0.938 F_mean=20.85 n_bd=985 n_dgperr=0
+  seed 99887766 (idx 2) ... done (80s): cov_AR=0.957 cov_IVWratios=0.962 cov_IVWsummary=0.945 F_mean=20.93 n_bd=982 n_dgperr=0
+  seed 1234567 (idx 3) ... done (80s): cov_AR=0.958 cov_IVWratios=0.958 cov_IVWsummary=0.941 F_mean=21.00 n_bd=980 n_dgperr=0
+
+=== Confounder sweep: cs=0.1, F=20 ===
+  seed 20260603 (idx 1) ... done (80s): cov_AR=0.944 cov_IVWratios=0.948 cov_IVWsummary=0.925 F_mean=21.37 n_bd=977 n_dgperr=0
+  seed 99887766 (idx 2) ... done (80s): cov_AR=0.942 cov_IVWratios=0.937 cov_IVWsummary=0.916 F_mean=21.19 n_bd=983 n_dgperr=0
+  seed 1234567 (idx 3) ... done (80s): cov_AR=0.953 cov_IVWratios=0.952 cov_IVWsummary=0.932 F_mean=20.76 n_bd=978 n_dgperr=0
+
+=== Confounder sweep: cs=0.3, F=20 ===
+  seed 20260603 (idx 1) ... done (80s): cov_AR=0.963 cov_IVWratios=0.951 cov_IVWsummary=0.935 F_mean=21.09 n_bd=992 n_dgperr=0
+  seed 99887766 (idx 2) ... done (80s): cov_AR=0.958 cov_IVWratios=0.957 cov_IVWsummary=0.942 F_mean=20.90 n_bd=986 n_dgperr=0
+  seed 1234567 (idx 3) ... done (80s): cov_AR=0.966 cov_IVWratios=0.965 cov_IVWsummary=0.944 F_mean=21.11 n_bd=986 n_dgperr=0
+
+=== Confounder sweep: cs=0.5, F=20 ===
+  seed 20260603 (idx 1) ... done (80s): cov_AR=0.971 cov_IVWratios=0.949 cov_IVWsummary=0.928 F_mean=20.99 n_bd=996 n_dgperr=0
+  seed 99887766 (idx 2) ... done (80s): cov_AR=0.974 cov_IVWratios=0.948 cov_IVWsummary=0.936 F_mean=21.14 n_bd=993 n_dgperr=0
+  seed 1234567 (idx 3) ... done (80s): cov_AR=0.979 cov_IVWratios=0.962 cov_IVWsummary=0.947 F_mean=20.99 n_bd=997 n_dgperr=0
+
+=== Confounder sweep: cs=0.7, F=20 ===
+  seed 20260603 (idx 1) ... done (80s): cov_AR=0.987 cov_IVWratios=0.949 cov_IVWsummary=0.920 F_mean=21.12 n_bd=998 n_dgperr=0
+  seed 99887766 (idx 2) ... done (80s): cov_AR=0.990 cov_IVWratios=0.962 cov_IVWsummary=0.940 F_mean=20.84 n_bd=998 n_dgperr=0
+  seed 1234567 (idx 3) ... done (80s): cov_AR=0.986 cov_IVWratios=0.956 cov_IVWsummary=0.936 F_mean=20.96 n_bd=1000 n_dgperr=0
+
+=== Confounder sweep: cs=1, F=20 ===
+  seed 20260603 (idx 1) ... done (81s): cov_AR=0.995 cov_IVWratios=0.958 cov_IVWsummary=0.941 F_mean=21.16 n_bd=998 n_dgperr=0
+  seed 99887766 (idx 2) ... done (81s): cov_AR=0.997 cov_IVWratios=0.960 cov_IVWsummary=0.944 F_mean=21.17 n_bd=998 n_dgperr=0
+  seed 1234567 (idx 3) ... done (81s): cov_AR=0.998 cov_IVWratios=0.962 cov_IVWsummary=0.944 F_mean=21.33 n_bd=998 n_dgperr=0
+
+=== Confounder sweep: cs=1.5, F=20 ===
+  seed 20260603 (idx 1) ... done (0s): cov_AR=NaN cov_IVWratios=NaN cov_IVWsummary=NaN F_mean=NaN n_bd=0 n_dgperr=1000
+  seed 99887766 (idx 2) ... done (0s): cov_AR=NaN cov_IVWratios=NaN cov_IVWsummary=NaN F_mean=NaN n_bd=0 n_dgperr=1000
+  seed 1234567 (idx 3) ... done (0s): cov_AR=NaN cov_IVWratios=NaN cov_IVWsummary=NaN F_mean=NaN n_bd=0 n_dgperr=1000
+
+Total duration: 7431.3s
+
+Wrote results_v3a.rds and results_v3a.md.

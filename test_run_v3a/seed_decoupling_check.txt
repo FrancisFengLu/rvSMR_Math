@@ -1,0 +1,48 @@
+Seed-decoupling verification (CRITIQUE_v2 §S2.v2.1 fix)
+========================================================
+
+v2 per-rep seed formula (run_tests_v2.R:150):
+  seed_r = ((master_seed + scenario_idx_offset) %% 1e6) * 1e4 + r
+
+This creates exact collisions whenever
+  (master_seed_A + idx_A) == (master_seed_B + idx_B)
+i.e. any two scenarios at adjacent idx and adjacent seeds.
+
+=== v2 documented collision example ===
+
+Fsweep_F20 (scenario index 6) at master_seed 20260604, rep 1:
+  v2 seed = ((20260604 + 6) %% 1e6) * 1e4 + 1 = 458616354
+
+Plei_mult0 (scenario index 7) at master_seed 20260603, rep 1:
+  v2 seed = ((20260603 + 7) %% 1e6) * 1e4 + 1 = 458616354
+
+THESE ARE THE SAME SEED.  This matches the v2 anchors_run.log
+observation noted in CRITIQUE_v2 §S2.v2.1: Plei_mult0 seed-1
+(F=20, cs=0, no plei) produced cov_AR=0.940, F_mean=21.24,
+n_bd=296, BIT-IDENTICAL to Fsweep_F20 seed-2.
+
+=== v3a hash-based per-rep seed (run_tests_v3a.R:hash_seed) ===
+
+  seed_r = digest::digest2int(paste(scenario_name, master_seed, r, sep="|"))
+           %% .Machine$integer.max  (mapped to positive)
+
+For the same scenario+seed pair as above:
+  Fsweep_F20 + master_seed 20260604 + rep 1 -> seed 175911825
+  Plei_mult0 + master_seed 20260603 + rep 1 -> seed 1491561288
+  NOT IDENTICAL.
+
+=== Adjacent-scenario at same master_seed (the brief's verification target) ===
+
+scenario A: Fsweep_F1     master_seed 20260603 rep 1..5
+scenario B: Fsweep_F0.5   master_seed 20260603 rep 1..5
+
+  r=1  seed_A=492681734   seed_B=1772456040   identical=FALSE
+  r=2  seed_A=1704053360  seed_B=794432465    identical=FALSE
+  r=3  seed_A=2009165519  seed_B=1287868067   identical=FALSE
+  r=4  seed_A=990115157   seed_B=306403749    identical=FALSE
+  r=5  seed_A=1431185897  seed_B=1081783826   identical=FALSE
+
+The hash mixes scenario name into the seed, breaking the modular-linear
+collision pattern of v2.
+
+(Verified 2026-06-07. See run_tests_v3a.R verify_seed_decoupling().)
